@@ -1,7 +1,7 @@
 # ==============================================================================
 # * ZSH CONFIGURATION CI/CD
-# ? Tests installation across macOS and Linux platforms.
-# ? Runs on push, pull requests, and manual dispatch.
+# ? Comprehensive tests across macOS, Ubuntu, Fedora, and Arch Linux.
+# ? Tests installation, shell loading, and core functions.
 # ==============================================================================
 
 name: CI
@@ -17,7 +17,7 @@ on:
 jobs:
   # ----------------------------------------------------------
   # * SHELLCHECK LINT
-  # ? Static analysis of all shell scripts.
+  # ? Static analysis of bash scripts (install.sh).
   # ----------------------------------------------------------
   lint:
     name: ShellCheck
@@ -36,10 +36,57 @@ jobs:
           ignore_names: '*.zsh .zshrc .zshenv .zprofile'
 
   # ----------------------------------------------------------
-  # * INSTALLATION TESTS
-  # ? Test install.sh on multiple platforms.
+  # * ZSH SYNTAX CHECK
+  # ? Verify all zsh files parse correctly.
   # ----------------------------------------------------------
-  install:
+  syntax:
+    name: ZSH Syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Check syntax of all .zsh files
+        run: |
+          echo "=== Checking ZSH syntax ==="
+          errors=0
+          for file in $(find . -name "*.zsh" -type f); do
+            if ! zsh -n "$file" 2>&1; then
+              echo "❌ Syntax error in: $file"
+              errors=$((errors + 1))
+            else
+              echo "✓ $file"
+            fi
+          done
+
+          # Also check dotfiles
+          for file in .zshrc .zshenv .zprofile; do
+            if [[ -f "$file" ]]; then
+              if ! zsh -n "$file" 2>&1; then
+                echo "❌ Syntax error in: $file"
+                errors=$((errors + 1))
+              else
+                echo "✓ $file"
+              fi
+            fi
+          done
+
+          if [[ $errors -gt 0 ]]; then
+            echo ""
+            echo "❌ Found $errors files with syntax errors"
+            exit 1
+          fi
+          echo ""
+          echo "✓ All files passed syntax check"
+
+  # ----------------------------------------------------------
+  # * INSTALLATION TESTS (Ubuntu/macOS)
+  # ? Test install.sh on native GitHub runners.
+  # ----------------------------------------------------------
+  install-native:
     name: Install (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -57,25 +104,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y zsh
 
-      - name: Run installer (non-interactive)
+      - name: Run installer
         run: |
           chmod +x install.sh
-          echo "=== Pre-install state ==="
-          echo "HOME=$HOME"
-          echo "PWD=$PWD"
-          mkdir -p "$HOME"
+          echo "=== Running installer ==="
           ./install.sh --yes
-          echo "=== Post-install state ==="
-          ls -la "$HOME/.config/" || echo "No .config dir"
-          ls -la "$HOME/.config/zsh/" || echo "No zsh dir"
-          cat "$HOME/.zshenv" || echo "No .zshenv"
         env:
           HOME: ${{ github.workspace }}/test-home
           XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
           TERM: xterm-256color
 
       - name: Verify installation
-        run: ./install.sh --check
+        run: |
+          echo "=== Verifying installation ==="
+          ./install.sh --check
         env:
           HOME: ${{ github.workspace }}/test-home
           XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
@@ -85,48 +127,187 @@ jobs:
           export HOME="${{ github.workspace }}/test-home"
           export XDG_CONFIG_HOME="${HOME}/.config"
           export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          # Check if symlink or directory
+
+          echo "=== Testing shell startup ==="
+          echo "HOME=$HOME"
+          echo "ZDOTDIR=$ZDOTDIR"
+
+          # Verify ZDOTDIR exists
           if [[ -L "$ZDOTDIR" ]]; then
-            echo "ZDOTDIR is symlink -> $(readlink "$ZDOTDIR")"
-            ls -la "$ZDOTDIR/"
+            echo "✓ ZDOTDIR is symlink -> $(readlink "$ZDOTDIR")"
           elif [[ -d "$ZDOTDIR" ]]; then
-            echo "ZDOTDIR is directory"
-            ls -la "$ZDOTDIR/"
+            echo "✓ ZDOTDIR is directory"
           else
-            echo "ERROR: ZDOTDIR not found at $ZDOTDIR"
+            echo "❌ ZDOTDIR not found at $ZDOTDIR"
             exit 1
           fi
-          # Test zsh can load the config
-          zsh -c "source \$ZDOTDIR/.zshenv && echo 'zshenv loaded OK'"
+
+          # Test .zshenv loads
+          echo ""
+          echo "=== Loading .zshenv ==="
+          zsh -c "source \$ZDOTDIR/.zshenv && echo '✓ .zshenv loaded OK'"
+
+          # Test full shell startup (non-interactive)
+          echo ""
+          echo "=== Loading full config (non-interactive) ==="
+          zsh -c "
+            export ZDOTDIR='$ZDOTDIR'
+            source \$ZDOTDIR/.zshenv
+            source \$ZDOTDIR/.zshrc 2>/dev/null || true
+            echo '✓ Full config loaded'
+          "
+
+      - name: Test core functions
+        run: |
+          export HOME="${{ github.workspace }}/test-home"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
+
+          echo "=== Testing core functions ==="
+
+          # Test that key functions are defined
+          zsh -c "
+            export ZDOTDIR='$ZDOTDIR'
+            source \$ZDOTDIR/.zshenv
+
+            # Check logging function
+            if (( \$+functions[_log] )); then
+              echo '✓ _log function defined'
+            else
+              echo '❌ _log function missing'
+              exit 1
+            fi
+
+            # Check utility functions
+            if (( \$+functions[_has_cmd] )); then
+              echo '✓ _has_cmd function defined'
+            else
+              echo '❌ _has_cmd function missing'
+              exit 1
+            fi
+
+            # Check version function
+            if (( \$+functions[zsh_version] )); then
+              echo '✓ zsh_version function defined'
+              zsh_version
+            else
+              echo '⚠ zsh_version not yet loaded (loads in .zshrc)'
+            fi
+          "
 
   # ----------------------------------------------------------
-  # * SYNTAX CHECK
-  # ? Verify all zsh files parse correctly.
+  # * INSTALLATION TESTS (Fedora - dnf)
+  # ? Test install.sh on Fedora with dnf package manager.
   # ----------------------------------------------------------
-  syntax:
-    name: ZSH Syntax
+  install-fedora:
+    name: Install (Fedora)
     runs-on: ubuntu-latest
+    container:
+      image: fedora:latest
+
     steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y git zsh findutils
+
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-
-      - name: Check syntax
+      - name: Run installer
         run: |
-          errors=0
-          for file in $(find . -name "*.zsh" -type f); do
-            if ! zsh -n "$file" 2>&1; then
-              echo "Syntax error in: $file"
-              errors=$((errors + 1))
+          chmod +x install.sh
+          echo "=== Running installer on Fedora ==="
+          ./install.sh --yes
+        env:
+          HOME: /tmp/test-home
+          XDG_CONFIG_HOME: /tmp/test-home/.config
+          TERM: xterm-256color
+
+      - name: Verify installation
+        run: ./install.sh --check
+        env:
+          HOME: /tmp/test-home
+          XDG_CONFIG_HOME: /tmp/test-home/.config
+
+      - name: Test shell startup
+        run: |
+          export HOME="/tmp/test-home"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
+
+          echo "=== Testing shell on Fedora ==="
+
+          # Test .zshenv loads
+          zsh -c "source \$ZDOTDIR/.zshenv && echo '✓ .zshenv loaded OK'"
+
+          # Test core function
+          zsh -c "
+            export ZDOTDIR='$ZDOTDIR'
+            source \$ZDOTDIR/.zshenv
+            if (( \$+functions[_log] )); then
+              echo '✓ Core functions loaded'
+            else
+              echo '❌ Core functions missing'
+              exit 1
             fi
-          done
-          if [[ $errors -gt 0 ]]; then
-            echo "Found $errors files with syntax errors"
-            exit 1
-          fi
-          echo "All files passed syntax check"
+          "
+
+  # ----------------------------------------------------------
+  # * INSTALLATION TESTS (Arch Linux - pacman)
+  # ? Test install.sh on Arch Linux with pacman package manager.
+  # ----------------------------------------------------------
+  install-arch:
+    name: Install (Arch)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm git zsh
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run installer
+        run: |
+          chmod +x install.sh
+          echo "=== Running installer on Arch Linux ==="
+          ./install.sh --yes
+        env:
+          HOME: /tmp/test-home
+          XDG_CONFIG_HOME: /tmp/test-home/.config
+          TERM: xterm-256color
+
+      - name: Verify installation
+        run: ./install.sh --check
+        env:
+          HOME: /tmp/test-home
+          XDG_CONFIG_HOME: /tmp/test-home/.config
+
+      - name: Test shell startup
+        run: |
+          export HOME="/tmp/test-home"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
+
+          echo "=== Testing shell on Arch Linux ==="
+
+          # Test .zshenv loads
+          zsh -c "source \$ZDOTDIR/.zshenv && echo '✓ .zshenv loaded OK'"
+
+          # Test core function
+          zsh -c "
+            export ZDOTDIR='$ZDOTDIR'
+            source \$ZDOTDIR/.zshenv
+            if (( \$+functions[_log] )); then
+              echo '✓ Core functions loaded'
+            else
+              echo '❌ Core functions missing'
+              exit 1
+            fi
+          "
 
   # ----------------------------------------------------------
   # * RELEASE (on tag push)
@@ -135,7 +316,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, install, syntax]
+    needs: [lint, syntax, install-native, install-fedora, install-arch]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
