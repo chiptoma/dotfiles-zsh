@@ -100,6 +100,22 @@ if ! type which >/dev/null 2>&1; then
 fi
 
 # ----------------------------------------------------------
+# * DIRECTORY LISTING
+# ? Basic ls aliases (overridden by OMZ eza plugin if installed)
+# ----------------------------------------------------------
+
+# Platform-aware ls color
+if [[ "$OSTYPE" == darwin* ]]; then
+    alias ls='ls -G'        # macOS: BSD ls color flag
+else
+    alias ls='ls --color=auto'  # Linux: GNU ls color flag
+fi
+
+alias l='ls -lah'   # List all, human-readable
+alias ll='ls -lh'   # Long format, human-readable
+alias la='ls -lAh'  # Long + hidden (except . ..)
+
+# ----------------------------------------------------------
 # * FILE MANAGER
 # ? Yazi with cd-on-exit (function in lib/functions/file.zsh)
 # ----------------------------------------------------------
