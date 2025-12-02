@@ -209,7 +209,7 @@ get_package_name() {
         eza)
             case "$pm" in
                 brew|pacman|dnf) echo "eza" ;;
-                apt) echo "CARGO:eza" ;;  # Not in apt, needs cargo
+                apt) echo "SCRIPT:eza" ;;  # Not in apt, install from GitHub
                 *) echo "eza" ;;
             esac
             ;;
@@ -255,33 +255,94 @@ install_special_tool() {
             fi
             ;;
         SCRIPT:atuin)
-            print_info "Installing atuin via install script..."
-            # Atuin installer accepts -y for non-interactive
-            local atuin_flags=""
-            $AUTO_YES && atuin_flags="-y"
+            print_info "Installing atuin..."
+            # Atuin installer accepts -y for non-interactive, suppress verbose output
             if has_cmd curl; then
-                bash <(curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh) $atuin_flags
+                bash <(curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh) -y >/dev/null 2>&1
             elif has_cmd wget; then
-                bash <(wget -qO- https://setup.atuin.sh) $atuin_flags
+                bash <(wget -qO- https://setup.atuin.sh) -y >/dev/null 2>&1
             else
                 print_error "Neither curl nor wget available"
                 return 1
             fi
+            # Verify atuin was installed
+            if [[ -x "$HOME/.atuin/bin/atuin" ]]; then
+                print_success "atuin installed"
+            else
+                print_warning "atuin installation may have failed"
+            fi
             ;;
         SCRIPT:starship)
-            print_info "Installing starship via install script..."
+            print_info "Installing starship..."
+            # Suppress verbose starship installer output
             if has_cmd curl; then
-                curl -sS https://starship.rs/install.sh | sh -s -- -y
+                curl -sS https://starship.rs/install.sh | sh -s -- -y >/dev/null 2>&1
             else
                 print_error "curl not available for starship install"
                 return 1
             fi
+            # Verify starship was installed
+            if has_cmd starship; then
+                print_success "starship installed"
+            else
+                print_warning "starship installation may have failed"
+            fi
+            ;;
+        SCRIPT:eza)
+            print_info "Installing eza..."
+            install_eza_binary
             ;;
         *)
             print_error "Unknown special install: $tool"
             return 1
             ;;
     esac
+}
+
+# Install eza from GitHub releases (for systems without package support)
+install_eza_binary() {
+    local arch
+    arch=$(uname -m)
+    local os
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+    # Map architecture names
+    case "$arch" in
+        x86_64) arch="x86_64" ;;
+        aarch64|arm64) arch="aarch64" ;;
+        *)
+            print_warning "Unsupported architecture for eza: $arch"
+            return 1
+            ;;
+    esac
+
+    # Build download URL (eza uses gnu for Linux)
+    local url="https://github.com/eza-community/eza/releases/latest/download/eza_${arch}-unknown-${os}-gnu.tar.gz"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    # Download and extract
+    if curl -fsSL "$url" | tar -xz -C "$tmp_dir" 2>/dev/null; then
+        # Install to /usr/local/bin (or ~/.local/bin if no sudo)
+        local install_dir="/usr/local/bin"
+        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
+            install_dir="$HOME/.local/bin"
+            mkdir -p "$install_dir"
+        fi
+
+        if [[ -f "$tmp_dir/eza" ]]; then
+            maybe_sudo install -m 755 "$tmp_dir/eza" "$install_dir/eza" 2>/dev/null
+            if has_cmd eza || [[ -x "$install_dir/eza" ]]; then
+                print_success "eza installed"
+                return 0
+            fi
+        fi
+    fi
+
+    print_warning "Failed to install eza from GitHub"
+    return 1
 }
 
 # ----------------------------------------------------------
@@ -458,10 +519,11 @@ install_omz() {
     export ZSH="$DATA_DIR/oh-my-zsh"
 
     local install_result=0
+    # Suppress verbose OMZ installer output
     if has_cmd curl; then
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || install_result=$?
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended >/dev/null 2>&1 || install_result=$?
     elif has_cmd wget; then
-        sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || install_result=$?
+        sh -c "$(wget -qO- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended >/dev/null 2>&1 || install_result=$?
     else
         print_error "Neither curl nor wget available for OMZ install"
         return 1
@@ -477,6 +539,39 @@ install_omz() {
     rm -f "$HOME/.zshrc" 2>/dev/null
 
     print_success "Oh My Zsh installed"
+
+    # Install required custom plugins
+    install_omz_plugins
+}
+
+install_omz_plugins() {
+    print_info "Installing OMZ plugins..."
+
+    local custom_dir="${ZSH_CUSTOM:-$ZSH/custom}/plugins"
+    mkdir -p "$custom_dir"
+
+    # Required custom plugins (not bundled with OMZ)
+    local -a plugins=(
+        "zsh-autosuggestions:https://github.com/zsh-users/zsh-autosuggestions"
+        "zsh-syntax-highlighting:https://github.com/zsh-users/zsh-syntax-highlighting"
+        "fzf-tab:https://github.com/Aloxaf/fzf-tab"
+    )
+
+    for entry in "${plugins[@]}"; do
+        local name="${entry%%:*}"
+        local url="${entry#*:}"
+        local target="$custom_dir/$name"
+
+        if [[ -d "$target" ]]; then
+            print_dim "  $name (already installed)"
+        else
+            if git clone --depth=1 "$url" "$target" >/dev/null 2>&1; then
+                print_success "$name"
+            else
+                print_warning "Failed to install $name"
+            fi
+        fi
+    done
 }
 
 # ----------------------------------------------------------
@@ -773,29 +868,29 @@ install_optional_tools() {
             print_info "Installing via $pm: ${pm_install[*]}"
 
             # Package installation is optional - don't fail if some packages unavailable
+            # Suppress verbose output but capture errors
             case "$pm" in
                 brew)
-                    brew install "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    brew install "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 apt)
-                    maybe_sudo apt update
-                    maybe_sudo apt install -y "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    maybe_sudo apt-get update -qq >/dev/null 2>&1
+                    maybe_sudo apt-get install -qq -y "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 dnf)
-                    # Use --skip-unavailable for packages not in repos (eza, starship)
-                    maybe_sudo dnf install -y --skip-unavailable "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    maybe_sudo dnf install -y -q --skip-unavailable "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 pacman)
-                    # Use --needed to skip already installed, continue on errors
-                    maybe_sudo pacman -S --noconfirm --needed "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    maybe_sudo pacman -S --noconfirm --needed -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 apk)
-                    maybe_sudo apk add "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    maybe_sudo apk add -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 zypper)
-                    maybe_sudo zypper install -y "${pm_install[@]}" || print_warning "Some packages failed to install"
+                    maybe_sudo zypper install -y -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
             esac
+            print_success "Package manager tools installed"
         fi
 
         # Install via special methods (cargo, scripts)
