@@ -33,7 +33,7 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ludeeus/action-shellcheck@master
         with:
           scandir: '.'
@@ -46,7 +46,7 @@ jobs:
     name: ZSH Syntax
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Check all ZSH files
@@ -71,7 +71,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Scan for secrets
         run: |
           echo "=== Scanning for potential secrets ==="
@@ -118,7 +118,7 @@ jobs:
     name: Doc Links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check markdown links
         uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
@@ -169,7 +169,7 @@ jobs:
     name: Test (Minimal)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Test .zshenv loads standalone
@@ -215,7 +215,7 @@ jobs:
     env:
       TEST_HOME: /tmp/test-home
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
@@ -276,7 +276,7 @@ jobs:
     env:
       TEST_HOME: /tmp/test-home
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: |
@@ -368,7 +368,7 @@ jobs:
     env:
       TEST_HOME: /tmp/test-home
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
@@ -477,7 +477,7 @@ jobs:
     env:
       TEST_HOME: ${{ github.workspace }}/test-home
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh bc
 
@@ -591,7 +591,7 @@ jobs:
     env:
       TEST_HOME: ${{ github.workspace }}/test-home
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache OMZ plugins
         uses: actions/cache@v4
@@ -672,7 +672,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: dnf install -y git zsh findutils bc
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install configuration
         run: ./install.sh --yes
@@ -712,7 +712,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: pacman -Syu --noconfirm git zsh bc
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install configuration
         run: ./install.sh --yes
@@ -754,7 +754,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Generate changelog
