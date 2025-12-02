@@ -23,6 +23,9 @@ BACKUP_DIR=""
 # Non-interactive mode (set via --yes flag)
 AUTO_YES=false
 
+# Dry-run mode (set via --dry-run flag)
+DRY_RUN=false
+
 # Initialize paths (call this at start of main to pick up env overrides)
 init_paths() {
     INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
@@ -153,6 +156,15 @@ is_linux() {
     [[ "$(uname -s)" == "Linux" ]]
 }
 
+# Run command or show what would be done in dry-run mode
+run_cmd() {
+    if $DRY_RUN; then
+        print_dim "[dry-run] $*"
+    else
+        "$@"
+    fi
+}
+
 get_package_manager() {
     if is_macos; then
         if has_cmd brew; then
@@ -270,6 +282,75 @@ install_special_tool() {
             return 1
             ;;
     esac
+}
+
+# ----------------------------------------------------------
+# * PRE-FLIGHT CHECKS
+# ? Verify system requirements before installation
+# ----------------------------------------------------------
+
+preflight_checks() {
+    print_section "Pre-flight Checks"
+
+    local all_good=true
+
+    # Check write permissions to config directory parent
+    local config_parent
+    config_parent=$(dirname "$INSTALL_DIR")
+    if [[ ! -d "$config_parent" ]]; then
+        if ! mkdir -p "$config_parent" 2>/dev/null; then
+            print_error "Cannot create directory: $config_parent"
+            print_info "Check permissions on $(dirname "$config_parent")"
+            all_good=false
+        else
+            print_success "Can create config directory"
+            rmdir "$config_parent" 2>/dev/null || true
+        fi
+    elif [[ ! -w "$config_parent" ]]; then
+        print_error "No write permission to $config_parent"
+        all_good=false
+    else
+        print_success "Write access to $config_parent"
+    fi
+
+    # Check write permissions to HOME
+    if [[ ! -w "$HOME" ]]; then
+        print_error "No write permission to HOME ($HOME)"
+        all_good=false
+    else
+        print_success "Write access to HOME"
+    fi
+
+    # Check available disk space (need at least 10MB)
+    local available_kb
+    if is_macos; then
+        available_kb=$(df -k "$HOME" | awk 'NR==2 {print $4}')
+    else
+        available_kb=$(df -k "$HOME" 2>/dev/null | awk 'NR==2 {print $4}')
+    fi
+
+    if [[ -n "$available_kb" ]] && [[ "$available_kb" -lt 10240 ]]; then
+        print_error "Insufficient disk space (need 10MB, have $((available_kb/1024))MB)"
+        all_good=false
+    elif [[ -n "$available_kb" ]]; then
+        print_success "Sufficient disk space ($((available_kb/1024))MB available)"
+    else
+        print_warning "Could not check disk space"
+    fi
+
+    # Check if running as root (discouraged)
+    if [[ $EUID -eq 0 ]]; then
+        print_warning "Running as root is not recommended"
+        print_info "The configuration will be installed for the root user"
+    fi
+
+    if ! $all_good; then
+        echo ""
+        print_error "Pre-flight checks failed. Please resolve the issues above."
+        return 1
+    fi
+
+    return 0
 }
 
 # ----------------------------------------------------------
@@ -470,39 +551,96 @@ install_config() {
         esac
     fi
 
+    # Atomic installation: use temp directory, verify, then move
+    local temp_install=""
+    local rollback_needed=false
+
     case "$method" in
         symlink)
             print_info "Creating symlink..."
-            mkdir -p "$(dirname "$INSTALL_DIR")"
-            rm -rf "$INSTALL_DIR" 2>/dev/null
-            ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+            if $DRY_RUN; then
+                print_dim "[dry-run] mkdir -p $(dirname "$INSTALL_DIR")"
+                print_dim "[dry-run] rm -rf $INSTALL_DIR"
+                print_dim "[dry-run] ln -sf $SCRIPT_DIR $INSTALL_DIR"
+            else
+                mkdir -p "$(dirname "$INSTALL_DIR")"
+                rm -rf "$INSTALL_DIR" 2>/dev/null
+                ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+            fi
             print_success "Symlinked $SCRIPT_DIR -> $INSTALL_DIR"
             ;;
         copy)
-            print_info "Copying files..."
-            mkdir -p "$INSTALL_DIR"
-            cp -r "$SCRIPT_DIR"/* "$INSTALL_DIR/"
+            print_info "Copying files (atomic)..."
+            if $DRY_RUN; then
+                print_dim "[dry-run] mkdir -p $INSTALL_DIR.tmp.$$"
+                print_dim "[dry-run] cp -r $SCRIPT_DIR/* $INSTALL_DIR.tmp.$$/"
+                print_dim "[dry-run] verify essential files"
+                print_dim "[dry-run] rm -rf $INSTALL_DIR"
+                print_dim "[dry-run] mv $INSTALL_DIR.tmp.$$ $INSTALL_DIR"
+            else
+                temp_install="$INSTALL_DIR.tmp.$$"
+                rollback_needed=true
+
+                # Copy to temp location
+                mkdir -p "$temp_install"
+                if ! cp -r "$SCRIPT_DIR"/* "$temp_install/"; then
+                    print_error "Failed to copy files"
+                    rm -rf "$temp_install"
+                    return 1
+                fi
+
+                # Verify essential files exist in temp
+                local -a essential=(".zshenv" ".zshrc" "modules/logging.zsh" "lib/utils.zsh")
+                for file in "${essential[@]}"; do
+                    if [[ ! -f "$temp_install/$file" ]]; then
+                        print_error "Essential file missing in copy: $file"
+                        rm -rf "$temp_install"
+                        return 1
+                    fi
+                done
+
+                # Atomic swap: remove old, move new
+                rm -rf "$INSTALL_DIR" 2>/dev/null
+                if ! mv "$temp_install" "$INSTALL_DIR"; then
+                    print_error "Failed to move files to final location"
+                    # Attempt recovery
+                    if [[ -d "$temp_install" ]]; then
+                        mv "$temp_install" "$INSTALL_DIR" 2>/dev/null || true
+                    fi
+                    return 1
+                fi
+                rollback_needed=false
+            fi
             print_success "Copied to $INSTALL_DIR"
             ;;
         clone)
             # Skip clone in auto-yes mode (no way to provide URL)
             if $AUTO_YES; then
                 print_warning "Clone requires URL input, using symlink in auto mode"
-                ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                if ! $DRY_RUN; then
+                    ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                fi
             else
                 echo -ne "  ${YELLOW}?${NC} Git repository URL: "
                 read -r repo_url
                 if [[ -n "$repo_url" ]]; then
-                    rm -rf "$INSTALL_DIR" 2>/dev/null
-                    if git clone "$repo_url" "$INSTALL_DIR"; then
-                        print_success "Cloned to $INSTALL_DIR"
+                    if $DRY_RUN; then
+                        print_dim "[dry-run] rm -rf $INSTALL_DIR"
+                        print_dim "[dry-run] git clone $repo_url $INSTALL_DIR"
                     else
-                        print_error "Git clone failed, falling back to symlink"
-                        ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                        rm -rf "$INSTALL_DIR" 2>/dev/null
+                        if git clone "$repo_url" "$INSTALL_DIR"; then
+                            print_success "Cloned to $INSTALL_DIR"
+                        else
+                            print_error "Git clone failed, falling back to symlink"
+                            ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                        fi
                     fi
                 else
                     print_error "No URL provided, falling back to symlink"
-                    ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                    if ! $DRY_RUN; then
+                        ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                    fi
                 fi
             fi
             ;;
@@ -513,9 +651,13 @@ install_config() {
 
     # Create XDG directories
     print_info "Creating XDG directories..."
-    mkdir -p "$DATA_DIR/zsh"
-    mkdir -p "$CACHE_DIR/zsh"
-    mkdir -p "$STATE_DIR/zsh"
+    if $DRY_RUN; then
+        print_dim "[dry-run] mkdir -p $DATA_DIR/zsh $CACHE_DIR/zsh $STATE_DIR/zsh"
+    else
+        mkdir -p "$DATA_DIR/zsh"
+        mkdir -p "$CACHE_DIR/zsh"
+        mkdir -p "$STATE_DIR/zsh"
+    fi
     print_success "XDG directories created"
 }
 
@@ -528,11 +670,19 @@ setup_zdotdir() {
     if [[ -f "$system_zshenv" ]] && grep -q "ZDOTDIR" "$system_zshenv" 2>/dev/null; then
         print_info "ZDOTDIR already configured in ~/.zshenv"
         if confirm "Overwrite existing ~/.zshenv?"; then
-            echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+            if $DRY_RUN; then
+                print_dim "[dry-run] echo 'export ZDOTDIR=\"$INSTALL_DIR\"' > $system_zshenv"
+            else
+                echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+            fi
             print_success "Updated ~/.zshenv"
         fi
     else
-        echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+        if $DRY_RUN; then
+            print_dim "[dry-run] echo 'export ZDOTDIR=\"$INSTALL_DIR\"' > $system_zshenv"
+        else
+            echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+        fi
         print_success "Created ~/.zshenv with ZDOTDIR"
     fi
 }
@@ -945,6 +1095,10 @@ main() {
                 AUTO_YES=true
                 shift
                 ;;
+            --dry-run|-n)
+                DRY_RUN=true
+                shift
+                ;;
             --check|-c)
                 print_header "ZSH Configuration Health Check"
                 verify_installation
@@ -958,6 +1112,7 @@ main() {
                 echo "Options:"
                 echo "  --help, -h        Show this help message"
                 echo "  --yes, -y         Non-interactive mode (accept defaults)"
+                echo "  --dry-run, -n     Show what would be done without making changes"
                 echo "  --check, -c       Verify existing installation"
                 echo "  --update          Update to latest version (git pull)"
                 echo "  --uninstall, -u   Uninstall the configuration"
@@ -965,6 +1120,7 @@ main() {
                 echo "Examples:"
                 echo "  $0                # Interactive installation"
                 echo "  $0 --yes          # Automated installation"
+                echo "  $0 --dry-run      # Preview installation steps"
                 echo "  $0 --check        # Verify installation health"
                 echo "  $0 --update       # Update to latest version"
                 echo ""
@@ -984,9 +1140,19 @@ main() {
     echo -e "  ${DIM}with security hardening, lazy loading, and cross-platform support.${NC}"
     echo ""
 
+    if $DRY_RUN; then
+        echo -e "  ${YELLOW}${BOLD}DRY-RUN MODE${NC} - No changes will be made"
+        echo ""
+    fi
+
     if ! confirm "Ready to install?" "y"; then
         echo "Installation cancelled."
         exit 0
+    fi
+
+    # Pre-flight checks
+    if ! preflight_checks; then
+        exit 1
     fi
 
     check_requirements
@@ -994,10 +1160,19 @@ main() {
     backup_existing
     install_config
     setup_zdotdir
-    install_optional_tools
-    create_local_config
-    verify_installation
-    print_summary
+
+    # Skip optional tools and local config in dry-run mode
+    if ! $DRY_RUN; then
+        install_optional_tools
+        create_local_config
+        verify_installation
+        print_summary
+    else
+        print_section "Dry-Run Complete"
+        echo -e "  ${GREEN}No changes were made.${NC}"
+        echo -e "  Run without --dry-run to perform actual installation."
+        echo ""
+    fi
 }
 
 main "$@"

@@ -351,6 +351,114 @@ jobs:
           fi
 
   # ----------------------------------------------------------
+  # * INSTALLER LIFECYCLE TESTS
+  # ? Test install modes, idempotency, uninstall, and health check
+  # ----------------------------------------------------------
+  test-installer:
+    name: Install (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "symlink"
+            mode: "1"
+          - name: "copy"
+            mode: "2"
+    env:
+      TEST_HOME: /tmp/test-home
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Test install (${{ matrix.name }} mode)
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+
+          # Install with specific mode (1=symlink, 2=copy)
+          echo "${{ matrix.mode }}" | ./install.sh 2>&1 || true
+
+          # Verify installation succeeded
+          ./install.sh --check
+          echo "✓ Initial install (${{ matrix.name }}) succeeded"
+        env:
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+
+      - name: Test idempotency (re-install)
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+
+          # Run install again - should not break anything
+          echo "${{ matrix.mode }}" | ./install.sh 2>&1 || true
+
+          # Verify still works
+          ./install.sh --check
+          echo "✓ Idempotency test passed"
+        env:
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+
+      - name: Install OMZ plugins
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_DATA_HOME="${HOME}/.local/share"
+          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+
+      - name: Test shell functionality
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
+
+          result=$(zsh -i -c "
+            echo 'SHELL_OK'
+            (( \$+functions[_log] )) && echo 'LOG_OK'
+            (( \$+functions[_has_cmd] )) && echo 'HAS_CMD_OK'
+          " 2>&1)
+
+          echo "$result"
+
+          if [[ "$result" == *"SHELL_OK"* ]] && [[ "$result" == *"LOG_OK"* ]]; then
+            echo "✓ Shell works after ${{ matrix.name }} install"
+          else
+            echo "✗ Shell broken after ${{ matrix.name }} install"
+            exit 1
+          fi
+
+      - name: Test uninstall
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          INSTALL_DIR="${XDG_CONFIG_HOME}/zsh"
+
+          # Run uninstall
+          echo -e "y\nn" | ./install.sh --uninstall 2>&1 || true
+
+          # Verify config directory is gone
+          if [[ -d "$INSTALL_DIR" ]] || [[ -L "$INSTALL_DIR" ]]; then
+            echo "✗ Config directory still exists after uninstall"
+            exit 1
+          fi
+
+          # Verify ~/.zshenv is removed
+          if [[ -f "$HOME/.zshenv" ]]; then
+            echo "✗ ~/.zshenv still exists after uninstall"
+            exit 1
+          fi
+
+          echo "✓ Uninstall completed cleanly"
+        env:
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+
+  # ----------------------------------------------------------
   # * PLATFORM TESTS
   # ----------------------------------------------------------
   test-ubuntu:
@@ -631,7 +739,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, syntax, security, docs, test-minimal, test-config-matrix, test-zsh-versions, test-ubuntu, test-macos, test-fedora, test-arch]
+    needs: [lint, syntax, security, docs, test-minimal, test-config-matrix, test-zsh-versions, test-installer, test-ubuntu, test-macos, test-fedora, test-arch]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
