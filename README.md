@@ -256,16 +256,30 @@ export ZSH_LAZY_STARSHIP=false
 
 ## Useful Commands
 
-| Command | Alias | Description |
-|---------|-------|-------------|
-| `zsh_lazy_status` | - | Show lazy loading status |
-| `zsh_update` | - | Update to latest version |
-| `zsh_version` | - | Show current version |
-| `path_show` | `path` | Display PATH entries |
-| `path_debug` | `pathdebug` | PATH diagnostics |
-| `history_stats` | `hstats` | Top commands chart |
-| `zsh_alias_browser` | `als` | Interactive alias browser |
-| `calc <expr>` | - | Calculator (`calc 2 * 2`) |
+### Shell Introspection
+
+| Alias | Command | Description |
+|-------|---------|-------------|
+| `lazy` | `zsh_lazy_status` | Show lazy loading status |
+| `zupdate` | `zsh_update` | Update to latest version |
+| `zversion` | `zsh_version` | Show current version |
+| `path` | `path_show` | Display PATH entries |
+| `pathdebug` | `path_debug` | PATH diagnostics |
+| `hstats` | `history_stats` | Top commands chart |
+| `als` | `zsh_alias_browser` | Interactive alias browser (fzf) |
+
+### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for 200+)
+
+| Alias | Expansion | Category |
+|-------|-----------|----------|
+| `gs` | `git status --short --branch` | Git |
+| `gaa` | `git add --all` | Git |
+| `gcm` | `git commit -m` | Git |
+| `gps` | `git push` | Git |
+| `..` / `...` | `cd ..` / `cd ../..` | Navigation |
+| `mkcd` | Create dir and cd into it | Navigation |
+| `lt` | `eza --tree --level=2 --icons` | Modern tools |
+| `G` | `\| grep` (global alias) | Piping |
 
 ## Troubleshooting
 
