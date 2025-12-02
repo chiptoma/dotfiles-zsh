@@ -245,7 +245,9 @@ _lazy_init_zoxide() {
 
     if _has_cmd zoxide; then
         # Create lazy wrappers for z and zi
-        z() {
+        # Use eval to define functions at runtime, avoiding parse-time alias conflicts
+        eval '
+        function z {
             unfunction z zi 2>/dev/null
             eval "$(zoxide init zsh)"
             _LAZY_LOADED_TOOLS[zoxide]=1
@@ -253,13 +255,14 @@ _lazy_init_zoxide() {
             z "$@"
         }
 
-        zi() {
+        function zi {
             unfunction z zi 2>/dev/null
             eval "$(zoxide init zsh)"
             _LAZY_LOADED_TOOLS[zoxide]=1
             _log DEBUG "Zoxide initialized (lazy)"
             zi "$@"
         }
+        '
 
         _log DEBUG "Zoxide lazy load registered"
     fi
