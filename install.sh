@@ -553,7 +553,6 @@ install_config() {
 
     # Atomic installation: use temp directory, verify, then move
     local temp_install=""
-    local rollback_needed=false
 
     case "$method" in
         symlink)
@@ -579,7 +578,6 @@ install_config() {
                 print_dim "[dry-run] mv $INSTALL_DIR.tmp.$$ $INSTALL_DIR"
             else
                 temp_install="$INSTALL_DIR.tmp.$$"
-                rollback_needed=true
 
                 # Copy to temp location
                 mkdir -p "$temp_install"
@@ -609,7 +607,6 @@ install_config() {
                     fi
                     return 1
                 fi
-                rollback_needed=false
             fi
             print_success "Copied to $INSTALL_DIR"
             ;;
