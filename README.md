@@ -18,21 +18,16 @@ A modular, modern ZSH configuration with security-first defaults, lazy loading, 
 ## Quick Start
 
 ```bash
-# 1. Install Oh My Zsh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-# 2. Clone this configuration
+# Clone and install (handles everything automatically)
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
-
-# 3. Point ZSH to the config
-echo 'export ZDOTDIR="$HOME/.config/zsh"' > ~/.zshenv
-
-# 4. Move OMZ to XDG location (recommended)
-mv ~/.oh-my-zsh ~/.local/share/oh-my-zsh
-
-# 5. Restart shell
-exec zsh
+~/.config/zsh/install.sh
 ```
+
+The installer automatically:
+- Installs Oh My Zsh if missing
+- Configures ZDOTDIR
+- Creates XDG directories
+- Offers optional tool installation (starship, fzf, etc.)
 
 See [INSTALL.md](INSTALL.md) for detailed instructions.
 
