@@ -91,7 +91,11 @@ jobs:
 
           found=0
           for pattern in "${patterns[@]}"; do
-            if grep -rEi "$pattern" --include="*.zsh" --include="*.sh" --include="*.md" . 2>/dev/null | grep -v "local.zsh.example" | grep -v ".git/"; then
+            # Exclude known false positives: local.zsh.example, .git/, find-generic-password (macOS keychain command)
+            if grep -rEi "$pattern" --include="*.zsh" --include="*.sh" --include="*.md" . 2>/dev/null \
+                | grep -v "local.zsh.example" \
+                | grep -v ".git/" \
+                | grep -v "find-generic-password"; then
               echo "⚠ Potential secret found matching: $pattern"
               found=1
             fi
@@ -133,6 +137,11 @@ jobs:
             [[ "$link" =~ ^# ]] && continue
             [[ -z "$link" ]] && continue
 
+            # Skip inline code references (not actual file links)
+            [[ "$link" =~ ^\` ]] && continue
+            [[ "$link" =~ , ]] && continue
+            [[ "$link" =~ " " ]] && continue
+
             # Remove anchor from link
             file="${link%%#*}"
 
@@ -142,7 +151,7 @@ jobs:
             else
               echo "✓ $link"
             fi
-          done < <(grep -oE '\[.*?\]\((.*?)\)' README.md | sed 's/.*(\(.*\))/\1/' | sort -u)
+          done < <(grep -oP '\[.*?\]\(\K[^)]+' README.md | sort -u)
 
           if [[ $errors -gt 0 ]]; then
             echo ""
@@ -292,7 +301,7 @@ jobs:
           curl -sL "https://sourceforge.net/projects/zsh/files/zsh/${{ matrix.zsh_version }}/zsh-${{ matrix.zsh_version }}.tar.xz/download" -o zsh.tar.xz
           tar xf zsh.tar.xz
           cd zsh-${{ matrix.zsh_version }}
-          ./configure --prefix=/opt/zsh-${{ matrix.zsh_version }} --quiet
+          ./configure --prefix=/opt/zsh-${{ matrix.zsh_version }} --without-tcsetpgrp --quiet
           make -j$(nproc) --quiet
           sudo make install --quiet
           echo "✓ Built ZSH ${{ matrix.zsh_version }}"
