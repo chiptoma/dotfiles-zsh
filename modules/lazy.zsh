@@ -153,6 +153,9 @@ typeset -ga _LAZY_PRECMD_INITS
 # ----------------------------------------------------------
 
 _lazy_init_starship() {
+    # Set starship config path (before any init)
+    export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
+
     if [[ "$ZSH_LAZY_STARSHIP" != "true" ]]; then
         # Immediate init
         if _has_cmd starship; then
