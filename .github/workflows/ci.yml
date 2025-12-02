@@ -307,7 +307,9 @@ jobs:
           echo "✓ Built ZSH ${{ matrix.zsh_version }}"
 
       - name: Install configuration
-        run: ./install.sh --yes
+        run: |
+          export PATH="/opt/zsh-${{ matrix.zsh_version }}/bin:$PATH"
+          ./install.sh --yes
         env:
           HOME: ${{ env.TEST_HOME }}
           XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
