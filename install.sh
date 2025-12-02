@@ -12,14 +12,25 @@ set -euo pipefail
 # ----------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
-DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
-BACKUP_DIR="$HOME/.zsh-backup-$(date +%Y%m%d_%H%M%S)"
+
+# These are initialized in init_paths() to ensure HOME is correct
+INSTALL_DIR=""
+DATA_DIR=""
+CACHE_DIR=""
+STATE_DIR=""
+BACKUP_DIR=""
 
 # Non-interactive mode (set via --yes flag)
 AUTO_YES=false
+
+# Initialize paths (call this at start of main to pick up env overrides)
+init_paths() {
+    INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
+    DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+    CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+    BACKUP_DIR="$HOME/.zsh-backup-$(date +%Y%m%d_%H%M%S)"
+}
 
 # Colors
 RED='\033[0;31m'
@@ -902,6 +913,9 @@ uninstall() {
 # ----------------------------------------------------------
 
 main() {
+    # Initialize paths (must be first to pick up env overrides like custom HOME)
+    init_paths
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
