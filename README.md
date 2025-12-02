@@ -1,5 +1,7 @@
 # ZSH Configuration
 
+[![CI](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml)
+
 A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support.
 
 ## Features
