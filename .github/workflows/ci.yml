@@ -75,21 +75,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Test .zshenv loads standalone
         run: |
-          export ZDOTDIR="$PWD"
           export HOME="/tmp/minimal-test"
           mkdir -p "$HOME"
 
           # Test .zshenv loads and core functions work
-          zsh -c "
-            source .zshenv
+          ZDOTDIR="$PWD" zsh -c '
+            source $ZDOTDIR/.zshenv
 
             # Verify core functions exist
-            (( \$+functions[_log] )) || { echo '✗ _log missing'; exit 1; }
-            (( \$+functions[_has_cmd] )) || { echo '✗ _has_cmd missing'; exit 1; }
-            (( \$+functions[_safe_source] )) || { echo '✗ _safe_source missing'; exit 1; }
+            (( $+functions[_log] )) || { echo "✗ _log missing"; exit 1; }
+            (( $+functions[_has_cmd] )) || { echo "✗ _has_cmd missing"; exit 1; }
+            (( $+functions[_safe_source] )) || { echo "✗ _safe_source missing"; exit 1; }
 
-            echo '✓ Core functions available without OMZ'
-          "
+            echo "✓ Core functions available without OMZ"
+          '
 
   # ----------------------------------------------------------
   # * PLATFORM TESTS
