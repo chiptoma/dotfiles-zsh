@@ -1,0 +1,58 @@
+#!/usr/bin/env zsh
+# ==============================================================================
+# * ZSH ENVIRONMENT INFO
+# ? Displays ZSH environment configuration including editors, LESS, and bat.
+# ==============================================================================
+
+# Source the zshrc to get all settings
+source "${ZDOTDIR:-$HOME}/.zshrc" 2>/dev/null
+
+# Colors
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+echo "${CYAN}=== ZSH Environment Info ===${NC}\n"
+
+# Editors
+echo "${YELLOW}Editors:${NC}"
+echo "  EDITOR: ${GREEN}$EDITOR${NC}"
+echo "  VISUAL: ${GREEN}$VISUAL${NC}"
+echo "  SUDO_EDITOR: ${GREEN}$SUDO_EDITOR${NC}"
+
+# Test current editor
+echo "\n${YELLOW}Testing your editor:${NC}"
+echo "  Run: ${GREEN}$EDITOR /tmp/test.txt${NC}"
+
+# LESS settings
+echo "\n${YELLOW}LESS Configuration:${NC}"
+echo "  LESS flags: ${GREEN}$LESS${NC}"
+echo "  Flags mean:"
+echo "    -R: Show ANSI colors"
+echo "    -F: Quit if file fits on screen"
+echo "    -X: Don't clear screen"
+echo "    -i: Case insensitive search"
+echo "    -J: Show status column"
+echo "    -M: Verbose prompt"
+echo "    -W: Highlight first new line"
+echo "    -x4: Tab stops every 4 columns"
+
+# Bat
+if command -v bat >/dev/null 2>&1; then
+    echo "\n${YELLOW}Bat Configuration:${NC}"
+    echo "  Theme: ${GREEN}$BAT_THEME${NC}"
+    echo "  Test: ${GREEN}bat \"\${ZDOTDIR:-\$HOME}/.zshrc\"${NC}"
+    echo "  List themes: ${GREEN}bat --list-themes${NC}"
+fi
+
+# Man pages
+echo "\n${YELLOW}Man Pages:${NC}"
+echo "  MANPAGER: ${GREEN}${MANPAGER:-less}${NC}"
+echo "  Test colored man: ${GREEN}man ls${NC}"
+
+# Quick tests
+echo "\n${YELLOW}Quick Tests:${NC}"
+echo "  ${GREEN}echo 'Hello World' | less${NC} - Test LESS"
+echo "  ${GREEN}man bash | head -20${NC} - Test colored man"
+echo "  ${GREEN}git log --oneline | less${NC} - Test git + less"

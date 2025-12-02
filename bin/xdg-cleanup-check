@@ -1,0 +1,77 @@
+#!/usr/bin/env zsh
+# ==============================================================================
+# * XDG CLEANUP CHECK
+# ? Identifies dotfiles that can be moved to XDG-compliant directories.
+# ==============================================================================
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+echo "${CYAN}=== XDG Cleanup Check ===${NC}\n"
+
+# Source environment to get XDG variables
+source "${ZDOTDIR:-$HOME}/.zshrc" 2>/dev/null
+
+echo "${YELLOW}Current XDG directories:${NC}"
+echo "  XDG_CONFIG_HOME: $XDG_CONFIG_HOME"
+echo "  XDG_CACHE_HOME: $XDG_CACHE_HOME"
+echo "  XDG_DATA_HOME: $XDG_DATA_HOME"
+echo "  XDG_STATE_HOME: $XDG_STATE_HOME\n"
+
+echo "${YELLOW}Dotfiles that can be moved:${NC}\n"
+
+# Check each dotfile
+check_dotfile() {
+    local dotfile="$1"
+    local xdg_location="$2"
+    local note="$3"
+    
+    if [[ -e "$HOME/$dotfile" ]]; then
+        echo "${GREEN}✓${NC} $dotfile"
+        echo "  → Move to: ${CYAN}$xdg_location${NC}"
+        [[ -n "$note" ]] && echo "  ${YELLOW}Note:${NC} $note"
+        echo ""
+    fi
+}
+
+# Files that can be moved
+check_dotfile ".android" "$XDG_DATA_HOME/android" "Set ANDROID_HOME, ANDROID_SDK_HOME"
+check_dotfile ".ansible" "$XDG_CONFIG_HOME/ansible" "Set ANSIBLE_HOME"
+check_dotfile ".npm" "$XDG_CONFIG_HOME/npm" "Already handled by NPM_CONFIG_USERCONFIG"
+check_dotfile ".nvm" "$XDG_DATA_HOME/nvm" "Set NVM_DIR before loading nvm"
+check_dotfile ".volta" "$XDG_DATA_HOME/volta" "Set VOLTA_HOME"
+check_dotfile ".yarn" "$XDG_CONFIG_HOME/yarn" "Set yarn config"
+check_dotfile ".lesshst" "$XDG_STATE_HOME/less/history" "Already handled by LESSHISTFILE"
+check_dotfile ".gitconfig" "$XDG_CONFIG_HOME/git/config" "Set GIT_CONFIG_GLOBAL"
+
+echo "${YELLOW}Dotfiles that should stay in HOME:${NC}\n"
+
+# Files that should stay
+stay_dotfile() {
+    local dotfile="$1"
+    local reason="$2"
+    
+    if [[ -e "$HOME/$dotfile" ]]; then
+        echo "${RED}✗${NC} $dotfile"
+        echo "  ${YELLOW}Reason:${NC} $reason\n"
+    fi
+}
+
+stay_dotfile ".ssh" "Security - SSH expects this in HOME"
+stay_dotfile ".zsh_sessions" "macOS Terminal.app session restore"
+stay_dotfile ".Trash" "macOS system directory"
+
+echo "${YELLOW}Already compliant:${NC}\n"
+[[ -d "$XDG_CONFIG_HOME" ]] && echo "${GREEN}✓${NC} Using .config for configurations"
+[[ -d "$XDG_CACHE_HOME" ]] && echo "${GREEN}✓${NC} Using .cache for caches"
+[[ -d "$XDG_DATA_HOME" ]] && echo "${GREEN}✓${NC} Using .local/share for data"
+
+echo "\n${CYAN}To clean up:${NC}"
+echo "1. Check each tool's documentation for XDG support"
+echo "2. Move config files to appropriate XDG directories"
+echo "3. Set environment variables in your shell config"
+echo "4. Some tools may need symlinks from old to new locations"

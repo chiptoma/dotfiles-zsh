@@ -1,0 +1,35 @@
+#!/usr/bin/env zsh
+# ==============================================================================
+# * ZSH SYNTAX CHECKER
+# ? Validates all .zsh files for parse errors
+# ==============================================================================
+
+SCRIPT_DIR="${0:A:h}"
+ZSH_DIR="${SCRIPT_DIR:h}"
+
+errors=0
+checked=0
+
+echo "Checking ZSH syntax..."
+echo ""
+
+cd "$ZSH_DIR"
+
+for file in **/*.zsh(N); do
+    ((checked++))
+    if ! zsh -n "$file" 2>&1; then
+        echo "FAIL: $file"
+        ((errors++))
+    fi
+done
+
+echo ""
+echo "Checked $checked files"
+
+if (( errors > 0 )); then
+    echo "Found $errors file(s) with syntax errors"
+    exit 1
+else
+    echo "All files OK"
+    exit 0
+fi

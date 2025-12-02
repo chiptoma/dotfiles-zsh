@@ -1,0 +1,27 @@
+# Local customization (user-specific, not tracked)
+local.zsh
+.zsh.local
+
+# Compiled zsh files
+*.zwc
+
+# Completion cache
+.zcompdump*
+.zcompcache/
+
+# History (sensitive)
+.zsh_history
+.zhistory
+
+# Session files (macOS Terminal.app)
+.zsh_sessions/
+
+# IDE/Editor
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
+
+# macOS
+.DS_Store

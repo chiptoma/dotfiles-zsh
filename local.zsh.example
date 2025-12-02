@@ -1,0 +1,80 @@
+# ==============================================================================
+# * LOCAL ZSH CUSTOMIZATION
+# ? Personal settings that override the defaults.
+# ? Copy this file to local.zsh (or ~/.zsh.local) and customize.
+# ? This file is gitignored and will not be tracked.
+# ==============================================================================
+
+# ----------------------------------------------------------
+# * DIRECTORY ALIASES
+# ? Customize these to your project structure
+# ----------------------------------------------------------
+# alias dev='cd ~/Development'
+# alias prj='cd ~/Projects'
+# alias work='cd ~/Work'
+
+# ----------------------------------------------------------
+# * SECURITY OPTIONS
+# ? Enable project-local bin directories (./bin, ./node_modules/.bin, etc.)
+# ? WARNING: Only enable if you trust the repositories you work with
+# ----------------------------------------------------------
+# export ZSH_PATH_PROJECT_BIN=true
+
+# ----------------------------------------------------------
+# * LOCALE OVERRIDE
+# ? Set to override system locale (e.g., "en_US.UTF-8", "en_GB.UTF-8")
+# ? Leave empty to use system default
+# ----------------------------------------------------------
+# export ZSH_LOCALE_OVERRIDE="en_US.UTF-8"
+
+# ----------------------------------------------------------
+# * SSH AGENT OVERRIDE
+# ? Force a specific SSH agent socket (overrides auto-detection)
+# ? Auto-detection order: 1Password > GPG Agent > GNOME Keyring > System
+# ----------------------------------------------------------
+# export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
+
+# ----------------------------------------------------------
+# * EDITOR PREFERENCES
+# ? Override default editor detection
+# ----------------------------------------------------------
+# export EDITOR="nvim"
+# export VISUAL="code"
+
+# ----------------------------------------------------------
+# * FILE OWNERSHIP VERIFICATION
+# ? Enable for shared/multi-user systems
+# ? Verifies sourced files are owned by root or current user
+# ----------------------------------------------------------
+# export ZSH_VERIFY_FILE_OWNERSHIP=true
+
+# ----------------------------------------------------------
+# * HISTORY SETTINGS
+# ? Customize history behavior
+# ----------------------------------------------------------
+# export ZSH_HISTORY_SIZE=50000
+# export ZSH_HISTORY_SECURITY_FILTER=false  # Disable sensitive command filtering
+
+# ----------------------------------------------------------
+# * PERSONAL ALIASES
+# ? Add your personal aliases below
+# ----------------------------------------------------------
+# alias gs='git status'
+# alias gp='git push'
+# alias ll='ls -la'
+
+# ----------------------------------------------------------
+# * PERSONAL FUNCTIONS
+# ? Add your personal functions below
+# ----------------------------------------------------------
+# my_function() {
+#     echo "Hello from my custom function"
+# }
+
+# ----------------------------------------------------------
+# * MACHINE-SPECIFIC SETTINGS
+# ? Settings that vary between machines (work vs home, etc.)
+# ----------------------------------------------------------
+# if [[ "$(hostname)" == "work-laptop" ]]; then
+#     export HTTP_PROXY="http://proxy.company.com:8080"
+# fi
