@@ -71,17 +71,20 @@ jobs:
           cat "$HOME/.zshenv" || echo "No .zshenv"
         env:
           HOME: ${{ github.workspace }}/test-home
+          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
           TERM: xterm-256color
 
       - name: Verify installation
         run: ./install.sh --check
         env:
           HOME: ${{ github.workspace }}/test-home
+          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
 
       - name: Test shell startup
         run: |
           export HOME="${{ github.workspace }}/test-home"
-          export ZDOTDIR="${HOME}/.config/zsh"
+          export XDG_CONFIG_HOME="${HOME}/.config"
+          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
           # Check if symlink or directory
           if [[ -L "$ZDOTDIR" ]]; then
             echo "ZDOTDIR is symlink -> $(readlink "$ZDOTDIR")"

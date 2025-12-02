@@ -7,9 +7,6 @@
 
 set -euo pipefail
 
-# Debug: Print HOME at script start (CI debugging)
-[[ -n "${CI:-}" ]] && echo "DEBUG: Script start HOME=$HOME" >&2
-
 # ----------------------------------------------------------
 # * CONFIGURATION
 # ----------------------------------------------------------
@@ -28,16 +25,11 @@ AUTO_YES=false
 
 # Initialize paths (call this at start of main to pick up env overrides)
 init_paths() {
-    # Debug: Print HOME in init_paths (CI debugging)
-    [[ -n "${CI:-}" ]] && echo "DEBUG: init_paths HOME=$HOME" >&2
-
     INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
     DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
     CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
     STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
     BACKUP_DIR="$HOME/.zsh-backup-$(date +%Y%m%d_%H%M%S)"
-
-    [[ -n "${CI:-}" ]] && echo "DEBUG: INSTALL_DIR=$INSTALL_DIR" >&2
 }
 
 # Colors
