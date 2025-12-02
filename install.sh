@@ -435,7 +435,7 @@ check_omz() {
         return 0
     elif [[ -d "$HOME/.oh-my-zsh" ]]; then
         print_warning "Oh My Zsh found at ~/.oh-my-zsh (legacy location)"
-        if confirm "Move to XDG location ($omz_path)?"; then
+        if confirm "Move to XDG location ($omz_path)?" "y"; then
             mkdir -p "$DATA_DIR"
             mv "$HOME/.oh-my-zsh" "$omz_path"
             print_success "Moved to $omz_path"
@@ -446,14 +446,9 @@ check_omz() {
         return 0
     fi
 
-    # OMZ not installed
-    print_warning "Oh My Zsh not found"
-    if confirm "Install Oh My Zsh now?" "y"; then
-        install_omz
-    else
-        print_error "Oh My Zsh is required. Aborting."
-        exit 1
-    fi
+    # OMZ not installed - auto-install (required dependency)
+    print_info "Oh My Zsh not found - installing automatically..."
+    install_omz
 }
 
 install_omz() {

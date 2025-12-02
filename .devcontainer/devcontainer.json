@@ -1,0 +1,29 @@
+{
+  "name": "ZSH Configuration Dev Environment",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        }
+      },
+      "extensions": [
+        "EditorConfig.EditorConfig",
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format"
+      ]
+    }
+  },
+  "postCreateCommand": ".devcontainer/setup.sh",
+  "remoteUser": "vscode"
+}
