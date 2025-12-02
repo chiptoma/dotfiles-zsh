@@ -15,6 +15,7 @@ on:
 
 env:
   TERM: xterm-256color
+  ZSH_DISABLE_COMPFIX: 'true'
 
 jobs:
   # ----------------------------------------------------------
@@ -60,6 +61,8 @@ jobs:
   test-ubuntu:
     name: Test (Ubuntu)
     runs-on: ubuntu-latest
+    env:
+      TEST_HOME: ${{ github.workspace }}/test-home
     steps:
       - uses: actions/checkout@v4
       - name: Install zsh
@@ -67,16 +70,25 @@ jobs:
       - name: Install configuration
         run: ./install.sh --yes
         env:
-          HOME: ${{ github.workspace }}/test-home
-          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+      - name: Install OMZ plugins
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_DATA_HOME="${HOME}/.local/share"
+          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+          git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
       - name: Verify installation
         run: ./install.sh --check
         env:
-          HOME: ${{ github.workspace }}/test-home
-          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
       - name: Run smoke tests
         run: |
-          export HOME="${{ github.workspace }}/test-home"
+          export HOME="${{ env.TEST_HOME }}"
           export XDG_CONFIG_HOME="${HOME}/.config"
           export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
           zsh ./scripts/smoke-test.zsh --verbose
@@ -84,21 +96,32 @@ jobs:
   test-macos:
     name: Test (macOS)
     runs-on: macos-latest
+    env:
+      TEST_HOME: ${{ github.workspace }}/test-home
     steps:
       - uses: actions/checkout@v4
       - name: Install configuration
         run: ./install.sh --yes
         env:
-          HOME: ${{ github.workspace }}/test-home
-          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+      - name: Install OMZ plugins
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_DATA_HOME="${HOME}/.local/share"
+          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+          git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
       - name: Verify installation
         run: ./install.sh --check
         env:
-          HOME: ${{ github.workspace }}/test-home
-          XDG_CONFIG_HOME: ${{ github.workspace }}/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
       - name: Run smoke tests
         run: |
-          export HOME="${{ github.workspace }}/test-home"
+          export HOME="${{ env.TEST_HOME }}"
           export XDG_CONFIG_HOME="${HOME}/.config"
           export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
           zsh ./scripts/smoke-test.zsh --verbose
@@ -107,6 +130,8 @@ jobs:
     name: Test (Fedora)
     runs-on: ubuntu-latest
     container: fedora:latest
+    env:
+      TEST_HOME: /tmp/test-home
     steps:
       - name: Install dependencies
         run: dnf install -y git zsh findutils
@@ -114,16 +139,25 @@ jobs:
       - name: Install configuration
         run: ./install.sh --yes
         env:
-          HOME: /tmp/test-home
-          XDG_CONFIG_HOME: /tmp/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+      - name: Install OMZ plugins
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_DATA_HOME="${HOME}/.local/share"
+          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+          git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
       - name: Verify installation
         run: ./install.sh --check
         env:
-          HOME: /tmp/test-home
-          XDG_CONFIG_HOME: /tmp/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
       - name: Run smoke tests
         run: |
-          export HOME="/tmp/test-home"
+          export HOME="${{ env.TEST_HOME }}"
           export XDG_CONFIG_HOME="${HOME}/.config"
           export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
           zsh ./scripts/smoke-test.zsh --verbose
@@ -132,6 +166,8 @@ jobs:
     name: Test (Arch)
     runs-on: ubuntu-latest
     container: archlinux:latest
+    env:
+      TEST_HOME: /tmp/test-home
     steps:
       - name: Install dependencies
         run: pacman -Syu --noconfirm git zsh
@@ -139,16 +175,25 @@ jobs:
       - name: Install configuration
         run: ./install.sh --yes
         env:
-          HOME: /tmp/test-home
-          XDG_CONFIG_HOME: /tmp/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
+      - name: Install OMZ plugins
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export XDG_DATA_HOME="${HOME}/.local/share"
+          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+          git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
       - name: Verify installation
         run: ./install.sh --check
         env:
-          HOME: /tmp/test-home
-          XDG_CONFIG_HOME: /tmp/test-home/.config
+          HOME: ${{ env.TEST_HOME }}
+          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
       - name: Run smoke tests
         run: |
-          export HOME="/tmp/test-home"
+          export HOME="${{ env.TEST_HOME }}"
           export XDG_CONFIG_HOME="${HOME}/.config"
           export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
           zsh ./scripts/smoke-test.zsh --verbose

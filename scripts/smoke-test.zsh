@@ -202,11 +202,21 @@ fi
 
 section "Interactive Shell"
 
-# Test that zsh -i can start (with timeout)
-interactive_result=$(timeout 5 zsh -i -c "
-    echo 'INTERACTIVE_OK'
-    exit 0
-" 2>&1 || echo "TIMEOUT_OR_ERROR")
+# Use gtimeout on macOS, timeout on Linux
+if command -v gtimeout &>/dev/null; then
+    TIMEOUT_CMD="gtimeout"
+elif command -v timeout &>/dev/null; then
+    TIMEOUT_CMD="timeout"
+else
+    TIMEOUT_CMD=""
+fi
+
+# Test that zsh -i can start
+if [[ -n "$TIMEOUT_CMD" ]]; then
+    interactive_result=$($TIMEOUT_CMD 5 zsh -i -c "echo 'INTERACTIVE_OK'; exit 0" 2>&1 || echo "TIMEOUT_OR_ERROR")
+else
+    interactive_result=$(zsh -i -c "echo 'INTERACTIVE_OK'; exit 0" 2>&1 || echo "ERROR")
+fi
 
 if [[ "$interactive_result" == *"INTERACTIVE_OK"* ]]; then
     pass "Interactive shell starts"
@@ -223,10 +233,11 @@ fi
 section "Login Shell"
 
 # Test that zsh -l can start
-login_result=$(timeout 5 zsh -l -c "
-    echo 'LOGIN_OK'
-    exit 0
-" 2>&1 || echo "TIMEOUT_OR_ERROR")
+if [[ -n "$TIMEOUT_CMD" ]]; then
+    login_result=$($TIMEOUT_CMD 5 zsh -l -c "echo 'LOGIN_OK'; exit 0" 2>&1 || echo "TIMEOUT_OR_ERROR")
+else
+    login_result=$(zsh -l -c "echo 'LOGIN_OK'; exit 0" 2>&1 || echo "ERROR")
+fi
 
 if [[ "$login_result" == *"LOGIN_OK"* ]]; then
     pass "Login shell starts"
@@ -263,8 +274,7 @@ for func in "${user_functions[@]}"; do
     if [[ "$result" == "DEFINED" ]]; then
         pass "$func defined"
     else
-        # These load from .zshrc which may have optional deps
-        warn "$func not loaded (may need dependencies)"
+        fail "$func not loaded (.zshrc modules failed)"
     fi
 done
 
@@ -274,34 +284,35 @@ done
 
 section "Module Loading"
 
-# Check that key variables are set after full load
-module_checks=(
-    "HISTFILE:History configured"
-    "EDITOR:Editor detection ran"
-)
+# Check that HISTFILE is set (required)
+histfile_result=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    export ZSH_LOG_LEVEL=ERROR
+    source \$ZDOTDIR/.zshenv
+    source \$ZDOTDIR/.zshrc 2>/dev/null
+    [[ -n \"\$HISTFILE\" ]] && echo 'SET' || echo 'UNSET'
+" 2>&1)
 
-for check in "${module_checks[@]}"; do
-    var="${check%%:*}"
-    desc="${check#*:}"
+if [[ "$histfile_result" == "SET" ]]; then
+    pass "History configured (HISTFILE set)"
+else
+    fail "History not configured (HISTFILE not set)"
+fi
 
-    result=$(zsh -c "
-        export ZDOTDIR='$ZDOTDIR'
-        export ZSH_LOG_LEVEL=ERROR
-        source \$ZDOTDIR/.zshenv
-        source \$ZDOTDIR/.zshrc 2>/dev/null
-        if [[ -n \"\$$var\" ]]; then
-            echo 'SET'
-        else
-            echo 'UNSET'
-        fi
-    " 2>&1)
+# Check EDITOR (optional - depends on what's installed)
+editor_result=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    export ZSH_LOG_LEVEL=ERROR
+    source \$ZDOTDIR/.zshenv
+    source \$ZDOTDIR/.zshrc 2>/dev/null
+    [[ -n \"\$EDITOR\" ]] && echo 'SET' || echo 'UNSET'
+" 2>&1)
 
-    if [[ "$result" == "SET" ]]; then
-        pass "$desc ($var set)"
-    else
-        warn "$desc ($var not set)"
-    fi
-done
+if [[ "$editor_result" == "SET" ]]; then
+    pass "Editor detection ran (EDITOR set)"
+else
+    warn "Editor not detected (no editor installed)"
+fi
 
 # ----------------------------------------------------------
 # * ALIAS AVAILABILITY
@@ -332,7 +343,7 @@ for alias_name in "${test_aliases[@]}"; do
     if [[ "$result" == "EXISTS" ]]; then
         pass "alias '$alias_name' defined"
     else
-        warn "alias '$alias_name' not defined"
+        fail "alias '$alias_name' not defined"
     fi
 done
 
