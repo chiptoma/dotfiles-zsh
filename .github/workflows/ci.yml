@@ -76,19 +76,21 @@ jobs:
       - name: Test .zshenv loads standalone
         run: |
           export HOME="/tmp/minimal-test"
+          export ZDOTDIR="$PWD"
           mkdir -p "$HOME"
 
           # Test .zshenv loads and core functions work
-          ZDOTDIR="$PWD" zsh -c '
-            source $ZDOTDIR/.zshenv
+          zsh -c "
+            export ZDOTDIR='$ZDOTDIR'
+            source \$ZDOTDIR/.zshenv
 
             # Verify core functions exist
-            (( $+functions[_log] )) || { echo "✗ _log missing"; exit 1; }
-            (( $+functions[_has_cmd] )) || { echo "✗ _has_cmd missing"; exit 1; }
-            (( $+functions[_safe_source] )) || { echo "✗ _safe_source missing"; exit 1; }
+            (( \$+functions[_log] )) || { echo '✗ _log missing'; exit 1; }
+            (( \$+functions[_has_cmd] )) || { echo '✗ _has_cmd missing'; exit 1; }
+            (( \$+functions[_safe_source] )) || { echo '✗ _safe_source missing'; exit 1; }
 
-            echo "✓ Core functions available without OMZ"
-          '
+            echo '✓ Core functions available without OMZ'
+          "
 
   # ----------------------------------------------------------
   # * PLATFORM TESTS
@@ -107,7 +109,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/test-home/.local/share/oh-my-zsh/custom/plugins
-          key: omz-plugins-${{ runner.os }}-v1
+          key: omz-plugins-${{ runner.os }}-v2
 
       - name: Install configuration
         run: ./install.sh --yes
@@ -184,7 +186,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/test-home/.local/share/oh-my-zsh/custom/plugins
-          key: omz-plugins-${{ runner.os }}-v1
+          key: omz-plugins-${{ runner.os }}-v2
 
       - name: Install configuration
         run: ./install.sh --yes
