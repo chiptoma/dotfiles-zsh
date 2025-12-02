@@ -134,6 +134,17 @@ has_cmd() {
     command -v "$1" &>/dev/null
 }
 
+# Run command with sudo if not already root
+maybe_sudo() {
+    if [[ $EUID -eq 0 ]]; then
+        "$@"
+    elif has_cmd sudo; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
+
 is_macos() {
     [[ "$(uname -s)" == "Darwin" ]]
 }
@@ -609,29 +620,32 @@ install_optional_tools() {
             fi
         done
 
-        # Install via package manager
+        # Install via package manager (non-fatal - optional tools)
         if [[ ${#pm_install[@]} -gt 0 ]]; then
             print_info "Installing via $pm: ${pm_install[*]}"
 
+            # Package installation is optional - don't fail if some packages unavailable
             case "$pm" in
                 brew)
-                    brew install "${pm_install[@]}"
+                    brew install "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
                 apt)
-                    sudo apt update
-                    sudo apt install -y "${pm_install[@]}"
+                    maybe_sudo apt update
+                    maybe_sudo apt install -y "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
                 dnf)
-                    sudo dnf install -y "${pm_install[@]}"
+                    # Use --skip-unavailable for packages not in repos (eza, starship)
+                    maybe_sudo dnf install -y --skip-unavailable "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
                 pacman)
-                    sudo pacman -S --noconfirm "${pm_install[@]}"
+                    # Use --needed to skip already installed, continue on errors
+                    maybe_sudo pacman -S --noconfirm --needed "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
                 apk)
-                    sudo apk add "${pm_install[@]}"
+                    maybe_sudo apk add "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
                 zypper)
-                    sudo zypper install -y "${pm_install[@]}"
+                    maybe_sudo zypper install -y "${pm_install[@]}" || print_warning "Some packages failed to install"
                     ;;
             esac
         fi
