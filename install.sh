@@ -658,22 +658,28 @@ setup_zdotdir() {
 
     local system_zshenv="$HOME/.zshenv"
 
+    # ? ZSH doesn't auto-source $ZDOTDIR/.zshenv after ZDOTDIR is set mid-file,
+    # ? so we must explicitly source it to load utils, logging, etc.
+    local zshenv_content
+    zshenv_content="export ZDOTDIR=\"$INSTALL_DIR\"
+[[ -r \"\$ZDOTDIR/.zshenv\" ]] && source \"\$ZDOTDIR/.zshenv\""
+
     # Check if already configured
     if [[ -f "$system_zshenv" ]] && grep -q "ZDOTDIR" "$system_zshenv" 2>/dev/null; then
         print_info "ZDOTDIR already configured in ~/.zshenv"
         if confirm "Overwrite existing ~/.zshenv?"; then
             if $DRY_RUN; then
-                print_dim "[dry-run] echo 'export ZDOTDIR=\"$INSTALL_DIR\"' > $system_zshenv"
+                print_dim "[dry-run] Writing ZDOTDIR config to $system_zshenv"
             else
-                echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+                printf '%s\n' "$zshenv_content" > "$system_zshenv"
             fi
             print_success "Updated ~/.zshenv"
         fi
     else
         if $DRY_RUN; then
-            print_dim "[dry-run] echo 'export ZDOTDIR=\"$INSTALL_DIR\"' > $system_zshenv"
+            print_dim "[dry-run] Writing ZDOTDIR config to $system_zshenv"
         else
-            echo "export ZDOTDIR=\"$INSTALL_DIR\"" > "$system_zshenv"
+            printf '%s\n' "$zshenv_content" > "$system_zshenv"
         fi
         print_success "Created ~/.zshenv with ZDOTDIR"
     fi
