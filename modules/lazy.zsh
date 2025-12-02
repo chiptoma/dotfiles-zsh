@@ -236,6 +236,13 @@ _lazy_init_zoxide() {
         return 0
     fi
 
+    # Skip if zoxide was already initialized (e.g., by OMZ zoxide plugin)
+    if (( $+functions[__zoxide_z] )) || (( $+aliases[z] )); then
+        _log DEBUG "Zoxide already initialized (likely by OMZ plugin), skipping lazy load"
+        _LAZY_LOADED_TOOLS[zoxide]=1
+        return 0
+    fi
+
     if _has_cmd zoxide; then
         # Create lazy wrappers for z and zi
         z() {
