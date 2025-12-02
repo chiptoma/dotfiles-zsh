@@ -626,9 +626,11 @@ install_optional_tools() {
         fi
 
         # Install via special methods (cargo, scripts)
-        for special in "${special_install[@]}"; do
-            install_special_tool "$special" || true
-        done
+        if [[ ${#special_install[@]} -gt 0 ]]; then
+            for special in "${special_install[@]}"; do
+                install_special_tool "$special" || true
+            done
+        fi
 
         print_success "Tool installation complete"
     fi

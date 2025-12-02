@@ -60,7 +60,15 @@ jobs:
       - name: Run installer (non-interactive)
         run: |
           chmod +x install.sh
+          echo "=== Pre-install state ==="
+          echo "HOME=$HOME"
+          echo "PWD=$PWD"
+          mkdir -p "$HOME"
           ./install.sh --yes
+          echo "=== Post-install state ==="
+          ls -la "$HOME/.config/" || echo "No .config dir"
+          ls -la "$HOME/.config/zsh/" || echo "No zsh dir"
+          cat "$HOME/.zshenv" || echo "No .zshenv"
         env:
           HOME: ${{ github.workspace }}/test-home
           TERM: xterm-256color
@@ -74,15 +82,19 @@ jobs:
         run: |
           export HOME="${{ github.workspace }}/test-home"
           export ZDOTDIR="${HOME}/.config/zsh"
-          echo "ZDOTDIR=$ZDOTDIR"
-          ls -la "$ZDOTDIR" || echo "ZDOTDIR not found, checking install..."
-          ls -la "$HOME/.config/" || true
-          # Test if files exist before sourcing
-          if [[ -f "$ZDOTDIR/.zshenv" ]]; then
-            zsh -c "source $ZDOTDIR/.zshenv && echo 'zshenv loaded OK'"
+          # Check if symlink or directory
+          if [[ -L "$ZDOTDIR" ]]; then
+            echo "ZDOTDIR is symlink -> $(readlink "$ZDOTDIR")"
+            ls -la "$ZDOTDIR/"
+          elif [[ -d "$ZDOTDIR" ]]; then
+            echo "ZDOTDIR is directory"
+            ls -la "$ZDOTDIR/"
           else
-            echo "Note: .zshenv not at ZDOTDIR (may be symlinked install)"
+            echo "ERROR: ZDOTDIR not found at $ZDOTDIR"
+            exit 1
           fi
+          # Test zsh can load the config
+          zsh -c "source \$ZDOTDIR/.zshenv && echo 'zshenv loaded OK'"
 
   # ----------------------------------------------------------
   # * SYNTAX CHECK
