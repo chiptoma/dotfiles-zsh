@@ -206,11 +206,24 @@ get_package_name() {
         bat)
             echo "bat"  # Same everywhere (batcat is just the binary name on Debian)
             ;;
+        fzf)
+            case "$pm" in
+                brew|pacman|dnf) echo "fzf" ;;
+                apt) echo "SCRIPT:fzf" ;;  # apt has old version, install from GitHub for --border-label support
+                *) echo "fzf" ;;
+            esac
+            ;;
         eza)
             case "$pm" in
                 brew|pacman|dnf) echo "eza" ;;
                 apt) echo "SCRIPT:eza" ;;  # Not in apt, install from GitHub
                 *) echo "eza" ;;
+            esac
+            ;;
+        yazi)
+            case "$pm" in
+                brew|pacman) echo "yazi" ;;
+                *) echo "SCRIPT:yazi" ;;  # Not in most repos, install from GitHub
             esac
             ;;
         atuin)
@@ -292,6 +305,14 @@ install_special_tool() {
             print_info "Installing eza..."
             install_eza_binary
             ;;
+        SCRIPT:fzf)
+            print_info "Installing fzf..."
+            install_fzf_binary
+            ;;
+        SCRIPT:yazi)
+            print_info "Installing yazi..."
+            install_yazi_binary
+            ;;
         *)
             print_error "Unknown special install: $tool"
             return 1
@@ -342,6 +363,103 @@ install_eza_binary() {
     fi
 
     print_warning "Failed to install eza from GitHub"
+    return 1
+}
+
+# Install fzf from GitHub releases (apt version is too old for --border-label)
+install_fzf_binary() {
+    local arch
+    arch=$(uname -m)
+    local os
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+    # Map architecture names for fzf releases
+    case "$arch" in
+        x86_64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        *)
+            print_warning "Unsupported architecture for fzf: $arch"
+            return 1
+            ;;
+    esac
+
+    # Get latest version from GitHub API (fzf includes version in filename)
+    local version
+    version=$(curl -fsSL "https://api.github.com/repos/junegunn/fzf/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/')
+    [[ -z "$version" ]] && version="0.56.3"  # Fallback
+
+    # Build download URL with explicit version
+    local url="https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-${os}_${arch}.tar.gz"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    # Download and extract
+    if curl -fsSL "$url" | tar -xz -C "$tmp_dir" 2>/dev/null; then
+        local install_dir="/usr/local/bin"
+        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
+            install_dir="$HOME/.local/bin"
+            mkdir -p "$install_dir"
+        fi
+
+        if [[ -f "$tmp_dir/fzf" ]]; then
+            maybe_sudo install -m 755 "$tmp_dir/fzf" "$install_dir/fzf" 2>/dev/null
+            if has_cmd fzf || [[ -x "$install_dir/fzf" ]]; then
+                print_success "fzf installed"
+                return 0
+            fi
+        fi
+    fi
+
+    print_warning "Failed to install fzf from GitHub"
+    return 1
+}
+
+# Install yazi from GitHub releases
+install_yazi_binary() {
+    local arch
+    arch=$(uname -m)
+    local os
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+    # Map architecture names for yazi releases
+    case "$arch" in
+        x86_64) arch="x86_64" ;;
+        aarch64|arm64) arch="aarch64" ;;
+        *)
+            print_warning "Unsupported architecture for yazi: $arch"
+            return 1
+            ;;
+    esac
+
+    # Build download URL (yazi uses musl for Linux)
+    local url="https://github.com/sxyazi/yazi/releases/latest/download/yazi-${arch}-unknown-${os}-musl.zip"
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    # Download and extract (yazi uses zip)
+    if curl -fsSL "$url" -o "$tmp_dir/yazi.zip" 2>/dev/null && unzip -q "$tmp_dir/yazi.zip" -d "$tmp_dir" 2>/dev/null; then
+        local install_dir="/usr/local/bin"
+        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
+            install_dir="$HOME/.local/bin"
+            mkdir -p "$install_dir"
+        fi
+
+        # yazi extracts to a subdirectory
+        local yazi_bin=$(find "$tmp_dir" -name "yazi" -type f -executable 2>/dev/null | head -1)
+        if [[ -n "$yazi_bin" ]]; then
+            maybe_sudo install -m 755 "$yazi_bin" "$install_dir/yazi" 2>/dev/null
+            if has_cmd yazi || [[ -x "$install_dir/yazi" ]]; then
+                print_success "yazi installed"
+                return 0
+            fi
+        fi
+    fi
+
+    print_warning "Failed to install yazi from GitHub"
     return 1
 }
 
@@ -804,6 +922,7 @@ install_optional_tools() {
         "ripgrep:rg:Fast grep replacement"
         "fd:fd:Modern find replacement"
         "zoxide:zoxide:Smart directory jumping"
+        "yazi:yazi:Terminal file manager"
         "starship:starship:Cross-shell prompt"
         "atuin:atuin:Shell history sync and search"
     )
