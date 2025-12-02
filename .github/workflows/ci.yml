@@ -377,8 +377,10 @@ jobs:
           export HOME="${{ env.TEST_HOME }}"
           export XDG_CONFIG_HOME="${HOME}/.config"
 
-          # Install with specific mode (1=symlink, 2=copy)
-          echo "${{ matrix.mode }}" | ./install.sh 2>&1 || true
+          # Install with specific mode
+          # Input: y (ready to install) + mode number (1=symlink, 2=copy)
+          # Then y/n for various prompts (backup, OMZ, etc.)
+          printf "y\n${{ matrix.mode }}\ny\ny\ny\nn\nn\n" | ./install.sh 2>&1 || true
 
           # Verify installation succeeded
           ./install.sh --check
@@ -393,7 +395,7 @@ jobs:
           export XDG_CONFIG_HOME="${HOME}/.config"
 
           # Run install again - should not break anything
-          echo "${{ matrix.mode }}" | ./install.sh 2>&1 || true
+          printf "y\n${{ matrix.mode }}\ny\ny\ny\nn\nn\n" | ./install.sh 2>&1 || true
 
           # Verify still works
           ./install.sh --check
