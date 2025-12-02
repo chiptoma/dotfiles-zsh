@@ -766,7 +766,7 @@ jobs:
           else
             echo "## Initial Release" > CHANGELOG.md
           fi
-      - uses: softprops/action-gh-release@v1
+      - uses: softprops/action-gh-release@v2
         with:
           body_path: CHANGELOG.md
           generate_release_notes: true
