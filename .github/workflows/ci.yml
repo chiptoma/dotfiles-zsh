@@ -372,6 +372,14 @@ jobs:
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
+      - name: Pre-install Oh My Zsh
+        run: |
+          export HOME="${{ env.TEST_HOME }}"
+          export ZSH="${HOME}/.local/share/oh-my-zsh"
+          mkdir -p "$HOME"
+          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+          rm -f "$HOME/.zshrc"  # OMZ creates this, we don't want it
+
       - name: Test install (${{ matrix.name }} mode)
         run: |
           export HOME="${{ env.TEST_HOME }}"
