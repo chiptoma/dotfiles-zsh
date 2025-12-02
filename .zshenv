@@ -28,7 +28,7 @@ typeset -gU path fpath
 # ? Define ZDOTDIR and XDG-aligned ZSH paths.
 # ----------------------------------------------------------
 
-export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
+export ZDOTDIR="${ZDOTDIR:-${XDG_CONFIG_HOME}/zsh}"
 export ZSH_CONFIG_HOME="$ZDOTDIR"
 export ZSH_DATA_HOME="$XDG_DATA_HOME/zsh"
 export ZSH_CACHE_HOME="$XDG_CACHE_HOME/zsh"
