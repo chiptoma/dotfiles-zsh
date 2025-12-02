@@ -902,14 +902,15 @@ if _has_cmd direnv; then
 fi
 
 # atuin - Better shell history
-if _has_cmd atuin; then
+# ? Skip if lazy loading is enabled (lazy.zsh handles it)
+if [[ "${ZSH_LAZY_ATUIN:-true}" != "true" ]] && _has_cmd atuin; then
     _cache_eval "atuin-init" "atuin init zsh" "atuin"
     # Bind both up-arrow escape sequences to atuin
     # ^[OA = application mode (what atuin binds by default)
     # ^[[A = raw mode (what most terminals send)
     bindkey '^[[A' atuin-up-search
     bindkey '^[OA' atuin-up-search
-    _log "DEBUG" "atuin initialized"
+    _log "DEBUG" "atuin initialized (immediate)"
 fi
 
 # ? Starship prompt - initialized in .zshrc AFTER OMZ loads
