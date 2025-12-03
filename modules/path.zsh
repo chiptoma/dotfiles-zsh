@@ -126,6 +126,9 @@ ZSH_PATH_DEFINITIONS=(
     'lang_dart_default'     '$HOME/.pub-cache/bin:append:exists'
     'lang_zig'              '$HOME/.zig:append:exists'
     'lang_zig_alt'          '$HOME/.local/bin/zig:append:exists'
+
+    # CLI Tools
+    'tool_atuin'            '$HOME/.atuin/bin:prepend:exists'
 )
 
 # Additional non-minimal mode paths (will be added conditionally)
