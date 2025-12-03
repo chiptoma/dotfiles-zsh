@@ -220,6 +220,8 @@ _lazy_init_atuin() {
             fi
         }
         zle -N _atuin_search_lazy
+        # Bind Ctrl+R to atuin (will be overwritten by history.zsh if atuin not preferred)
+        bindkey '^R' _atuin_search_lazy
 
         _log DEBUG "Atuin lazy load registered"
     fi
