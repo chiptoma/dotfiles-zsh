@@ -22,24 +22,21 @@ fi
 
 # ----------------------------------------------------------
 # * ATUIN HISTORY SEARCH
-# ? Bind up-arrow to atuin for better history search
-# ? Fixes: OMZ/fzf plugins override atuin's default bindings
+# ? Atuin keybindings are now handled by lazy.zsh
+# ? This allows up-arrow and Ctrl+R to work with lazy loading
 # ----------------------------------------------------------
 
-if _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
-    # Up arrow escape sequences vary by terminal mode:
-    # ^[[A = raw/normal mode (what most terminals send)
-    # ^[OA = application mode (cursor key mode)
+# Note: With lazy loading enabled (ZSH_LAZY_ATUIN=true), atuin bindings
+# are set up in modules/lazy.zsh with lazy wrappers that initialize
+# atuin on first use. This section only runs for immediate mode.
+if [[ "${ZSH_LAZY_ATUIN:-true}" != "true" ]] && _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
     bindkey '^[[A' atuin-up-search
     bindkey '^[OA' atuin-up-search
-
-    # Down arrow for atuin (if widget exists)
     if (( $+widgets[atuin-down-search] )); then
         bindkey '^[[B' atuin-down-search
         bindkey '^[OB' atuin-down-search
     fi
-
-    _log DEBUG "Atuin up/down arrow bindings configured"
+    _log DEBUG "Atuin up/down arrow bindings configured (immediate mode)"
 fi
 
 # ----------------------------------------------------------
