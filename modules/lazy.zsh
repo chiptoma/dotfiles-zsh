@@ -12,7 +12,7 @@ typeset -g _ZSH_LAZY_LOADED=1
 # Configuration variables with defaults
 : ${ZSH_LAZY_ENABLED:=true}           # Enable/disable lazy loading (default: true)
 : ${ZSH_LAZY_STARSHIP:=true}          # Lazy load starship prompt (default: true)
-: ${ZSH_LAZY_ATUIN:=true}             # Lazy load atuin history (default: true)
+: ${ZSH_LAZY_ATUIN:=false}            # Lazy load atuin history (default: false - causes keybinding issues)
 : ${ZSH_LAZY_ZOXIDE:=true}            # Lazy load zoxide (default: true)
 : ${ZSH_LAZY_NVM:=true}               # Lazy load nvm (default: true)
 : ${ZSH_LAZY_PYENV:=true}             # Lazy load pyenv (default: true)
