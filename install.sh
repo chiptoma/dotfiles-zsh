@@ -420,6 +420,12 @@ install_fzf_binary() {
 
 # Install yazi from GitHub releases
 install_yazi_binary() {
+    # yazi requires unzip
+    if ! has_cmd unzip; then
+        print_warning "yazi requires unzip (not installed)"
+        return 1
+    fi
+
     local arch
     arch=$(uname -m)
     local os
