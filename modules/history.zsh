@@ -576,14 +576,14 @@ if _has_cmd fzf; then
     # Create the widget for interactive history search
     zle -N _history_search_interactive_widget
 
-    # Bind CTRL-R to fzf history search ONLY if atuin is not available
-    # (atuin binds ^R in lazy.zsh and takes priority when installed)
+    # Bind CTRL-R to fzf only if atuin is not installed
+    # (atuin handles ^R when installed)
     if ! _has_cmd atuin; then
         bindkey '^R' _history_search_interactive_widget
     fi
 
-    # FZF-powered alias (always available alongside atuin)
-    alias h="history_search_interactive"  # Interactive history search (fzf)
+    # FZF-powered alias
+    alias h="history_search_interactive"
 else
     # ? fzf not installed - provide useful fallback with clear message
     _log WARN "fzf not installed - history search limited. Install: brew install fzf"
