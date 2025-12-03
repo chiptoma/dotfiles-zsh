@@ -342,6 +342,7 @@ install_eza_binary() {
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
     trap "rm -rf '$tmp_dir'" RETURN
 
     # Download and extract
@@ -393,6 +394,7 @@ install_fzf_binary() {
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
     trap "rm -rf '$tmp_dir'" RETURN
 
     # Download and extract
@@ -438,6 +440,7 @@ install_yazi_binary() {
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
+    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
     trap "rm -rf '$tmp_dir'" RETURN
 
     # Download and extract (yazi uses zip)
@@ -449,7 +452,8 @@ install_yazi_binary() {
         fi
 
         # yazi extracts to a subdirectory
-        local yazi_bin=$(find "$tmp_dir" -name "yazi" -type f -executable 2>/dev/null | head -1)
+        local yazi_bin
+        yazi_bin=$(find "$tmp_dir" -name "yazi" -type f -executable 2>/dev/null | head -1)
         if [[ -n "$yazi_bin" ]]; then
             maybe_sudo install -m 755 "$yazi_bin" "$install_dir/yazi" 2>/dev/null
             if has_cmd yazi || [[ -x "$install_dir/yazi" ]]; then
