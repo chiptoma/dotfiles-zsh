@@ -211,28 +211,15 @@ _lazy_init_atuin() {
             _atuin_lazy_init && atuin "$@" || command atuin "$@"
         }
 
-        # Lazy wrapper for Ctrl+R search
+        # Trigger on Ctrl-R if atuin should handle it
         _atuin_search_lazy() {
             if _atuin_lazy_init; then
+                # Re-bind and execute
                 zle -N _atuin_search_widget
                 zle _atuin_search_widget
             fi
         }
         zle -N _atuin_search_lazy
-        bindkey '^R' _atuin_search_lazy
-
-        # Lazy wrapper for up-arrow search
-        _atuin_up_search_lazy() {
-            if _atuin_lazy_init; then
-                # After init, call atuin's up-search widget
-                zle atuin-up-search 2>/dev/null || zle up-line-or-history
-            else
-                zle up-line-or-history
-            fi
-        }
-        zle -N _atuin_up_search_lazy
-        bindkey '^[[A' _atuin_up_search_lazy  # Standard escape sequence
-        bindkey '^[OA' _atuin_up_search_lazy  # Alternative escape sequence
 
         _log DEBUG "Atuin lazy load registered"
     fi
