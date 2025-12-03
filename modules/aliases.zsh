@@ -540,19 +540,19 @@ fi
 if _is_linux; then
     # Package managers (distro-specific)
     if _has_cmd apt; then
-        alias apt-up='sudo apt update && sudo apt upgrade -y'  # Update all
-        alias apt-clean='sudo apt autoremove -y && sudo apt autoclean'  # Clean up
-        alias apt-search='apt-cache search'  # Search packages
-        alias apt-info='apt-cache show'      # Package info
+        alias aptu='sudo apt update && sudo apt upgrade -y'  # Update all
+        alias aptc='sudo apt autoremove -y && sudo apt autoclean'  # Clean up
+        alias apts='apt-cache search'  # Search packages
+        alias apti='apt-cache show'      # Package info
     elif _has_cmd dnf; then
-        alias dnf-up='sudo dnf upgrade -y'   # Update all
-        alias dnf-clean='sudo dnf autoremove -y && sudo dnf clean all'  # Clean up
+        alias dnfu='sudo dnf upgrade -y'   # Update all
+        alias dnfc='sudo dnf autoremove -y && sudo dnf clean all'  # Clean up
     elif _has_cmd pacman; then
-        alias pac-up='sudo pacman -Syu'      # Update all
-        alias pac-clean='sudo pacman -Sc'    # Clean cache
-        alias pac-search='pacman -Ss'        # Search packages
-        _has_cmd yay && alias yay-up='yay -Syu'    # AUR update
-        _has_cmd paru && alias paru-up='paru -Syu'  # AUR update
+        alias pacu='sudo pacman -Syu'      # Update all
+        alias pacc='sudo pacman -Sc'    # Clean cache
+        alias pacs='pacman -Ss'        # Search packages
+        _has_cmd yay && alias yayu='yay -Syu'    # AUR update
+        _has_cmd paru && alias paru='paru -Syu'  # AUR update
     fi
 
     # Systemd
@@ -578,10 +578,10 @@ if _is_linux; then
     # NetworkManager
     if _has_cmd nmcli; then
         alias wifi='nmcli device wifi'       # WiFi status
-        alias wifi-list='nmcli device wifi list'  # List networks
-        alias wifi-connect='nmcli device wifi connect'  # Connect
-        alias wifi-off='nmcli radio wifi off'   # Disable WiFi
-        alias wifi-on='nmcli radio wifi on'     # Enable WiFi
+        alias wifils='nmcli device wifi list'  # List networks
+        alias wificon='nmcli device wifi connect'  # Connect
+        alias wifioff='nmcli radio wifi off'   # Disable WiFi
+        alias wifion='nmcli radio wifi on'     # Enable WiFi
     fi
 
     # Utilities

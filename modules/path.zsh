@@ -129,13 +129,17 @@ ZSH_PATH_DEFINITIONS=(
 
     # CLI Tools
     'tool_atuin'            '$HOME/.atuin/bin:prepend:exists'
+
+    # Homebrew (uses HOMEBREW_PREFIX set by platform lib)
+    'brew_bin'              '$HOMEBREW_PREFIX/bin:prepend:if_var_set:HOMEBREW_PREFIX'
+    'brew_sbin'             '$HOMEBREW_PREFIX/sbin:prepend:if_var_set:HOMEBREW_PREFIX'
+    'brew_gnu_coreutils'    '$HOMEBREW_GNU_COREUTILS:prepend:if_var_set:HOMEBREW_GNU_COREUTILS'
 )
 
 # Additional non-minimal mode paths (will be added conditionally)
 ZSH_PATH_DEFINITIONS+=(
-    # macOS specific paths - Homebrew locations depend on architecture
-    'mac_homebrew_m1_bin'   '/opt/homebrew/bin:prepend:if_command_exists:/opt/homebrew/bin/brew'
-    'mac_homebrew_m1_sbin'  '/opt/homebrew/sbin:prepend:if_command_exists:/opt/homebrew/bin/brew'
+    # macOS specific paths
+    # ? Homebrew paths are handled via HOMEBREW_PREFIX (see brew_bin, brew_sbin above)
     'mac_ports_bin'         '/opt/local/bin:prepend:os_is_darwin'
     'mac_ports_sbin'        '/opt/local/sbin:prepend:os_is_darwin'
     'mac_cryptexes'         '/System/Cryptexes/App/usr/bin:append:os_is_darwin'

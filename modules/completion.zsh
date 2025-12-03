@@ -16,6 +16,7 @@ typeset -g _ZSH_COMPLETION_LOADED=1
 # Configuration variables with defaults
 : ${ZSH_COMPLETION_ENABLED:=true}       # Enable/disable completion system
 : ${ZSH_COMPLETION_TTL:=86400}          # TTL for compdump in seconds (24h)
+: ${ZSH_COMPLETION_AUDIT_TTL:=604800}   # TTL for compaudit security check (7 days)
 : ${ZSH_COMPLETION_MENU_SELECT:=true}   # Enable menu selection
 
 _log DEBUG "ZSH Completion Module loading"
@@ -91,8 +92,12 @@ zmodload -F zsh/stat b:zstat 2>/dev/null
 autoload -Uz compinit
 
 # Initialize with TTL-based cache optimization
+# ? Uses separate TTLs for compdump freshness vs security audit (compaudit)
+# ? Compdump refreshes daily, compaudit runs weekly for ~20-30ms savings
 () {
     local dump_age=0
+    local audit_age=0
+    local audit_marker="${ZSH_COMPLETION_CACHE_DIR}/.last_compaudit"
 
     if [[ -f "${ZSH_COMPDUMP}" ]]; then
         # Use zstat if available, fall back to external stat
@@ -105,10 +110,33 @@ autoload -Uz compinit
         fi
     fi
 
-    if [[ -f "${ZSH_COMPDUMP}" && $dump_age -le $ZSH_COMPLETION_TTL ]]; then
-        compinit -C -d "${ZSH_COMPDUMP}"
+    # Check when compaudit last ran
+    if [[ -f "$audit_marker" ]]; then
+        if (( ${+builtins[zstat]} )); then
+            audit_age=$(( EPOCHSECONDS - $(zstat +mtime "$audit_marker") ))
+        else
+            local audit_mtime=$(stat -f %m "$audit_marker" 2>/dev/null || \
+                                stat -c %Y "$audit_marker" 2>/dev/null || echo 0)
+            audit_age=$(( EPOCHSECONDS - audit_mtime ))
+        fi
     else
+        # No marker = never audited, force audit
+        audit_age=$((ZSH_COMPLETION_AUDIT_TTL + 1))
+    fi
+
+    if [[ -f "${ZSH_COMPDUMP}" && $dump_age -le $ZSH_COMPLETION_TTL ]]; then
+        # Compdump is fresh - skip compaudit entirely with -C
+        compinit -C -d "${ZSH_COMPDUMP}"
+        _log DEBUG "compinit: using cached compdump (age: ${dump_age}s)"
+    elif [[ $audit_age -le $ZSH_COMPLETION_AUDIT_TTL ]]; then
+        # Compdump stale but audit is recent - regenerate without audit
+        compinit -C -d "${ZSH_COMPDUMP}"
+        _log DEBUG "compinit: regenerating compdump, skipping audit (audit age: ${audit_age}s)"
+    else
+        # Full initialization with security audit
         compinit -d "${ZSH_COMPDUMP}"
+        touch "$audit_marker"
+        _log DEBUG "compinit: full init with compaudit (audit age: ${audit_age}s)"
     fi
 }
 
