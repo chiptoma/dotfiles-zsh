@@ -2,7 +2,8 @@
 # ==============================================================================
 # * ZSH LAZY LOADING MODULE
 # ? Defers expensive tool initialization until first use.
-# ? Significantly reduces shell startup time for tools like starship, atuin, zoxide.
+# ? Lazy loads: zoxide, nvm, pyenv, rbenv (command-based tools).
+# ? Direct init: starship, atuin (prompt/keybinding tools need immediate init).
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
@@ -11,8 +12,6 @@ typeset -g _ZSH_LAZY_LOADED=1
 
 # Configuration variables with defaults
 : ${ZSH_LAZY_ENABLED:=true}           # Enable/disable lazy loading (default: true)
-: ${ZSH_LAZY_STARSHIP:=true}          # Lazy load starship prompt (default: true)
-: ${ZSH_LAZY_ATUIN:=false}            # Lazy load atuin history (default: false - causes keybinding issues)
 : ${ZSH_LAZY_ZOXIDE:=true}            # Lazy load zoxide (default: true)
 : ${ZSH_LAZY_NVM:=true}               # Lazy load nvm (default: true)
 : ${ZSH_LAZY_PYENV:=true}             # Lazy load pyenv (default: true)
@@ -148,80 +147,27 @@ _lazy_precmd_hook() {
 typeset -ga _LAZY_PRECMD_INITS
 
 # ----------------------------------------------------------
-# * STARSHIP LAZY LOADING
-# ? Defers starship init until after first prompt
+# * STARSHIP INITIALIZATION
+# ? Direct initialization (lazy loading not beneficial for prompts)
 # ----------------------------------------------------------
 
-_lazy_init_starship() {
-    # Set starship config path (before any init)
+_init_starship() {
     export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
-
-    if [[ "$ZSH_LAZY_STARSHIP" != "true" ]]; then
-        # Immediate init
-        if _has_cmd starship; then
-            eval "$(starship init zsh)"
-        fi
-        return 0
-    fi
-
     if _has_cmd starship; then
-        # Use precmd for starship (needs to set up prompt)
-        _lazy_starship_init() {
-            [[ -n "${_STARSHIP_INITIALIZED:-}" ]] && return 0
-            typeset -g _STARSHIP_INITIALIZED=1
-            eval "$(starship init zsh)"
-            _LAZY_LOADED_TOOLS[starship]=1
-            _log DEBUG "Starship initialized (lazy)"
-            # Remove hook
-            add-zsh-hook -d precmd _lazy_starship_init
-        }
-        autoload -Uz add-zsh-hook
-        add-zsh-hook precmd _lazy_starship_init
-        _log DEBUG "Starship lazy load registered"
+        eval "$(starship init zsh)"
+        _log DEBUG "Starship initialized"
     fi
 }
 
 # ----------------------------------------------------------
-# * ATUIN LAZY LOADING
-# ? Wraps atuin commands to defer initialization
+# * ATUIN INITIALIZATION
+# ? Direct initialization (lazy loading breaks keybindings)
 # ----------------------------------------------------------
 
-_lazy_init_atuin() {
-    if [[ "$ZSH_LAZY_ATUIN" != "true" ]]; then
-        # Immediate init
-        if _has_cmd atuin; then
-            eval "$(atuin init zsh)"
-        fi
-        return 0
-    fi
-
+_init_atuin() {
     if _has_cmd atuin; then
-        # Create wrapper that initializes on first use
-        _atuin_lazy_init() {
-            [[ -n "${_ATUIN_INITIALIZED:-}" ]] && return 1
-            typeset -g _ATUIN_INITIALIZED=1
-            eval "$(atuin init zsh)"
-            _LAZY_LOADED_TOOLS[atuin]=1
-            _log DEBUG "Atuin initialized (lazy)"
-            return 0
-        }
-
-        # Wrap the atuin command
-        atuin() {
-            _atuin_lazy_init && atuin "$@" || command atuin "$@"
-        }
-
-        # Trigger on Ctrl-R if atuin should handle it
-        _atuin_search_lazy() {
-            if _atuin_lazy_init; then
-                # Re-bind and execute
-                zle -N _atuin_search_widget
-                zle _atuin_search_widget
-            fi
-        }
-        zle -N _atuin_search_lazy
-
-        _log DEBUG "Atuin lazy load registered"
+        eval "$(atuin init zsh)"
+        _log DEBUG "Atuin initialized"
     fi
 }
 
@@ -391,14 +337,15 @@ zsh_lazy_status() {
     echo ""
     echo "Configuration:"
     echo "  ZSH_LAZY_ENABLED:   $ZSH_LAZY_ENABLED"
-    echo "  ZSH_LAZY_STARSHIP:  $ZSH_LAZY_STARSHIP"
-    echo "  ZSH_LAZY_ATUIN:     $ZSH_LAZY_ATUIN"
     echo "  ZSH_LAZY_ZOXIDE:    $ZSH_LAZY_ZOXIDE"
     echo "  ZSH_LAZY_NVM:       $ZSH_LAZY_NVM"
     echo "  ZSH_LAZY_PYENV:     $ZSH_LAZY_PYENV"
     echo "  ZSH_LAZY_RBENV:     $ZSH_LAZY_RBENV"
     echo ""
-    echo "Initialized Tools:"
+    echo "Direct Init (not lazy):"
+    echo "  starship, atuin"
+    echo ""
+    echo "Lazy Loaded Tools:"
     if [[ ${#_LAZY_LOADED_TOOLS[@]} -eq 0 ]]; then
         echo "  (none yet - tools initialize on first use)"
     else
@@ -411,12 +358,11 @@ zsh_lazy_status() {
 
 # ----------------------------------------------------------
 # * AUTO-INITIALIZATION
-# ? Register lazy loaders based on configuration.
-# ? Tools initialize on first use, not at shell startup.
+# ? Direct init for starship/atuin, lazy load for others.
 # ----------------------------------------------------------
 
-_lazy_init_starship
-_lazy_init_atuin
+_init_starship
+_init_atuin
 _lazy_init_zoxide
 _lazy_init_nvm
 _lazy_init_pyenv
