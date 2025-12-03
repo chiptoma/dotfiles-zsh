@@ -1004,7 +1004,8 @@ install_optional_tools() {
                     ;;
                 apt)
                     maybe_sudo apt-get update -qq >/dev/null 2>&1
-                    maybe_sudo apt-get install -qq -y "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    # Also install unzip (needed for yazi) if not present
+                    maybe_sudo apt-get install -qq -y unzip "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
                     ;;
                 dnf)
                     maybe_sudo dnf install -y -q --skip-unavailable "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
