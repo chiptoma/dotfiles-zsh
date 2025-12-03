@@ -76,34 +76,47 @@ export BASH_SILENCE_DEPRECATION_WARNING=1
 export BROWSER="${BROWSER:-open}"
 
 # ----------------------------------------------------------
-# * MACOS-SPECIFIC PATHS
+# * HOMEBREW DETECTION
+# ? Detects Homebrew installation and sets HOMEBREW_PREFIX.
+# ? Actual PATH manipulation is handled by modules/path.zsh.
 # ----------------------------------------------------------
 
-# Homebrew (architecture-aware)
-if _is_apple_silicon; then
-    [[ -d /opt/homebrew/bin ]] && path=(/opt/homebrew/bin /opt/homebrew/sbin $path)
-    [[ -d /opt/homebrew/opt/coreutils/libexec/gnubin ]] && path=(/opt/homebrew/opt/coreutils/libexec/gnubin $path)
-else
-    [[ -d /usr/local/bin ]] && path=(/usr/local/bin /usr/local/sbin $path)
-    [[ -d /usr/local/opt/coreutils/libexec/gnubin ]] && path=(/usr/local/opt/coreutils/libexec/gnubin $path)
-fi
+# Detect Homebrew prefix based on architecture
+# ? Called by path.zsh during path_init to set up Homebrew environment
+zsh_detect_homebrew() {
+    # Skip if already detected
+    [[ -n "$HOMEBREW_PREFIX" ]] && return 0
 
-# MacPorts
-[[ -d /opt/local/bin ]] && path=(/opt/local/bin /opt/local/sbin $path)
+    if _is_apple_silicon; then
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            export HOMEBREW_PREFIX="/opt/homebrew"
+            export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
+            export HOMEBREW_REPOSITORY="/opt/homebrew"
+        fi
+    else
+        if [[ -x /usr/local/bin/brew ]]; then
+            export HOMEBREW_PREFIX="/usr/local"
+            export HOMEBREW_CELLAR="/usr/local/Cellar"
+            export HOMEBREW_REPOSITORY="/usr/local/Homebrew"
+        fi
+    fi
 
-# Apple Developer Tools
-[[ -d /Library/Apple/usr/bin ]] && path=($path /Library/Apple/usr/bin)
+    # Set additional Homebrew environment variables if detected
+    if [[ -n "$HOMEBREW_PREFIX" ]]; then
+        export MANPATH="${HOMEBREW_PREFIX}/share/man${MANPATH:+:$MANPATH}"
+        export INFOPATH="${HOMEBREW_PREFIX}/share/info${INFOPATH:+:$INFOPATH}"
 
-# System Cryptexes (macOS Ventura+)
-[[ -d /System/Cryptexes/App/usr/bin ]] && path=($path /System/Cryptexes/App/usr/bin)
+        # GNU coreutils detection (for path.zsh to use)
+        if [[ -d "${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin" ]]; then
+            export HOMEBREW_GNU_COREUTILS="${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin"
+        fi
 
-# Xcode Command Line Tools
-[[ -d /Library/Developer/CommandLineTools/usr/bin ]] && path=($path /Library/Developer/CommandLineTools/usr/bin)
+        _log DEBUG "Homebrew detected at $HOMEBREW_PREFIX"
+    fi
+}
 
-# Homebrew environment
-if _has_cmd brew && [[ -z "$HOMEBREW_PREFIX" ]]; then
-    eval "$(brew shellenv 2>/dev/null)"
-fi
+# Run detection immediately so HOMEBREW_PREFIX is available
+zsh_detect_homebrew
 
 # ----------------------------------------------------------
 # * CLIPBOARD COMMAND

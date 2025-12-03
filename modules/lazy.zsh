@@ -32,6 +32,26 @@ fi
 typeset -gA _LAZY_LOADED_TOOLS
 
 # ----------------------------------------------------------
+# * SECURITY VALIDATION
+# ? Validates command names before use in eval to prevent injection.
+# ! WARNING: All inputs to eval MUST pass through this validation.
+# ----------------------------------------------------------
+
+# Validate command name for safe use in eval
+# Usage: _lazy_validate_cmd <cmd_name>
+# Returns: 0 if safe, 1 if contains unsafe characters
+# ? Only allows alphanumeric, underscore, and hyphen
+_lazy_validate_cmd() {
+    local cmd="$1"
+    # Allow only safe characters: a-z, A-Z, 0-9, underscore, hyphen
+    if [[ "$cmd" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        return 0
+    fi
+    _log ERROR "lazy_load: Unsafe characters in command name: $cmd"
+    return 1
+}
+
+# ----------------------------------------------------------
 # * CORE LAZY LOADING FUNCTION
 # ? Creates a wrapper function that initializes on first call
 # ----------------------------------------------------------
@@ -51,6 +71,12 @@ lazy_load() {
     shift 2
     local -a aliases=("$@")
 
+    # ! SECURITY: Validate command name before use in eval
+    if ! _lazy_validate_cmd "$cmd"; then
+        _log ERROR "lazy_load: Rejecting unsafe command name: $cmd"
+        return 1
+    fi
+
     # Skip if command doesn't exist
     if ! _has_cmd "${cmd%%[ ]*}"; then
         _log DEBUG "Lazy load skipped: ${cmd%%[ ]*} not found"
@@ -63,6 +89,11 @@ lazy_load() {
     # Create wrappers for aliases too
     local alias_cmd
     for alias_cmd in "${aliases[@]}"; do
+        # ! SECURITY: Validate each alias
+        if ! _lazy_validate_cmd "$alias_cmd"; then
+            _log WARN "lazy_load: Skipping unsafe alias: $alias_cmd"
+            continue
+        fi
         _lazy_create_wrapper "$alias_cmd" "$init_cmd"
     done
 
@@ -70,9 +101,17 @@ lazy_load() {
 }
 
 # Internal: Create a wrapper function
+# ! SECURITY: cmd must be validated before calling this function
 _lazy_create_wrapper() {
     local cmd="$1"
     local init_cmd="$2"
+
+    # ! Defense-in-depth: Re-validate even though caller should validate
+    if ! _lazy_validate_cmd "$cmd"; then
+        _log ERROR "_lazy_create_wrapper: Unsafe command rejected: $cmd"
+        return 1
+    fi
+
     local wrapper_name="_lazy_wrapper_${cmd//[^a-zA-Z0-9_]/_}"
 
     # Store the init command in a variable for this wrapper
