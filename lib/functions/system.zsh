@@ -446,17 +446,17 @@ _zsh_check_updates() {
             local_rev=$(git rev-parse HEAD 2>/dev/null)
             remote_rev=$(git rev-parse "$upstream" 2>/dev/null)
 
-            # Update cache
+            # Update cache (use >| to override noclobber)
             mkdir -p "$cache_dir"
             if [[ -n "$remote_rev" && "$local_rev" != "$remote_rev" ]]; then
                 # Check if we're behind (not just diverged)
                 if git merge-base --is-ancestor HEAD "$upstream" 2>/dev/null; then
-                    echo "$(date +%s)\nupdates_available" > "$cache_file"
+                    echo "$(date +%s)\nupdates_available" >| "$cache_file"
                 else
-                    echo "$(date +%s)\nup_to_date" > "$cache_file"
+                    echo "$(date +%s)\nup_to_date" >| "$cache_file"
                 fi
             else
-                echo "$(date +%s)\nup_to_date" > "$cache_file"
+                echo "$(date +%s)\nup_to_date" >| "$cache_file"
             fi
         ) &!
     fi
