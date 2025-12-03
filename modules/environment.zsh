@@ -902,19 +902,23 @@ if _has_cmd direnv; then
 fi
 
 # atuin - Better shell history
-# ? Skip if lazy loading is enabled (lazy.zsh handles it)
-if [[ "${ZSH_LAZY_ATUIN:-true}" != "true" ]] && _has_cmd atuin; then
+if _has_cmd atuin; then
     _cache_eval "atuin-init" "atuin init zsh" "atuin"
     # Bind both up-arrow escape sequences to atuin
     # ^[OA = application mode (what atuin binds by default)
     # ^[[A = raw mode (what most terminals send)
     bindkey '^[[A' atuin-up-search
     bindkey '^[OA' atuin-up-search
-    _log "DEBUG" "atuin initialized (immediate)"
+    _log "DEBUG" "atuin initialized"
 fi
 
-# ? Starship prompt - initialized in .zshrc AFTER OMZ loads
-# ? (OMZ overwrites PROMPT, so starship must init last)
+# starship - Cross-shell prompt
+# ? Must init after OMZ loads (OMZ overwrites PROMPT)
+if _has_cmd starship; then
+    export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
+    eval "$(starship init zsh)"
+    _log "DEBUG" "starship initialized"
+fi
 
 # ----------------------------------------------------------
 # * ALIASES

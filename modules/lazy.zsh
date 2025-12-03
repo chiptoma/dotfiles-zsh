@@ -3,7 +3,6 @@
 # * ZSH LAZY LOADING MODULE
 # ? Defers expensive tool initialization until first use.
 # ? Lazy loads: zoxide, nvm, pyenv, rbenv (command-based tools).
-# ? Direct init: starship, atuin (prompt/keybinding tools need immediate init).
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
@@ -145,31 +144,6 @@ _lazy_precmd_hook() {
 
 # Initialize precmd array
 typeset -ga _LAZY_PRECMD_INITS
-
-# ----------------------------------------------------------
-# * STARSHIP INITIALIZATION
-# ? Direct initialization (lazy loading not beneficial for prompts)
-# ----------------------------------------------------------
-
-_init_starship() {
-    export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
-    if _has_cmd starship; then
-        eval "$(starship init zsh)"
-        _log DEBUG "Starship initialized"
-    fi
-}
-
-# ----------------------------------------------------------
-# * ATUIN INITIALIZATION
-# ? Direct initialization (lazy loading breaks keybindings)
-# ----------------------------------------------------------
-
-_init_atuin() {
-    if _has_cmd atuin; then
-        eval "$(atuin init zsh)"
-        _log DEBUG "Atuin initialized"
-    fi
-}
 
 # ----------------------------------------------------------
 # * ZOXIDE LAZY LOADING
@@ -342,9 +316,6 @@ zsh_lazy_status() {
     echo "  ZSH_LAZY_PYENV:     $ZSH_LAZY_PYENV"
     echo "  ZSH_LAZY_RBENV:     $ZSH_LAZY_RBENV"
     echo ""
-    echo "Direct Init (not lazy):"
-    echo "  starship, atuin"
-    echo ""
     echo "Lazy Loaded Tools:"
     if [[ ${#_LAZY_LOADED_TOOLS[@]} -eq 0 ]]; then
         echo "  (none yet - tools initialize on first use)"
@@ -358,11 +329,9 @@ zsh_lazy_status() {
 
 # ----------------------------------------------------------
 # * AUTO-INITIALIZATION
-# ? Direct init for starship/atuin, lazy load for others.
+# ? Register lazy loaders for command-based tools.
 # ----------------------------------------------------------
 
-_init_starship
-_init_atuin
 _lazy_init_zoxide
 _lazy_init_nvm
 _lazy_init_pyenv
