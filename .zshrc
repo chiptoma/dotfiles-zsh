@@ -144,13 +144,11 @@ source "${ZSH_CONFIG_HOME}/modules/compilation.zsh"
 
 # ----------------------------------------------------------
 # * LAZY LOADING MODULE
-# ? Defers expensive tool initialization until first use.
-# ? Significantly reduces shell startup time.
+# ? Defers command-based tool initialization until first use.
+# ? Reduces startup time for: zoxide, nvm, pyenv, rbenv.
 #
 # ? Configuration:
 #     ZSH_LAZY_ENABLED   = true   (enable/disable lazy loading)
-#     ZSH_LAZY_STARSHIP  = true   (lazy load starship prompt)
-#     ZSH_LAZY_ATUIN     = true   (lazy load atuin history)
 #     ZSH_LAZY_ZOXIDE    = true   (lazy load zoxide)
 #     ZSH_LAZY_NVM       = true   (lazy load nvm)
 #     ZSH_LAZY_PYENV     = true   (lazy load pyenv)
