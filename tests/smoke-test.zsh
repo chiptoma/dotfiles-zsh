@@ -103,10 +103,11 @@ section "File Structure"
 required_files=(
     ".zshenv"
     ".zshrc"
-    "modules/logging.zsh"
+    "lib/utils/logging.zsh"
+    "lib/utils/core.zsh"
+    "lib/utils/index.zsh"
     "modules/environment.zsh"
     "modules/path.zsh"
-    "lib/utils.zsh"
 )
 
 for file in "${required_files[@]}"; do

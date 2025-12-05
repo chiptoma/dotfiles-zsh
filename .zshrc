@@ -209,7 +209,7 @@ source "${ZSH_CONFIG_HOME}/modules/keybindings.zsh"
 # ----------------------------------------------------------
 # * POST-INTERACTIVE HOOKS
 # ? Run deferred initialization that must happen after /etc/zshrc.
-# ? Hooks registered by modules: starship, editor config, PATH cleanup.
+# ? Hooks: _env_init_starship (prompt), _path_clean (cleanup).
 # ! IMPORTANT: Must run AFTER /etc/zshrc (which overwrites PROMPT on macOS).
 # ----------------------------------------------------------
 

@@ -501,6 +501,12 @@ _env_setup_tools() {
             value="${value_and_command%%|*}"
             command="${value_and_command#*|}"
 
+            # Check if tool exists BEFORE setting env var (PATH is now available)
+            if (( ! $+commands[$command] )); then
+                _log "DEBUG" "Skipping $var - command '$command' not in PATH"
+                continue
+            fi
+
             # Expand the value string using ZSH parameter expansion
             # ? Safer than eval but still expands $(...) command substitution
             # ! SECURITY: Values MUST come from hardcoded arrays, NEVER user input
@@ -589,34 +595,6 @@ _env_setup_terminal() {
     fi
 }
 
-# Verify tools and configure editors
-_env_verify_tools_and_configure_editors() {
-    _log "DEBUG" "Verifying tools and configuring editors..."
-
-    local category
-    local var value_and_command
-    local value command
-
-    # Process each tool category
-    # ? Format: 'VAR_NAME' 'value|command' where | separates value from command
-    for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
-        # Use (P) parameter expansion flag to access the associative array
-        for var value_and_command in ${(kvP)category}; do
-            # Split value and command using | delimiter
-            value="${value_and_command%%|*}"
-            command="${value_and_command#*|}"
-
-            # Use hash table lookup (instant) instead of command -v (subprocess)
-            if (( ! $+commands[$command] )); then
-                unset "$var"
-                _log "DEBUG" "Unset $var - command '$command' not found in PATH"
-            fi
-        done
-    done
-
-    _env_configure_editors
-}
-
 # ----------------------------------------------------------
 # * MAIN INITIALIZATION
 # ? Entry point that orchestrates all environment setup.
@@ -670,6 +648,9 @@ _environment_init() {
             _log "DEBUG" "zsh_detect_ssh_agent not available, skipping"
         fi
     fi
+
+    # Configure editors (PATH is now available for editor detection)
+    _env_configure_editors
 
     _log "INFO" "ZSH Environment Module initialized successfully"
 
@@ -924,10 +905,6 @@ _env_init_starship() {
 
 # Register starship for deferred execution (after /etc/zshrc)
 ZSH_POST_INTERACTIVE_HOOKS+=('_env_init_starship')
-
-# Register tool verification and editor configuration
-# ? Runs after PATH is fully set to verify tool availability
-ZSH_POST_INTERACTIVE_HOOKS+=('_env_verify_tools_and_configure_editors')
 
 # ----------------------------------------------------------
 # * ALIASES

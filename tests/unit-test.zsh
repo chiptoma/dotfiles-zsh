@@ -164,10 +164,10 @@ load_module() {
     fi
 
     # Reset guards to allow reload
-    unset _ZSH_UTILS_LOADED _ZSH_LOGGING_LOADED _ZSH_PATH_LOADED 2>/dev/null
+    unset _ZSH_UTILS_LOADED _ZSH_UTILS_INDEX_LOADED _ZSH_LOGGING_LOADED _ZSH_PATH_LOADED 2>/dev/null
 
-    # Source minimal dependencies
-    source "$ZDOTDIR/modules/logging.zsh" 2>/dev/null || true
+    # Source minimal dependencies (new paths after refactor)
+    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
     source "$module_path"
 }
 
@@ -176,12 +176,12 @@ load_module() {
 # ----------------------------------------------------------
 
 test_utils() {
-    section "lib/utils.zsh"
+    section "lib/utils/core.zsh"
 
     # Load module
     unset _ZSH_UTILS_LOADED 2>/dev/null
-    source "$ZDOTDIR/modules/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils.zsh" || { skip "utils.zsh not loadable"; return; }
+    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/utils/core.zsh" || { skip "core.zsh not loadable"; return; }
 
     # Test _has_cmd
     assert_true "_has_cmd finds 'ls'" _has_cmd ls
@@ -235,11 +235,11 @@ test_utils() {
 # ----------------------------------------------------------
 
 test_logging() {
-    section "modules/logging.zsh"
+    section "lib/utils/logging.zsh"
 
     # Load module
     unset _ZSH_LOGGING_LOADED 2>/dev/null
-    source "$ZDOTDIR/modules/logging.zsh" || { skip "logging.zsh not loadable"; return; }
+    source "$ZDOTDIR/lib/utils/logging.zsh" || { skip "logging.zsh not loadable"; return; }
 
     # Test log levels exist
     assert_eq "${ZSH_LOG_LEVELS[DEBUG]}" "0" "DEBUG level is 0"
