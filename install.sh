@@ -806,7 +806,7 @@ install_config() {
                 fi
 
                 # Verify essential files exist in temp
-                local -a essential=(".zshenv" ".zshrc" "modules/logging.zsh" "lib/utils.zsh")
+                local -a essential=(".zshenv" ".zshrc" "lib/utils/index.zsh" "modules/environment.zsh")
                 for file in "${essential[@]}"; do
                     if [[ ! -f "$temp_install/$file" ]]; then
                         print_error "Essential file missing in copy: $file"
@@ -1063,8 +1063,10 @@ verify_installation() {
     local -a essential_files=(
         ".zshenv"
         ".zshrc"
-        "modules/logging.zsh"
-        "lib/utils.zsh"
+        "lib/utils/index.zsh"
+        "lib/utils/logging.zsh"
+        "modules/environment.zsh"
+        "modules/path.zsh"
     )
 
     local missing_files=0
