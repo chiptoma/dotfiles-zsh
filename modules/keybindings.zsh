@@ -22,8 +22,8 @@ fi
 
 # ----------------------------------------------------------
 # * ATUIN HISTORY SEARCH
-# ? Bind up-arrow to atuin for better history search
-# ? Fixes: OMZ/fzf plugins override atuin's default bindings
+# ? All atuin keybindings are centralized here
+# ? environment.zsh loads widgets only (--disable-up-arrow)
 # ----------------------------------------------------------
 
 if _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
@@ -39,7 +39,12 @@ if _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
         bindkey '^[OB' atuin-down-search
     fi
 
-    _log DEBUG "Atuin up/down arrow bindings configured"
+    # Ctrl+R for interactive history search
+    if (( $+widgets[atuin-search] )); then
+        bindkey '^R' atuin-search
+    fi
+
+    _log DEBUG "Atuin keybindings configured (up/down/ctrl-r)"
 fi
 
 # ----------------------------------------------------------
