@@ -883,10 +883,10 @@ if _has_cmd direnv; then
     _log "DEBUG" "direnv hook initialized"
 fi
 
-# atuin - Better shell history (init directly, keybindings in keybindings.zsh)
+# atuin - Better shell history (widgets only, keybindings in keybindings.zsh)
 if _has_cmd atuin; then
-    _cache_eval "atuin-init" "atuin init zsh" "atuin"
-    _log "DEBUG" "atuin initialized (keybindings deferred to keybindings.zsh)"
+    _cache_eval "atuin-init" "atuin init zsh --disable-up-arrow" "atuin"
+    _log "DEBUG" "atuin widgets loaded (keybindings in keybindings.zsh)"
 fi
 
 # ----------------------------------------------------------
