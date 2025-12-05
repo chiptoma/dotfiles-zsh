@@ -30,11 +30,6 @@ fi
 # Format: name => "path_to_add:position:condition_tag[:condition_value]"
 typeset -gA ZSH_PATH_DEFINITIONS
 
-# Global array for post-path-init hooks
-# Only initialize if not already declared
-if [[ -z "${ZSH_POST_PATH_INIT_HOOKS+x}" ]]; then
-    typeset -ga ZSH_POST_PATH_INIT_HOOKS=()
-fi
 
 # Initialize path definitions with system and user paths
 ZSH_PATH_DEFINITIONS=(
@@ -539,22 +534,7 @@ path_init() {
     # If minimal mode, stop here
     if [[ "$ZSH_PATH_IS_MINIMAL" == "true" ]]; then
         export PATH
-        
-        # Execute post-path-init hooks (even in minimal mode)
-        if (( ${#ZSH_POST_PATH_INIT_HOOKS[@]} > 0 )); then
-            _log "DEBUG" "Executing ${#ZSH_POST_PATH_INIT_HOOKS[@]} post-path-init hook(s)..."
-            local hook_func
-            for hook_func in "${ZSH_POST_PATH_INIT_HOOKS[@]}"; do
-                if typeset -f "$hook_func" >/dev/null; then
-                    _log "DEBUG" "--> Running hook: $hook_func"
-                    "$hook_func"
-                else
-                    _log "WARN" "Hook function not found: $hook_func"
-                fi
-            done
-        fi
-        
-        _log "INFO" "PATH initialization complete."
+        _log "INFO" "PATH initialization complete (minimal mode)."
         return 0
     fi
 
@@ -575,31 +555,23 @@ path_init() {
     # * FINAL PATH EXPORT
     # ----------------------------------------------------------
 
-    # Export PATH
     export PATH
-
-    # Execute post-path-init hooks
-    _log "DEBUG" "Checking for post-path-init hooks. Array size: ${#ZSH_POST_PATH_INIT_HOOKS[@]}"
-    if (( ${#ZSH_POST_PATH_INIT_HOOKS[@]} > 0 )); then
-        _log "DEBUG" "Executing ${#ZSH_POST_PATH_INIT_HOOKS[@]} post-path-init hook(s)..."
-        local hook_func
-        for hook_func in "${ZSH_POST_PATH_INIT_HOOKS[@]}"; do
-            if typeset -f "$hook_func" >/dev/null; then
-                _log "DEBUG" "--> Running hook: $hook_func"
-                "$hook_func"
-            else
-                _log "WARN" "Hook function not found: $hook_func"
-            fi
-        done
-    else
-        _log "DEBUG" "No post-path-init hooks registered"
-    fi
-
     _log "INFO" "PATH initialization complete."
 }
 
 # Call the initialization function
 path_init
+
+# ----------------------------------------------------------
+# * DEFERRED PATH CLEANUP
+# ? Register _path_clean to run after .zshrc loads (via hook system).
+# ? This ensures all PATH modifications from plugins/scripts are applied first.
+# ----------------------------------------------------------
+
+if [[ "$ZSH_PATH_CLEAN" == "true" ]]; then
+    ZSH_POST_INTERACTIVE_HOOKS+=('_path_clean')
+    _log "DEBUG" "Registered _path_clean for deferred execution"
+fi
 
 # ----------------------------------------------------------
 # * PUBLIC FUNCTIONS
