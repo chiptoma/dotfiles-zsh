@@ -42,8 +42,13 @@ _log DEBUG "ZSH Linux Platform Library loading"
 
 _get_linux_distro() {
     if [[ -f /etc/os-release ]]; then
-        source /etc/os-release
-        echo "${ID:-unknown}"
+        # ? Safe parsing: extract ID= line without executing file
+        local id_line
+        id_line=$(grep -E '^ID=' /etc/os-release 2>/dev/null | head -1)
+        # ? Remove 'ID=' prefix and any quotes
+        local id="${id_line#ID=}"
+        id="${id//\"/}"
+        echo "${id:-unknown}"
     elif [[ -f /etc/debian_version ]]; then
         echo "debian"
     elif [[ -f /etc/redhat-release ]]; then

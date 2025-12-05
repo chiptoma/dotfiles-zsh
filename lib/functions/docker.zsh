@@ -59,8 +59,12 @@ zsh_docker_rmi_dangling() {
     images=("${(@)images:#}")  # Remove empty elements
     if (( ${#images} )); then
         echo "Removing ${#images} dangling image(s)..."
-        docker rmi "${images[@]}"
-        echo "✓ Dangling images removed"
+        if docker rmi "${images[@]}"; then
+            echo "✓ Dangling images removed"
+        else
+            echo "⚠ Some images may have failed to remove" >&2
+            return 1
+        fi
     else
         echo "No dangling images to remove"
     fi
