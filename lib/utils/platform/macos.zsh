@@ -54,8 +54,11 @@ _get_macos_version() {
     esac
 }
 
+# ? Cache uname -m result to avoid multiple subprocess calls
+typeset -g _MACOS_UNAME_M="${_MACOS_UNAME_M:-$(uname -m)}"
+
 _is_apple_silicon() {
-    [[ "$(uname -m)" == "arm64" ]]
+    [[ "$_MACOS_UNAME_M" == "arm64" ]]
 }
 
 # ----------------------------------------------------------
@@ -63,7 +66,7 @@ _is_apple_silicon() {
 # ----------------------------------------------------------
 
 export MACOS_VERSION="${MACOS_VERSION:-$(_get_macos_version)}"
-export MACOS_ARCH="${MACOS_ARCH:-$(uname -m)}"
+export MACOS_ARCH="${MACOS_ARCH:-$_MACOS_UNAME_M}"
 
 if _is_apple_silicon; then
     export MACOS_CHIP="apple_silicon"
@@ -153,6 +156,9 @@ _macos_detect_ssh_agent() {
 # Kill an application by name
 zsh_killapp() {
     local app="${1:?Usage: killapp <app_name>}"
+    # ? Sanitize: remove quotes to prevent AppleScript injection
+    app="${app//\"/}"
+    app="${app//\'/}"
     osascript -e "tell application \"$app\" to quit" 2>/dev/null || \
         pkill -x "$app" 2>/dev/null || \
         echo "Could not quit $app" >&2

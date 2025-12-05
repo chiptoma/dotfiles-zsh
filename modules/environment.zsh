@@ -106,8 +106,9 @@ ZSH_ENV_XDG_BASE=(
 )
 
 # Core Environment Variables - Always set
+# ? Use single quotes to defer $(tty) expansion until _env_setup_core() runs
 ZSH_ENV_CORE=(
-    'GPG_TTY'       "$(tty)"
+    'GPG_TTY'       '$(tty)'
 )
 
 # ZSH
@@ -472,10 +473,12 @@ _env_setup_core() {
         _log "DEBUG" "Locale override: $ZSH_LOCALE_OVERRIDE"
     fi
 
-    local var value
+    local var value expanded_value
     for var value in ${(kv)ZSH_ENV_CORE}; do
-        export "$var"="$value"
-        _log "DEBUG" "$var=${(P)var}"
+        # ? Expand command substitution at runtime (e.g., $(tty))
+        expanded_value="${(e)value}"
+        export "$var"="$expanded_value"
+        _log "DEBUG" "$var=$expanded_value"
     done
 }
 
