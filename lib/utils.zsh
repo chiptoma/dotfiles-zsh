@@ -219,6 +219,37 @@ _require_omz() {
 }
 
 # ----------------------------------------------------------
+# * HOOK SYSTEM
+# ? Allows modules to register callbacks for deferred execution.
+# ? POST_INTERACTIVE hooks run at end of .zshrc (after /etc/zshrc).
+# ----------------------------------------------------------
+
+# Global hook arrays - modules register functions to these
+typeset -ga ZSH_POST_INTERACTIVE_HOOKS=()
+
+# Run all registered post-interactive hooks
+# Usage: _run_post_interactive_hooks
+# Called at end of .zshrc after all modules loaded
+_run_post_interactive_hooks() {
+    if (( ${#ZSH_POST_INTERACTIVE_HOOKS[@]} == 0 )); then
+        _log DEBUG "No post-interactive hooks registered"
+        return 0
+    fi
+
+    _log DEBUG "Running ${#ZSH_POST_INTERACTIVE_HOOKS[@]} post-interactive hook(s)..."
+
+    local hook_func
+    for hook_func in "${ZSH_POST_INTERACTIVE_HOOKS[@]}"; do
+        if (( $+functions[$hook_func] )); then
+            _log DEBUG "  → $hook_func"
+            "$hook_func"
+        else
+            _log WARN "Hook function not found: $hook_func"
+        fi
+    done
+}
+
+# ----------------------------------------------------------
 # * LOGGING INTEGRATION
 # ----------------------------------------------------------
 

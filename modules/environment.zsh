@@ -892,33 +892,42 @@ env_reload() {
 
 # ----------------------------------------------------------
 # * SHELL TOOL INITIALIZATION
-# ? Tools that hook into the shell (cached for faster startup).
+# ? Tools that hook into the shell (direnv, atuin).
+# ? Keybindings are handled by keybindings.zsh module.
 # ----------------------------------------------------------
 
-# direnv - Environment switcher
+# direnv - Environment switcher (init directly, no PROMPT involvement)
 if _has_cmd direnv; then
     _cache_eval "direnv-hook" "direnv hook zsh" "direnv"
     _log "DEBUG" "direnv hook initialized"
 fi
 
-# atuin - Better shell history
+# atuin - Better shell history (init directly, keybindings in keybindings.zsh)
 if _has_cmd atuin; then
     _cache_eval "atuin-init" "atuin init zsh" "atuin"
-    # Bind both up-arrow escape sequences to atuin
-    # ^[OA = application mode (what atuin binds by default)
-    # ^[[A = raw mode (what most terminals send)
-    bindkey '^[[A' atuin-up-search
-    bindkey '^[OA' atuin-up-search
-    _log "DEBUG" "atuin initialized"
+    _log "DEBUG" "atuin initialized (keybindings deferred to keybindings.zsh)"
 fi
 
-# starship - Cross-shell prompt
-# ? Must init after OMZ loads (OMZ overwrites PROMPT)
-if _has_cmd starship; then
-    export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
-    eval "$(starship init zsh)"
-    _log "DEBUG" "starship initialized"
-fi
+# ----------------------------------------------------------
+# * STARSHIP PROMPT (DEFERRED)
+# ? Must run in .zshrc AFTER /etc/zshrc which overwrites PROMPT.
+# ? Registered as POST_INTERACTIVE hook, executed by .zshrc.
+# ----------------------------------------------------------
+
+_env_init_starship() {
+    if _has_cmd starship; then
+        export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
+        eval "$(starship init zsh)"
+        _log "DEBUG" "starship prompt initialized"
+    fi
+}
+
+# Register starship for deferred execution (after /etc/zshrc)
+ZSH_POST_INTERACTIVE_HOOKS+=('_env_init_starship')
+
+# Register tool verification and editor configuration
+# ? Runs after PATH is fully set to verify tool availability
+ZSH_POST_INTERACTIVE_HOOKS+=('_env_verify_tools_and_configure_editors')
 
 # ----------------------------------------------------------
 # * ALIASES
@@ -933,12 +942,5 @@ alias envreload="env_reload"
 # ----------------------------------------------------------
 
 _environment_init
-
-# Register post-path-init hook
-# Ensure the array exists (in case this module loads before path.zsh)
-if [[ -z "${ZSH_POST_PATH_INIT_HOOKS+x}" ]]; then
-    typeset -ga ZSH_POST_PATH_INIT_HOOKS=()
-fi
-ZSH_POST_PATH_INIT_HOOKS+=('_env_verify_tools_and_configure_editors')
 
 _log DEBUG "ZSH Environment Module loaded successfully"

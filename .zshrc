@@ -207,20 +207,13 @@ source "${ZSH_CONFIG_HOME}/modules/aliases.zsh"
 source "${ZSH_CONFIG_HOME}/modules/keybindings.zsh"
 
 # ----------------------------------------------------------
-# * FINAL PATH CLEANUP
+# * POST-INTERACTIVE HOOKS
+# ? Run deferred initialization that must happen after /etc/zshrc.
+# ? Hooks registered by modules: starship, editor config, PATH cleanup.
+# ! IMPORTANT: Must run AFTER /etc/zshrc (which overwrites PROMPT on macOS).
 # ----------------------------------------------------------
-# Clean the PATH if ZSH_PATH_CLEAN is true.
-# This is done at the very end of .zshrc to ensure all PATH modifications
-# from other scripts and plugins have been applied.
-if [[ "$ZSH_PATH_CLEAN" == "true" ]]; then
-  if (( $+functions[_path_clean] )); then
-    _log "INFO" "Running final PATH cleanup in .zshrc..."
-    _path_clean
-    _log "DEBUG" "Final PATH after cleanup in .zshrc: $PATH"
-  else
-    _log "WARN" "_path_clean function not found. Skipping final PATH cleanup."
-  fi
-fi
+
+_run_post_interactive_hooks
 
 # ----------------------------------------------------------
 # * LOCAL CUSTOMIZATION
