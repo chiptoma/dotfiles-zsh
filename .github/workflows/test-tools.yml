@@ -50,16 +50,29 @@ jobs:
       - name: Verify ${{ matrix.tool }} installed
         run: |
           source ~/.zshenv 2>/dev/null || true
-          # Handle tool name mappings
+          # Handle tool name mappings (Ubuntu uses different names)
           TOOL="${{ matrix.tool }}"
           [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
-          command -v "$TOOL" || exit 1
+          # Try both names for tools with Ubuntu aliases
+          if [[ "$TOOL" == "bat" ]]; then
+            command -v bat || command -v batcat || exit 1
+          elif [[ "$TOOL" == "fd" ]]; then
+            command -v fd || command -v fdfind || exit 1
+          else
+            command -v "$TOOL" || exit 1
+          fi
 
       - name: Verify ${{ matrix.tool }} runs
         run: |
           source ~/.zshenv 2>/dev/null || true
           TOOL="${{ matrix.tool }}"
           [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
+          # Handle Ubuntu binary name aliases
+          if [[ "$TOOL" == "bat" ]] && ! command -v bat &>/dev/null; then
+            TOOL="batcat"
+          elif [[ "$TOOL" == "fd" ]] && ! command -v fd &>/dev/null; then
+            TOOL="fdfind"
+          fi
           "$TOOL" --version || "$TOOL" --help || true
 
   # ─────────────────────────────────────────────────────────
@@ -111,8 +124,19 @@ jobs:
         run: |
           source ~/.zshenv 2>/dev/null || true
           echo "Checking installed tools..."
+          check_tool() {
+            local tool="$1"
+            # Handle Ubuntu binary name aliases
+            if [[ "$tool" == "bat" ]]; then
+              command -v bat &>/dev/null || command -v batcat &>/dev/null
+            elif [[ "$tool" == "fd" ]]; then
+              command -v fd &>/dev/null || command -v fdfind &>/dev/null
+            else
+              command -v "$tool" &>/dev/null
+            fi
+          }
           for tool in fzf eza bat fd zoxide; do
-            if command -v "$tool" &>/dev/null; then
+            if check_tool "$tool"; then
               echo "  ✓ $tool"
             else
               echo "  ✗ $tool NOT FOUND"

@@ -46,6 +46,9 @@ TOTAL_STEPS=7
 # Rollback tracking
 ROLLBACK_ACTIONS=()
 
+# Installation warnings (for partial success reporting)
+INSTALL_WARNINGS=()
+
 # Initialize paths (call this at start of main to pick up env overrides)
 init_paths() {
     INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
@@ -259,6 +262,7 @@ register_rollback() {
 # Perform rollback on error
 perform_rollback() {
     if [[ ${#ROLLBACK_ACTIONS[@]} -eq 0 ]]; then
+        print_dim "No rollback actions registered"
         return
     fi
 
@@ -274,6 +278,22 @@ perform_rollback() {
     done
 
     print_info "Rollback complete. System restored to previous state."
+}
+
+# Restore files from backup directory
+# Usage: restore_backup "/path/to/backup"
+restore_backup() {
+    local backup_dir="$1"
+    if [[ ! -d "$backup_dir" ]]; then
+        print_dim "No backup directory to restore from"
+        return
+    fi
+
+    print_info "Restoring from backup: $backup_dir"
+    [[ -f "$backup_dir/.zshrc" ]] && cp "$backup_dir/.zshrc" "$HOME/.zshrc" && print_dim "  Restored ~/.zshrc"
+    [[ -f "$backup_dir/.zshenv" ]] && cp "$backup_dir/.zshenv" "$HOME/.zshenv" && print_dim "  Restored ~/.zshenv"
+    [[ -f "$backup_dir/.zprofile" ]] && cp "$backup_dir/.zprofile" "$HOME/.zprofile" && print_dim "  Restored ~/.zprofile"
+    print_success "Backup restored"
 }
 
 # ERR trap handler
@@ -458,6 +478,70 @@ is_container() {
     grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null
 }
 
+# ----------------------------------------------------------
+# * NETWORK HELPERS
+# ? Retry logic and connectivity checks for reliable downloads
+# ----------------------------------------------------------
+
+# Check if network is available
+# Returns: 0 if online, 1 if offline
+check_network() {
+    local timeout=5
+    local test_hosts=("github.com" "1.1.1.1" "8.8.8.8")
+
+    for host in "${test_hosts[@]}"; do
+        if has_cmd curl; then
+            curl -sf --max-time "$timeout" "https://$host" >/dev/null 2>&1 && return 0
+        elif has_cmd wget; then
+            wget -q --timeout="$timeout" --spider "https://$host" 2>/dev/null && return 0
+        elif has_cmd ping; then
+            ping -c 1 -W "$timeout" "$host" >/dev/null 2>&1 && return 0
+        fi
+    done
+    return 1
+}
+
+# Fetch URL with retry logic
+# Usage: fetch_with_retry <url> [output_file]
+# If output_file is omitted, outputs to stdout
+# Returns: 0 on success, 1 on failure after all retries
+fetch_with_retry() {
+    local url="$1"
+    local output="${2:-}"
+    local max_retries=3
+    local retry_delay=2
+    local timeout=30
+    local attempt=1
+
+    while (( attempt <= max_retries )); do
+        if [[ -n "$output" ]]; then
+            # Download to file
+            if has_cmd curl; then
+                curl -fsSL --max-time "$timeout" -o "$output" "$url" 2>/dev/null && return 0
+            elif has_cmd wget; then
+                wget -q --timeout="$timeout" -O "$output" "$url" 2>/dev/null && return 0
+            fi
+        else
+            # Output to stdout
+            if has_cmd curl; then
+                curl -fsSL --max-time "$timeout" "$url" 2>/dev/null && return 0
+            elif has_cmd wget; then
+                wget -qO- --timeout="$timeout" "$url" 2>/dev/null && return 0
+            fi
+        fi
+
+        if (( attempt < max_retries )); then
+            print_dim "Network request failed, retrying in ${retry_delay}s... (attempt $attempt/$max_retries)"
+            sleep "$retry_delay"
+            ((retry_delay *= 2))  # Exponential backoff
+        fi
+        ((attempt++))
+    done
+
+    print_error "Failed to fetch $url after $max_retries attempts"
+    return 1
+}
+
 # Verify SHA256 checksum of a file
 # Usage: verify_checksum <file> <expected_checksum>
 # Returns: 0 if match, 1 if mismatch, 2 if no checksum tool available
@@ -509,6 +593,12 @@ run_cmd() {
 }
 
 get_package_manager() {
+    # Check for Nix first (can be installed on any OS)
+    if has_cmd nix-env; then
+        echo "nix"
+        return
+    fi
+
     if is_macos; then
         if has_cmd brew; then
             echo "brew"
@@ -530,102 +620,36 @@ get_package_manager() {
 }
 
 # Install a package with live output (handles different package managers)
-# Usage: install_package git apt
 install_package() {
-    local pkg="$1"
-    local pm="$2"
-
+    local pkg="$1" pm="$2"
     case "$pm" in
-        brew)
-            run_with_status "Installing $pkg" brew install "$pkg"
-            ;;
-        apt)
-            run_with_status "Updating packages" maybe_sudo apt-get update || true
-            run_with_status "Installing $pkg" maybe_sudo apt-get install -y "$pkg"
-            ;;
-        dnf)
-            run_with_status "Installing $pkg" maybe_sudo dnf install -y "$pkg"
-            ;;
-        yum)
-            run_with_status "Installing $pkg" maybe_sudo yum install -y "$pkg"
-            ;;
-        pacman)
-            run_with_status "Installing $pkg" maybe_sudo pacman -S --noconfirm --needed "$pkg"
-            ;;
-        apk)
-            run_with_status "Installing $pkg" maybe_sudo apk add "$pkg"
-            ;;
-        zypper)
-            run_with_status "Installing $pkg" maybe_sudo zypper install -y "$pkg"
-            ;;
-        *)
-            print_error "Unknown package manager: $pm"
-            return 1
-            ;;
+        brew)   run_with_status "Installing $pkg" brew install "$pkg" ;;
+        nix)    run_with_status "Installing $pkg" nix-env -iA "nixpkgs.$pkg" ;;
+        apt)    run_with_status "Updating packages" maybe_sudo apt-get update || true
+                run_with_status "Installing $pkg" maybe_sudo apt-get install -y "$pkg" ;;
+        dnf)    run_with_status "Installing $pkg" maybe_sudo dnf install -y "$pkg" ;;
+        yum)    run_with_status "Installing $pkg" maybe_sudo yum install -y "$pkg" ;;
+        pacman) run_with_status "Installing $pkg" maybe_sudo pacman -S --noconfirm --needed "$pkg" ;;
+        apk)    run_with_status "Installing $pkg" maybe_sudo apk add "$pkg" ;;
+        zypper) run_with_status "Installing $pkg" maybe_sudo zypper install -y "$pkg" ;;
+        *)      print_error "Unknown package manager: $pm"; return 1 ;;
     esac
 }
 
-# Get the correct package name for a tool on the current platform
-# Some tools have different names in different package managers
+# Get the correct package name for a tool (some have different names per package manager)
 get_package_name() {
-    local tool="$1"
-    local pm="$2"
-
+    local tool="$1" pm="$2"
     case "$tool" in
-        fd)
-            case "$pm" in
-                brew|pacman|apk) echo "fd" ;;
-                apt|dnf|yum|zypper) echo "fd-find" ;;
-                *) echo "fd" ;;
-            esac
-            ;;
-        ripgrep)
-            echo "ripgrep"  # Same everywhere
-            ;;
-        bat)
-            echo "bat"  # Same everywhere (batcat is just the binary name on Debian)
-            ;;
-        fzf)
-            case "$pm" in
-                brew|pacman|dnf) echo "fzf" ;;
-                apt) echo "SCRIPT:fzf" ;;  # apt has old version, install from GitHub for --border-label support
-                *) echo "fzf" ;;
-            esac
-            ;;
-        eza)
-            case "$pm" in
-                brew|pacman|dnf) echo "eza" ;;
-                apt) echo "SCRIPT:eza" ;;  # Not in apt, install from GitHub
-                *) echo "eza" ;;
-            esac
-            ;;
-        yazi)
-            case "$pm" in
-                brew|pacman) echo "yazi" ;;
-                *) echo "SCRIPT:yazi" ;;  # Not in most repos, install from GitHub
-            esac
-            ;;
-        atuin)
-            case "$pm" in
-                brew|pacman) echo "atuin" ;;
-                *) echo "SCRIPT:atuin" ;;  # Needs install script
-            esac
-            ;;
-        starship)
-            case "$pm" in
-                brew|pacman|dnf) echo "starship" ;;
-                *) echo "SCRIPT:starship" ;;  # Needs install script
-            esac
-            ;;
-        zoxide)
-            case "$pm" in
-                brew|pacman|dnf|apt) echo "zoxide" ;;
-                *) echo "CARGO:zoxide" ;;
-            esac
-            ;;
-        *)
-            echo "$tool"
-            ;;
+        fd)       case "$pm" in apt|dnf|yum|zypper) echo "fd-find";; *) echo "fd";; esac ;;
+        ripgrep)  echo "ripgrep" ;;
+        bat)      echo "bat" ;;
+        fzf)      [[ "$pm" == "apt" ]] && echo "SCRIPT:fzf" || echo "fzf" ;;
+        eza)      [[ "$pm" == "apt" ]] && echo "SCRIPT:eza" || echo "eza" ;;
+        yazi)     case "$pm" in brew|pacman|nix) echo "yazi";; *) echo "SCRIPT:yazi";; esac ;;
+        atuin)    case "$pm" in brew|pacman|nix) echo "atuin";; *) echo "SCRIPT:atuin";; esac ;;
+        starship) case "$pm" in brew|pacman|dnf|nix) echo "starship";; *) echo "SCRIPT:starship";; esac ;;
+        zoxide)   case "$pm" in brew|pacman|dnf|apt|nix) echo "zoxide";; *) echo "CARGO:zoxide";; esac ;;
+        *)        echo "$tool" ;;
     esac
 }
 
@@ -682,15 +706,25 @@ install_special_tool() {
             ;;
         SCRIPT:eza)
             print_info "Installing eza..."
-            install_eza_binary
+            install_github_binary "eza" \
+                'https://github.com/eza-community/eza/releases/latest/download/eza_${arch}-unknown-${os}-gnu.tar.gz' \
+                "tar"
             ;;
         SCRIPT:fzf)
             print_info "Installing fzf..."
-            install_fzf_binary
+            install_github_binary "fzf" \
+                'https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-${os}_${arch}.tar.gz' \
+                "tar"
             ;;
         SCRIPT:yazi)
+            if ! has_cmd unzip; then
+                print_warning "yazi requires unzip (not installed)"
+                return 1
+            fi
             print_info "Installing yazi..."
-            install_yazi_binary
+            install_github_binary "yazi" \
+                'https://github.com/sxyazi/yazi/releases/latest/download/yazi-${arch}-unknown-${os}-musl.zip' \
+                "unzip"
             ;;
         *)
             print_error "Unknown special install: $tool"
@@ -699,176 +733,83 @@ install_special_tool() {
     esac
 }
 
-# Install eza from GitHub releases (for systems without package support)
-install_eza_binary() {
-    local arch
-    arch=$(uname -m)
-    local os
-    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+# ----------------------------------------------------------
+# * GENERIC GITHUB BINARY INSTALLER
+# ? Consolidates eza/fzf/yazi installation into one function
+# ----------------------------------------------------------
 
-    # Map architecture names
-    case "$arch" in
-        x86_64) arch="x86_64" ;;
-        aarch64|arm64) arch="aarch64" ;;
-        *)
-            print_warning "Unsupported architecture for eza: $arch"
-            return 1
-            ;;
+install_github_binary() {
+    local tool="$1" url_pattern="$2" extract_cmd="$3" bin_name="${4:-$1}"
+
+    local arch=$(uname -m) os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+    # Normalize architecture per tool (each has different naming conventions)
+    case "$tool:$arch" in
+        fzf:x86_64)           arch="amd64" ;;
+        fzf:aarch64|fzf:arm64) arch="arm64" ;;
+        eza:arm64)            arch="aarch64" ;;
+        yazi:arm64)           arch="aarch64" ;;
+        *:aarch64)            arch="aarch64" ;;
+        *:arm64)              arch="aarch64" ;;
     esac
 
-    # Build download URL (eza uses gnu for Linux)
-    local url="https://github.com/eza-community/eza/releases/latest/download/eza_${arch}-unknown-${os}-gnu.tar.gz"
+    # Check for unsupported architectures
+    case "$arch" in
+        x86_64|amd64|aarch64|arm64) ;;
+        *) print_warning "Unsupported architecture for $tool: $arch"; return 1 ;;
+    esac
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
-    trap "rm -rf '$tmp_dir'" RETURN
-
-    # Download and extract
-    if curl -fsSL "$url" | tar -xz -C "$tmp_dir" 2>/dev/null; then
-        # Install to /usr/local/bin (or ~/.local/bin if no sudo)
-        local install_dir="/usr/local/bin"
-        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
-            install_dir="$HOME/.local/bin"
-            mkdir -p "$install_dir"
-        fi
-
-        if [[ -f "$tmp_dir/eza" ]]; then
-            maybe_sudo install -m 755 "$tmp_dir/eza" "$install_dir/eza" 2>/dev/null
-            if has_cmd eza || [[ -x "$install_dir/eza" ]]; then
-                print_success "eza installed"
-                return 0
-            fi
-        fi
+    # Build URL from pattern (uses eval to expand $arch, $os, $version)
+    local version url
+    if [[ "$url_pattern" == *'${version}'* ]]; then
+        # Fetch latest version for tools that need it (fzf)
+        version=$(curl -fsSL "https://api.github.com/repos/junegunn/fzf/releases/latest" 2>/dev/null \
+            | grep '"tag_name"' | head -1 | sed 's/.*"v\?\([^"]*\)".*/\1/')
+        [[ -z "$version" ]] && version="0.56.3"  # Fallback
     fi
+    url=$(eval echo "$url_pattern")
 
-    print_warning "Failed to install eza from GitHub"
-    return 1
-}
-
-# Install fzf from GitHub releases (apt version is too old for --border-label)
-install_fzf_binary() {
-    local arch
-    arch=$(uname -m)
-    local os
-    os=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-    # Map architecture names for fzf releases
-    case "$arch" in
-        x86_64) arch="amd64" ;;
-        aarch64|arm64) arch="arm64" ;;
-        *)
-            print_warning "Unsupported architecture for fzf: $arch"
-            return 1
-            ;;
-    esac
-
-    # Get latest version from GitHub API (fzf includes version in filename)
-    local version
-    version=$(curl -fsSL "https://api.github.com/repos/junegunn/fzf/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/')
-    [[ -z "$version" ]] && version="0.56.3"  # Fallback
-
-    # Build download URLs
-    local filename="fzf-${version}-${os}_${arch}.tar.gz"
-    local url="https://github.com/junegunn/fzf/releases/download/v${version}/${filename}"
-    local checksums_url="https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-checksums.txt"
-
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
+    local tmp_dir=$(mktemp -d)
     trap "rm -rf '$tmp_dir'" RETURN
 
-    # Download tarball
-    if ! curl -fsSL "$url" -o "$tmp_dir/$filename" 2>/dev/null; then
-        print_warning "Failed to download fzf"
+    # Download
+    if ! curl -fsSL "$url" -o "$tmp_dir/archive" 2>/dev/null; then
+        print_warning "Failed to download $tool"
         return 1
     fi
 
-    # Fetch and verify checksum
-    local expected_checksum
-    expected_checksum=$(fetch_github_checksum "$checksums_url" "$filename")
-    if [[ -n "$expected_checksum" ]]; then
-        if ! verify_checksum "$tmp_dir/$filename" "$expected_checksum"; then
-            print_error "fzf checksum verification failed - aborting install"
-            return 1
-        fi
-    fi
-
-    # Extract and install
-    if tar -xzf "$tmp_dir/$filename" -C "$tmp_dir" 2>/dev/null; then
-        local install_dir="/usr/local/bin"
-        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
-            install_dir="$HOME/.local/bin"
-            mkdir -p "$install_dir"
-        fi
-
-        if [[ -f "$tmp_dir/fzf" ]]; then
-            maybe_sudo install -m 755 "$tmp_dir/fzf" "$install_dir/fzf" 2>/dev/null
-            if has_cmd fzf || [[ -x "$install_dir/fzf" ]]; then
-                print_success "fzf installed (checksum verified)"
-                return 0
-            fi
-        fi
-    fi
-
-    print_warning "Failed to install fzf from GitHub"
-    return 1
-}
-
-# Install yazi from GitHub releases
-install_yazi_binary() {
-    # yazi requires unzip
-    if ! has_cmd unzip; then
-        print_warning "yazi requires unzip (not installed)"
-        return 1
-    fi
-
-    local arch
-    arch=$(uname -m)
-    local os
-    os=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-    # Map architecture names for yazi releases
-    case "$arch" in
-        x86_64) arch="x86_64" ;;
-        aarch64|arm64) arch="aarch64" ;;
-        *)
-            print_warning "Unsupported architecture for yazi: $arch"
-            return 1
-            ;;
+    # Extract based on type
+    case "$extract_cmd" in
+        tar)   tar -xzf "$tmp_dir/archive" -C "$tmp_dir" 2>/dev/null ;;
+        unzip) unzip -q "$tmp_dir/archive" -d "$tmp_dir" 2>/dev/null ;;
+        pipe)  tar -xz -C "$tmp_dir" < "$tmp_dir/archive" 2>/dev/null ;;
     esac
 
-    # Build download URL (yazi uses musl for Linux)
-    local url="https://github.com/sxyazi/yazi/releases/latest/download/yazi-${arch}-unknown-${os}-musl.zip"
+    # Find binary (may be in subdirectory)
+    local binary=$(find "$tmp_dir" -name "$bin_name" -type f 2>/dev/null | head -1)
+    [[ -z "$binary" ]] && binary="$tmp_dir/$bin_name"
 
-    local tmp_dir
-    tmp_dir=$(mktemp -d)
-    # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
-    trap "rm -rf '$tmp_dir'" RETURN
+    # Determine install location
+    local install_dir="/usr/local/bin"
+    if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
+        install_dir="$HOME/.local/bin"
+        mkdir -p "$install_dir"
+    fi
 
-    # Download and extract (yazi uses zip)
-    if curl -fsSL "$url" -o "$tmp_dir/yazi.zip" 2>/dev/null && unzip -q "$tmp_dir/yazi.zip" -d "$tmp_dir" 2>/dev/null; then
-        local install_dir="/usr/local/bin"
-        if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
-            install_dir="$HOME/.local/bin"
-            mkdir -p "$install_dir"
-        fi
-
-        # yazi extracts to a subdirectory
-        local yazi_bin
-        yazi_bin=$(find "$tmp_dir" -name "yazi" -type f -executable 2>/dev/null | head -1)
-        if [[ -n "$yazi_bin" ]]; then
-            maybe_sudo install -m 755 "$yazi_bin" "$install_dir/yazi" 2>/dev/null
-            if has_cmd yazi || [[ -x "$install_dir/yazi" ]]; then
-                print_success "yazi installed"
-                return 0
-            fi
+    # Install binary
+    if [[ -f "$binary" ]]; then
+        chmod +x "$binary"
+        maybe_sudo install -m 755 "$binary" "$install_dir/$bin_name" 2>/dev/null
+        if has_cmd "$bin_name" || [[ -x "$install_dir/$bin_name" ]]; then
+            print_success "$tool installed"
+            return 0
         fi
     fi
 
-    print_warning "Failed to install yazi from GitHub"
+    print_warning "Failed to install $tool from GitHub"
     return 1
 }
+
 
 # ----------------------------------------------------------
 # * PRE-FLIGHT CHECKS
@@ -928,6 +869,23 @@ preflight_checks() {
         print_info "The configuration will be installed for the root user"
     fi
 
+    # Check network connectivity (optional tools require downloads)
+    status "Checking network connectivity..."
+    if check_network; then
+        status_clear
+        print_success "Network connection available"
+    else
+        status_clear
+        print_warning "No network connection detected"
+        print_info "Some features require internet (Oh My Zsh, optional tools)"
+        print_info "Core configuration can still be installed from local files"
+        if ! $AUTO_YES; then
+            if ! confirm "Continue anyway?" "n"; then
+                return 1
+            fi
+        fi
+    fi
+
     if ! $all_good; then
         echo ""
         print_error "Pre-flight checks failed. Please resolve the issues above."
@@ -953,6 +911,7 @@ offer_zsh_install() {
         print_dim "  Ubuntu/Debian: sudo apt install zsh"
         print_dim "  Fedora: sudo dnf install zsh"
         print_dim "  Arch: sudo pacman -S zsh"
+        print_dim "  NixOS: nix-env -iA nixpkgs.zsh"
         return 1
     fi
 
@@ -962,41 +921,21 @@ offer_zsh_install() {
 
     local install_result=0
     case "$pm" in
-        brew)
-            run_with_status "Installing ZSH" brew install zsh || install_result=$?
-            ;;
-        apt)
-            run_with_status "Updating packages" maybe_sudo apt-get update || true
-            run_with_status "Installing ZSH" maybe_sudo apt-get install -y zsh || install_result=$?
-            ;;
-        dnf)
-            run_with_status "Installing ZSH" maybe_sudo dnf install -y zsh || install_result=$?
-            ;;
-        yum)
-            run_with_status "Installing ZSH" maybe_sudo yum install -y zsh || install_result=$?
-            ;;
-        pacman)
-            run_with_status "Installing ZSH" maybe_sudo pacman -S --noconfirm --needed zsh || install_result=$?
-            ;;
-        apk)
-            run_with_status "Installing ZSH" maybe_sudo apk add zsh || install_result=$?
-            ;;
-        zypper)
-            run_with_status "Installing ZSH" maybe_sudo zypper install -y zsh || install_result=$?
-            ;;
-        *)
-            print_error "Unknown package manager: $pm"
-            return 1
-            ;;
+        brew)   run_with_status "Installing ZSH" brew install zsh || install_result=$? ;;
+        nix)    run_with_status "Installing ZSH" nix-env -iA nixpkgs.zsh || install_result=$? ;;
+        apt)    run_with_status "Updating packages" maybe_sudo apt-get update || true
+                run_with_status "Installing ZSH" maybe_sudo apt-get install -y zsh || install_result=$? ;;
+        dnf)    run_with_status "Installing ZSH" maybe_sudo dnf install -y zsh || install_result=$? ;;
+        yum)    run_with_status "Installing ZSH" maybe_sudo yum install -y zsh || install_result=$? ;;
+        pacman) run_with_status "Installing ZSH" maybe_sudo pacman -S --noconfirm --needed zsh || install_result=$? ;;
+        apk)    run_with_status "Installing ZSH" maybe_sudo apk add zsh || install_result=$? ;;
+        zypper) run_with_status "Installing ZSH" maybe_sudo zypper install -y zsh || install_result=$? ;;
+        *)      print_error "Unknown package manager: $pm"; return 1 ;;
     esac
 
-    if [[ $install_result -eq 0 ]] && has_cmd zsh; then
-        print_success "ZSH installed successfully"
-        return 0
-    else
-        print_error "Failed to install ZSH"
-        return 1
-    fi
+    [[ $install_result -eq 0 ]] && has_cmd zsh && { print_success "ZSH installed successfully"; return 0; }
+    print_error "Failed to install ZSH"
+    return 1
 }
 
 # ----------------------------------------------------------
@@ -1086,52 +1025,28 @@ check_requirements() {
         print_warning "No supported package manager found"
     fi
 
-    # Check essential tools FIRST (needed for installation)
-    # Git is required for OMZ and plugins
-    if has_cmd git; then
-        local git_version
-        git_version=$(git --version | awk '{print $3}')
-        print_success "Git installed (version $git_version)"
-    else
-        print_error "Git not found (required for Oh My Zsh)"
-        if [[ "$pm" != "none" ]]; then
-            if confirm "Install Git using $pm?" "y"; then
-                if install_package git "$pm"; then
-                    print_success "Git installed"
-                else
-                    print_error "Failed to install Git"
-                    all_good=false
-                fi
-            else
-                all_good=false
-            fi
-        else
-            all_good=false
+    # Helper: Check and optionally install a required tool
+    require_tool() {
+        local tool="$1" reason="$2" alt="${3:-}"
+        if has_cmd "$tool"; then
+            [[ "$tool" == "git" ]] && print_success "Git installed ($(git --version | awk '{print $3}'))" && return 0
+            print_success "$tool installed"
+            return 0
         fi
-    fi
+        [[ -n "$alt" ]] && has_cmd "$alt" && { print_success "$alt installed"; return 0; }
 
-    # curl or wget needed for downloads
-    if has_cmd curl; then
-        print_success "curl installed"
-    elif has_cmd wget; then
-        print_success "wget installed"
-    else
-        print_error "Neither curl nor wget found (required for downloads)"
-        if [[ "$pm" != "none" ]]; then
-            if confirm "Install curl using $pm?" "y"; then
-                if install_package curl "$pm"; then
-                    print_success "curl installed"
-                else
-                    print_error "Failed to install curl"
-                    all_good=false
-                fi
-            else
-                all_good=false
-            fi
-        else
-            all_good=false
+        print_error "$tool not found ($reason)"
+        [[ "$pm" == "none" ]] && return 1
+        if confirm "Install $tool using $pm?" "y"; then
+            install_package "$tool" "$pm" && { print_success "$tool installed"; return 0; }
+            print_error "Failed to install $tool"
         fi
-    fi
+        return 1
+    }
+
+    # Check essential tools (needed for installation)
+    require_tool "git" "required for Oh My Zsh" || all_good=false
+    require_tool "curl" "required for downloads" "wget" || all_good=false
 
     # Now check ZSH (after we have git and curl for installation)
     if has_cmd zsh; then
@@ -1181,7 +1096,11 @@ check_omz() {
 
     # OMZ not installed - auto-install (required dependency)
     print_info "Oh My Zsh not found - installing automatically..."
-    install_omz
+    if ! install_omz; then
+        print_error "Oh My Zsh installation failed"
+        return 1
+    fi
+    return 0
 }
 
 install_omz() {
@@ -1225,6 +1144,9 @@ install_omz() {
 
     print_success "Oh My Zsh installed"
 
+    # Register rollback action to remove OMZ
+    register_rollback "rm -rf '$ZSH'"
+
     # Install required custom plugins
     install_omz_plugins
 }
@@ -1234,6 +1156,7 @@ install_omz_plugins() {
     mkdir -p "$custom_dir"
 
     # Required custom plugins (not bundled with OMZ)
+    # These enhance UX but shell works without them
     local -a plugins=(
         "zsh-autosuggestions:https://github.com/zsh-users/zsh-autosuggestions"
         "zsh-syntax-highlighting:https://github.com/zsh-users/zsh-syntax-highlighting"
@@ -1242,6 +1165,7 @@ install_omz_plugins() {
 
     local plugin_count=${#plugins[@]}
     local plugin_current=0
+    local failed_plugins=0
 
     for entry in "${plugins[@]}"; do
         local name="${entry%%:*}"
@@ -1253,16 +1177,53 @@ install_omz_plugins() {
         if [[ -d "$target" ]]; then
             status "[$plugin_current/$plugin_count] $name (cached)"
             sleep 0.2  # Brief pause so user sees cached status
-        else
-            if run_with_status "[$plugin_current/$plugin_count] $name" git clone --depth=1 "$url" "$target"; then
-                : # success
+            continue
+        fi
+
+        # Retry up to 3 times with exponential backoff
+        local attempt=1
+        local max_attempts=3
+        local retry_delay=2
+        local success=false
+
+        while (( attempt <= max_attempts )) && ! $success; do
+            status "[$plugin_current/$plugin_count] $name (attempt $attempt/$max_attempts)..."
+            if git clone --depth=1 "$url" "$target" 2>/dev/null; then
+                success=true
             else
-                print_warning "Failed to install $name"
+                rm -rf "$target" 2>/dev/null  # Clean up failed clone
+                if (( attempt < max_attempts )); then
+                    sleep "$retry_delay"
+                    ((retry_delay *= 2))
+                fi
+                ((attempt++))
             fi
+        done
+
+        status_clear
+        if $success; then
+            print_success "$name installed"
+        else
+            print_warning "Failed to install $name after $max_attempts attempts"
+            ((failed_plugins++))
         fi
     done
+
     status_clear
-    print_success "OMZ plugins installed ($plugin_count plugins)"
+
+    if (( failed_plugins > 0 )); then
+        echo ""
+        print_warning "$failed_plugins plugin(s) failed to install"
+        print_info "Shell will work but with reduced functionality:"
+        print_dim "  - zsh-autosuggestions: command suggestions as you type"
+        print_dim "  - zsh-syntax-highlighting: command syntax coloring"
+        print_dim "  - fzf-tab: fuzzy completion menu"
+        echo ""
+        # Track for final summary
+        INSTALL_WARNINGS+=("$failed_plugins OMZ plugin(s) failed to install")
+    else
+        print_success "OMZ plugins installed ($plugin_count plugins)"
+    fi
 }
 
 # ----------------------------------------------------------
@@ -1301,6 +1262,9 @@ backup_existing() {
         done
 
         print_info "Backup location: $BACKUP_DIR"
+
+        # Register rollback action to restore from backup
+        register_rollback "restore_backup '$BACKUP_DIR'"
     else
         print_warning "Skipping backup (existing files may be overwritten)"
     fi
@@ -1333,6 +1297,17 @@ install_config() {
 
     case "$method" in
         symlink)
+            # Validate source has essential files BEFORE symlinking
+            local -a essential_files=(".zshenv" ".zshrc" "lib/utils/index.zsh" "modules/aliases.zsh" "modules/environment.zsh")
+            for file in "${essential_files[@]}"; do
+                if [[ ! -f "$SCRIPT_DIR/$file" ]]; then
+                    print_error "Essential file missing in source: $file"
+                    print_error "Cannot symlink incomplete configuration"
+                    print_info "Ensure you have a complete checkout of the repository"
+                    return 1
+                fi
+            done
+
             print_info "Creating symlink..."
             if $DRY_RUN; then
                 print_dim "[dry-run] mkdir -p $(dirname "$INSTALL_DIR")"
@@ -1342,6 +1317,8 @@ install_config() {
                 mkdir -p "$(dirname "$INSTALL_DIR")"
                 rm -rf "$INSTALL_DIR" 2>/dev/null
                 ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                # Register rollback to remove symlink
+                register_rollback "rm -f '$INSTALL_DIR'"
             fi
             print_success "Symlinked $SCRIPT_DIR -> $INSTALL_DIR"
             ;;
@@ -1384,6 +1361,9 @@ install_config() {
                     fi
                     return 1
                 fi
+
+                # Register rollback to remove copied files
+                register_rollback "rm -rf '$INSTALL_DIR'"
             fi
             print_success "Copied to $INSTALL_DIR"
             ;;
@@ -1393,6 +1373,7 @@ install_config() {
                 print_warning "Clone requires URL input, using symlink in auto mode"
                 if ! $DRY_RUN; then
                     ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                    register_rollback "rm -f '$INSTALL_DIR'"
                 fi
             else
                 echo -ne "  ${YELLOW}?${NC} Git repository URL: "
@@ -1405,9 +1386,11 @@ install_config() {
                         rm -rf "$INSTALL_DIR" 2>/dev/null
                         if git clone "$repo_url" "$INSTALL_DIR"; then
                             print_success "Cloned to $INSTALL_DIR"
+                            register_rollback "rm -rf '$INSTALL_DIR'"
                         else
                             print_error "Git clone failed, falling back to symlink"
                             ln -sf "$SCRIPT_DIR" "$INSTALL_DIR"
+                            register_rollback "rm -f '$INSTALL_DIR'"
                         fi
                     fi
                 else
@@ -1446,23 +1429,47 @@ setup_zdotdir() {
 
     # Check if already configured
     if [[ -f "$system_zshenv" ]] && grep -q "ZDOTDIR" "$system_zshenv" 2>/dev/null; then
+        # Extract existing ZDOTDIR value
+        local existing_zdotdir
+        existing_zdotdir=$(grep -oP 'ZDOTDIR=["'"'"']?\K[^"'"'"']+' "$system_zshenv" 2>/dev/null | head -1)
+
+        # Check if it already points to our install location
+        if [[ "$existing_zdotdir" == "$INSTALL_DIR" ]]; then
+            print_success "ZDOTDIR already correctly configured"
+            return 0
+        fi
+
         print_info "ZDOTDIR already configured in ~/.zshenv"
-        if confirm "Overwrite existing ~/.zshenv?"; then
+        print_dim "  Current: $existing_zdotdir"
+        print_dim "  New:     $INSTALL_DIR"
+
+        if confirm "Overwrite existing ~/.zshenv?" "y"; then
             if $DRY_RUN; then
                 print_dim "[dry-run] Writing ZDOTDIR config to $system_zshenv"
             else
                 printf '%s\n' "$zshenv_content" > "$system_zshenv"
+                register_rollback "rm -f '$system_zshenv'"
             fi
             print_success "Updated ~/.zshenv"
+        else
+            # User declined but ZDOTDIR points elsewhere - this will break the shell
+            print_error "Cannot continue: ZDOTDIR points to different location"
+            print_error "Your shell would load config from: $existing_zdotdir"
+            print_error "But we installed to: $INSTALL_DIR"
+            print_info "Either overwrite ~/.zshenv or uninstall and reinstall to the existing location"
+            return 1
         fi
     else
         if $DRY_RUN; then
             print_dim "[dry-run] Writing ZDOTDIR config to $system_zshenv"
         else
             printf '%s\n' "$zshenv_content" > "$system_zshenv"
+            register_rollback "rm -f '$system_zshenv'"
         fi
         print_success "Created ~/.zshenv with ZDOTDIR"
     fi
+
+    return 0
 }
 
 # ----------------------------------------------------------
@@ -1473,15 +1480,15 @@ setup_zdotdir() {
 # Format: "tool:command:description:category"
 # Categories: core (recommended), enhanced, extra
 declare -a ALL_TOOLS=(
-    "fzf:fzf:Fuzzy finder for history search:core"
-    "eza:eza:Modern ls replacement:core"
-    "bat:bat:Better cat with syntax highlighting:core"
-    "ripgrep:rg:Fast grep replacement:core"
-    "fd:fd:Modern find replacement:enhanced"
-    "zoxide:zoxide:Smart directory jumping:enhanced"
-    "yazi:yazi:Terminal file manager:extra"
-    "starship:starship:Cross-shell prompt:extra"
-    "atuin:atuin:Shell history sync and search:extra"
+    "fzf:fzf:Fuzzy finder - search history and files with Ctrl+R/T:core"
+    "eza:eza:Modern ls - colorful file listings with icons:core"
+    "bat:bat:Better cat - view files with syntax highlighting:core"
+    "ripgrep:rg:Fast grep - search file contents 10x faster:core"
+    "fd:fd:Modern find - find files by name quickly:enhanced"
+    "zoxide:zoxide:Smart cd - jump to directories you use often:enhanced"
+    "yazi:yazi:File manager - browse files in terminal with preview:extra"
+    "starship:starship:Custom prompt - shows git status and more:extra"
+    "atuin:atuin:History sync - search/sync shell history across machines:extra"
 )
 
 # Check if a tool should be installed based on profile and selection
@@ -1613,14 +1620,7 @@ install_optional_tools() {
             1) install_mode="profile" ;;
             2) install_mode="all" ;;
             3) install_mode="interactive" ;;
-            4)
-                print_info "Skipping tool installation"
-                return 0
-                ;;
-            *)
-                print_info "Invalid choice, skipping"
-                return 0
-                ;;
+            *) print_info "Skipping tool installation"; return 0 ;;
         esac
     fi
 
@@ -1651,7 +1651,7 @@ install_optional_tools() {
                 local desc="${entry#*:}"
                 desc="${desc#*:}"
                 desc="${desc%%:*}"
-                if confirm "Install $tool ($desc)?"; then
+                if confirm "Install $tool ($desc)?" "y"; then
                     to_install+=("$entry")
                 fi
                 ;;
@@ -1695,28 +1695,14 @@ install_optional_tools() {
             status "[$pkg_current/$pkg_count] Installing $tool..."
 
             case "$pm" in
-                brew)
-                    brew install "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
-                apt)
-                    if ! $apt_updated; then
-                        maybe_sudo apt-get update -qq >/dev/null 2>&1
-                        apt_updated=true
-                    fi
-                    maybe_sudo apt-get install -qq -y "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
-                dnf)
-                    maybe_sudo dnf install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
-                pacman)
-                    maybe_sudo pacman -S --noconfirm --needed -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
-                apk)
-                    maybe_sudo apk add -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
-                zypper)
-                    maybe_sudo zypper install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
-                    ;;
+                brew)   brew install "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                nix)    nix-env -iA "nixpkgs.$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                apt)    $apt_updated || { maybe_sudo apt-get update -qq >/dev/null 2>&1; apt_updated=true; }
+                        maybe_sudo apt-get install -qq -y "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                dnf)    maybe_sudo dnf install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                pacman) maybe_sudo pacman -S --noconfirm --needed -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                apk)    maybe_sudo apk add -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
+                zypper) maybe_sudo zypper install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
             esac
         done
         status_clear
@@ -1751,17 +1737,23 @@ install_optional_tools() {
 # ? Configures shell hooks for tools that need initialization
 # ----------------------------------------------------------
 
+# Helper: Add a shell integration to local.zsh if not already present
+add_integration() {
+    local tool="$1" pattern="$2" comment="$3" cmd="$4"
+    has_cmd "$tool" || return 1
+    grep -q "$pattern" "$_LOCAL_CONFIG" 2>/dev/null && return 1
+    { echo ""; echo "# $comment"; echo "$cmd"; } >> "$_LOCAL_CONFIG"
+    print_success "Added $tool shell integration"
+    return 0
+}
+
 setup_shell_integrations() {
-    local local_config="$INSTALL_DIR/local.zsh"
+    _LOCAL_CONFIG="$INSTALL_DIR/local.zsh"
     local integrations_added=false
 
     # Check if local.zsh exists and is writable
-    if [[ ! -f "$local_config" ]]; then
-        return 0
-    fi
-
-    if [[ ! -w "$local_config" ]]; then
-        # Config is read-only (e.g., symlinked from read-only mount)
+    [[ ! -f "$_LOCAL_CONFIG" ]] && return 0
+    if [[ ! -w "$_LOCAL_CONFIG" ]]; then
         print_info "Skipping shell integrations (config is read-only)"
         print_dim "Add integrations manually to local.zsh if needed"
         return 0
@@ -1769,57 +1761,23 @@ setup_shell_integrations() {
 
     print_section "Shell Integrations"
 
-    # zoxide integration
-    if has_cmd zoxide && ! grep -q "zoxide init" "$local_config" 2>/dev/null; then
-        echo "" >> "$local_config"
-        echo "# Zoxide - smart directory jumping" >> "$local_config"
-        echo 'eval "$(zoxide init zsh)"' >> "$local_config"
-        print_success "Added zoxide shell integration"
-        integrations_added=true
-    fi
+    # Standard integrations
+    add_integration "zoxide"   "zoxide init"   "Zoxide - smart directory jumping"  'eval "$(zoxide init zsh)"' && integrations_added=true
+    add_integration "atuin"    "atuin init"    "Atuin - enhanced shell history"    'eval "$(atuin init zsh --disable-up-arrow)"' && integrations_added=true
+    add_integration "starship" "starship init" "Starship - cross-shell prompt"     'eval "$(starship init zsh)"' && integrations_added=true && check_nerd_fonts
 
-    # atuin integration
-    if has_cmd atuin && ! grep -q "atuin init" "$local_config" 2>/dev/null; then
-        echo "" >> "$local_config"
-        echo "# Atuin - enhanced shell history" >> "$local_config"
-        echo 'eval "$(atuin init zsh --disable-up-arrow)"' >> "$local_config"
-        print_success "Added atuin shell integration"
-        integrations_added=true
-    fi
-
-    # fzf integration (key bindings and completion)
-    if has_cmd fzf && ! grep -q "fzf --zsh" "$local_config" 2>/dev/null; then
-        # Check for fzf shell integration method
+    # fzf needs special handling (two possible methods)
+    if has_cmd fzf && ! grep -q "fzf --zsh\|\.fzf\.zsh" "$_LOCAL_CONFIG" 2>/dev/null; then
         if fzf --zsh &>/dev/null; then
-            echo "" >> "$local_config"
-            echo "# FZF - fuzzy finder integration" >> "$local_config"
-            echo 'source <(fzf --zsh)' >> "$local_config"
-            print_success "Added fzf shell integration"
-            integrations_added=true
+            { echo ""; echo "# FZF - fuzzy finder integration"; echo 'source <(fzf --zsh)'; } >> "$_LOCAL_CONFIG"
         elif [[ -f "$HOME/.fzf.zsh" ]]; then
-            echo "" >> "$local_config"
-            echo "# FZF - fuzzy finder integration" >> "$local_config"
-            echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh' >> "$local_config"
-            print_success "Added fzf shell integration"
-            integrations_added=true
+            { echo ""; echo "# FZF - fuzzy finder integration"; echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh'; } >> "$_LOCAL_CONFIG"
         fi
-    fi
-
-    # starship prompt
-    if has_cmd starship && ! grep -q "starship init" "$local_config" 2>/dev/null; then
-        echo "" >> "$local_config"
-        echo "# Starship - cross-shell prompt" >> "$local_config"
-        echo 'eval "$(starship init zsh)"' >> "$local_config"
-        print_success "Added starship shell integration"
+        print_success "Added fzf shell integration"
         integrations_added=true
-
-        # Check for Nerd Font
-        check_nerd_fonts
     fi
 
-    if ! $integrations_added; then
-        print_success "All shell integrations already configured"
-    fi
+    $integrations_added || print_success "All shell integrations already configured"
 }
 
 # ----------------------------------------------------------
@@ -1828,54 +1786,21 @@ setup_shell_integrations() {
 # ----------------------------------------------------------
 
 check_nerd_fonts() {
-    local has_nerd_font=false
+    local dirs
+    is_macos && dirs=("$HOME/Library/Fonts" "/Library/Fonts") \
+             || dirs=("$HOME/.local/share/fonts" "$HOME/.fonts" "/usr/share/fonts" "/usr/local/share/fonts")
 
-    # Check common Nerd Font names
-    if is_macos; then
-        # Check macOS font directories
-        local font_dirs=(
-            "$HOME/Library/Fonts"
-            "/Library/Fonts"
-        )
-        for dir in "${font_dirs[@]}"; do
-            if [[ -d "$dir" ]] && ls "$dir"/*Nerd* &>/dev/null 2>&1; then
-                has_nerd_font=true
-                break
-            fi
-        done
-    else
-        # Check Linux font directories
-        local font_dirs=(
-            "$HOME/.local/share/fonts"
-            "$HOME/.fonts"
-            "/usr/share/fonts"
-            "/usr/local/share/fonts"
-        )
-        for dir in "${font_dirs[@]}"; do
-            if [[ -d "$dir" ]] && find "$dir" -name "*Nerd*" -type f 2>/dev/null | head -1 | grep -q .; then
-                has_nerd_font=true
-                break
-            fi
-        done
-    fi
-
-    if $has_nerd_font; then
-        print_success "Nerd Font detected"
-        return 0
-    fi
+    for dir in "${dirs[@]}"; do
+        [[ -d "$dir" ]] && ls "$dir"/*Nerd* &>/dev/null 2>&1 && { print_success "Nerd Font detected"; return 0; }
+    done
 
     print_warning "No Nerd Font detected - prompt icons may not display correctly"
-    echo ""
-    echo "  Starship and other tools use Nerd Fonts for icons."
-    echo "  Without a Nerd Font, you may see missing characters."
-    echo ""
+    echo -e "\n  Starship uses Nerd Fonts for icons. Without one, you may see missing characters.\n"
 
     if ! $AUTO_YES && confirm "Install a Nerd Font (JetBrainsMono)?" "y"; then
         install_nerd_font
     else
-        echo "  To install manually, visit: https://www.nerdfonts.com/"
-        echo "  Recommended: JetBrainsMono Nerd Font"
-        echo ""
+        echo -e "  To install manually: https://www.nerdfonts.com/ (Recommended: JetBrainsMono)\n"
     fi
 }
 
@@ -2033,10 +1958,41 @@ create_local_config() {
     fi
 }
 
-print_summary() {
-    print_header "Installation Complete!"
+print_installation_failed() {
+    local reason="$1"
+    print_header "Installation Failed"
+    echo -e "  ${RED}Installation could not complete.${NC}"
+    echo ""
+    if [[ -n "$reason" ]]; then
+        echo -e "  ${RED}Reason:${NC} $reason"
+        echo ""
+    fi
+    echo -e "  ${CYAN}What happened:${NC}"
+    echo "    A critical component failed to install."
+    echo "    Your system has been rolled back to its previous state."
+    echo ""
+    echo -e "  ${CYAN}Next steps:${NC}"
+    echo "    1. Check your internet connection"
+    echo "    2. Review the error messages above"
+    echo "    3. Try running the installer again"
+    echo "    4. If the issue persists, check: https://github.com/chiptoma/dotfiles-zsh/issues"
+    echo ""
+}
 
-    echo -e "  ${GREEN}Your ZSH configuration has been installed successfully.${NC}"
+print_summary() {
+    # Check if we have warnings (partial success)
+    if [[ ${#INSTALL_WARNINGS[@]} -gt 0 ]]; then
+        print_header "Installation Completed with Warnings"
+        echo -e "  ${YELLOW}Core shell is functional but some features are missing.${NC}"
+        echo ""
+        echo -e "  ${YELLOW}Warnings:${NC}"
+        for warning in "${INSTALL_WARNINGS[@]}"; do
+            echo -e "    ${YELLOW}⚠${NC}  $warning"
+        done
+    else
+        print_header "Installation Complete!"
+        echo -e "  ${GREEN}Your ZSH configuration has been installed successfully.${NC}"
+    fi
     echo ""
     echo "  Configuration location: $INSTALL_DIR"
     echo "  Data directory:         $DATA_DIR/zsh"
@@ -2045,17 +2001,32 @@ print_summary() {
         echo "  Backup location:        $BACKUP_DIR"
     fi
     echo ""
-    echo -e "  ${CYAN}Next steps:${NC}"
-    echo -e "    1. Restart your shell:  ${WHITE}exec zsh${NC}"
-    echo -e "    2. Customize settings:  ${WHITE}\$EDITOR $INSTALL_DIR/local.zsh${NC}"
+    echo -e "  ${CYAN}${BOLD}Getting Started:${NC}"
+    echo -e "    1. Start new shell:    ${WHITE}exec zsh${NC}"
+    echo -e "    2. Customize settings: ${WHITE}nano $INSTALL_DIR/local.zsh${NC}"
     echo ""
-    echo -e "  ${CYAN}Quick commands:${NC}"
-    echo -e "    - ${WHITE}als${NC}      - Interactive alias browser"
-    echo -e "    - ${WHITE}h${NC}        - Interactive history search"
-    echo -e "    - ${WHITE}path${NC}     - Show PATH entries"
-    echo -e "    - ${WHITE}reload${NC}   - Reload configuration"
+    echo -e "  ${CYAN}${BOLD}Essential Shortcuts:${NC}"
+    echo -e "    ${WHITE}Ctrl+R${NC}  - Search command history (fuzzy search)"
+    echo -e "    ${WHITE}Ctrl+T${NC}  - Find files in current directory"
+    echo -e "    ${WHITE}Tab${NC}     - Smart completion with descriptions"
+    echo -e "    ${WHITE}z dir${NC}   - Jump to frequently used directory"
     echo ""
-    echo -e "  ${DIM}Documentation: https://github.com/chiptoma/dotfiles-zsh${NC}"
+    echo -e "  ${CYAN}${BOLD}Useful Commands:${NC}"
+    echo -e "    ${WHITE}als${NC}      - Browse all aliases interactively"
+    echo -e "    ${WHITE}h${NC}        - Search command history"
+    echo -e "    ${WHITE}ll${NC}       - List files with details"
+    echo -e "    ${WHITE}path${NC}     - Show PATH entries"
+    echo -e "    ${WHITE}reload${NC}   - Reload shell configuration"
+    echo -e "    ${WHITE}zsh_info${NC} - Show shell configuration info"
+    echo ""
+    echo -e "  ${CYAN}${BOLD}Customization:${NC}"
+    echo -e "    Add your own aliases and settings to:"
+    echo -e "    ${WHITE}$INSTALL_DIR/local.zsh${NC}"
+    echo ""
+    echo -e "  ${CYAN}${BOLD}Need Help?${NC}"
+    echo -e "    Check config:  ${WHITE}./install.sh --check${NC}"
+    echo -e "    Repair issues: ${WHITE}./install.sh --repair${NC}"
+    echo -e "    Documentation: ${DIM}https://github.com/chiptoma/dotfiles-zsh${NC}"
     echo ""
 
     if confirm "Start a new ZSH shell now?" "y"; then
@@ -2182,14 +2153,14 @@ repair_installation() {
     if [[ ! -f "$HOME/.zshenv" ]]; then
         print_warning "~/.zshenv is missing"
         ((issues_found++)) || true
-        if confirm "Create ~/.zshenv with ZDOTDIR?"; then
+        if confirm "Create ~/.zshenv with ZDOTDIR?" "y"; then
             setup_zdotdir
             ((issues_fixed++)) || true
         fi
     elif ! grep -q "ZDOTDIR" "$HOME/.zshenv"; then
         print_warning "~/.zshenv exists but ZDOTDIR is not set"
         ((issues_found++)) || true
-        if confirm "Add ZDOTDIR to ~/.zshenv?"; then
+        if confirm "Add ZDOTDIR to ~/.zshenv?" "y"; then
             setup_zdotdir
             ((issues_fixed++)) || true
         fi
@@ -2202,7 +2173,7 @@ repair_installation() {
     if [[ ! -d "$INSTALL_DIR" && ! -L "$INSTALL_DIR" ]]; then
         print_warning "Config directory missing: $INSTALL_DIR"
         ((issues_found++)) || true
-        if confirm "Re-install configuration?"; then
+        if confirm "Re-install configuration?" "y"; then
             install_config
             ((issues_fixed++)) || true
         fi
@@ -2230,7 +2201,7 @@ repair_installation() {
 
     if [[ $issues_found -gt 0 ]] && [[ ! -f "$INSTALL_DIR/.zshrc" ]]; then
         print_warning "Essential files missing - configuration may be corrupted"
-        if confirm "Re-install configuration from source?"; then
+        if confirm "Re-install configuration from source?" "y"; then
             install_config
             ((issues_fixed++)) || true
         fi
@@ -2242,7 +2213,7 @@ repair_installation() {
     if [[ ! -d "$omz_path" && ! -d "$HOME/.oh-my-zsh" ]]; then
         print_warning "Oh My Zsh not found"
         ((issues_found++)) || true
-        if confirm "Install Oh My Zsh?"; then
+        if confirm "Install Oh My Zsh?" "y"; then
             install_omz
             ((issues_fixed++)) || true
         fi
@@ -2269,7 +2240,7 @@ repair_installation() {
     done
 
     if [[ $missing_plugins -gt 0 ]]; then
-        if confirm "Install missing OMZ plugins?"; then
+        if confirm "Install missing OMZ plugins?" "y"; then
             export ZSH="$omz_path"
             install_omz_plugins
             ((issues_fixed++)) || true
@@ -2529,18 +2500,31 @@ main() {
     next_step "Checking Requirements"
     check_requirements
 
-    # Step 3: Oh My Zsh
+    # Step 3: Oh My Zsh (MANDATORY - shell breaks without it)
     next_step "Oh My Zsh Setup"
-    check_omz
+    if ! check_omz; then
+        print_installation_failed "Oh My Zsh setup failed"
+        perform_rollback
+        exit 1
+    fi
 
     # Step 4: Backup
     next_step "Backup Existing Configuration"
     backup_existing
 
-    # Step 5: Installation
+    # Step 5: Installation (MANDATORY - shell breaks without it)
     next_step "Installing Configuration"
-    install_config
-    setup_zdotdir
+    if ! install_config; then
+        print_installation_failed "Configuration installation failed"
+        perform_rollback
+        exit 1
+    fi
+
+    if ! setup_zdotdir; then
+        print_installation_failed "ZDOTDIR setup failed - shell would not load new config"
+        perform_rollback
+        exit 1
+    fi
 
     # Skip optional tools and local config in dry-run mode
     if ! $DRY_RUN; then
