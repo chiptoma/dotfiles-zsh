@@ -448,6 +448,65 @@ test_input_validation() {
 }
 
 # ----------------------------------------------------------
+# * TESTS: modules/history.zsh
+# ----------------------------------------------------------
+
+test_history() {
+    section "modules/history.zsh"
+
+    # Load dependencies first
+    unset _ZSH_HISTORY_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+
+    # Load history module
+    source "$ZDOTDIR/modules/history.zsh" 2>/dev/null || { skip "history.zsh not loadable"; return; }
+
+    # Test _should_ignore_history_cmd function exists
+    if ! typeset -f _should_ignore_history_cmd > /dev/null 2>&1; then
+        skip "_should_ignore_history_cmd not defined"
+        return
+    fi
+
+    # Test security filter patterns - commands that SHOULD be ignored
+    assert_true "ignores password export" _should_ignore_history_cmd "export PASSWORD=secret123"
+    assert_true "ignores API key assignment" _should_ignore_history_cmd "export AWS_SECRET_ACCESS_KEY=abcd1234"
+    assert_true "ignores op CLI" _should_ignore_history_cmd "op get item login"
+    assert_true "ignores vault read" _should_ignore_history_cmd "vault read secret/data"
+    assert_true "ignores pass command" _should_ignore_history_cmd "pass show email/gmail"
+    assert_true "ignores curl with auth header" _should_ignore_history_cmd "curl -H 'Authorization: Bearer token' https://api.example.com"
+    assert_true "ignores git clone with creds" _should_ignore_history_cmd "git clone https://user:pass@github.com/repo.git"
+    assert_true "ignores docker login" _should_ignore_history_cmd "docker login -u user -p password"
+
+    # Test normal commands that should NOT be ignored
+    assert_false "allows git status" _should_ignore_history_cmd "git status"
+    assert_false "allows ls -la" _should_ignore_history_cmd "ls -la"
+    assert_false "allows cd command" _should_ignore_history_cmd "cd /tmp"
+    assert_false "allows echo hello" _should_ignore_history_cmd "echo hello"
+    assert_false "allows vim" _should_ignore_history_cmd "vim ~/.zshrc"
+    assert_false "allows brew install" _should_ignore_history_cmd "brew install fzf"
+
+    # Test history functions exist
+    if typeset -f history_stats > /dev/null 2>&1; then
+        pass "history_stats function defined"
+    else
+        fail "history_stats function defined"
+    fi
+
+    if typeset -f history_backup > /dev/null 2>&1; then
+        pass "history_backup function defined"
+    else
+        fail "history_backup function defined"
+    fi
+
+    if typeset -f history_clean > /dev/null 2>&1; then
+        pass "history_clean function defined"
+    else
+        fail "history_clean function defined"
+    fi
+}
+
+# ----------------------------------------------------------
 # * TEST RUNNER
 # ----------------------------------------------------------
 
@@ -464,6 +523,7 @@ main() {
     test_path_functions
     test_path_conditions
     test_lazy
+    test_history
     test_input_validation
 
     teardown_test_env

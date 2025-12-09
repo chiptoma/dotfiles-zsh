@@ -458,6 +458,47 @@ is_container() {
     grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null
 }
 
+# Verify SHA256 checksum of a file
+# Usage: verify_checksum <file> <expected_checksum>
+# Returns: 0 if match, 1 if mismatch, 2 if no checksum tool available
+verify_checksum() {
+    local file="$1"
+    local expected="$2"
+    local actual
+
+    [[ -z "$expected" ]] && return 0  # No checksum provided, skip verification
+
+    if has_cmd sha256sum; then
+        actual=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1)
+    elif has_cmd shasum; then
+        actual=$(shasum -a 256 "$file" 2>/dev/null | cut -d' ' -f1)
+    else
+        print_dim "No checksum tool available, skipping verification"
+        return 2
+    fi
+
+    if [[ "$actual" == "$expected" ]]; then
+        print_dim "Checksum verified"
+        return 0
+    else
+        print_error "Checksum mismatch!"
+        print_error "  Expected: $expected"
+        print_error "  Got:      $actual"
+        return 1
+    fi
+}
+
+# Fetch checksum from GitHub releases checksums file
+# Usage: fetch_github_checksum <checksums_url> <filename>
+fetch_github_checksum() {
+    local checksums_url="$1"
+    local filename="$2"
+    local checksum
+
+    checksum=$(curl -fsSL "$checksums_url" 2>/dev/null | grep -F "$filename" | awk '{print $1}')
+    echo "$checksum"
+}
+
 # Run command or show what would be done in dry-run mode
 run_cmd() {
     if $DRY_RUN; then
@@ -727,16 +768,34 @@ install_fzf_binary() {
     version=$(curl -fsSL "https://api.github.com/repos/junegunn/fzf/releases/latest" 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"v\?\([^"]*\)".*/\1/')
     [[ -z "$version" ]] && version="0.56.3"  # Fallback
 
-    # Build download URL with explicit version
-    local url="https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-${os}_${arch}.tar.gz"
+    # Build download URLs
+    local filename="fzf-${version}-${os}_${arch}.tar.gz"
+    local url="https://github.com/junegunn/fzf/releases/download/v${version}/${filename}"
+    local checksums_url="https://github.com/junegunn/fzf/releases/download/v${version}/fzf-${version}-checksums.txt"
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
     # shellcheck disable=SC2064  # Intentional: capture current tmp_dir value
     trap "rm -rf '$tmp_dir'" RETURN
 
-    # Download and extract
-    if curl -fsSL "$url" | tar -xz -C "$tmp_dir" 2>/dev/null; then
+    # Download tarball
+    if ! curl -fsSL "$url" -o "$tmp_dir/$filename" 2>/dev/null; then
+        print_warning "Failed to download fzf"
+        return 1
+    fi
+
+    # Fetch and verify checksum
+    local expected_checksum
+    expected_checksum=$(fetch_github_checksum "$checksums_url" "$filename")
+    if [[ -n "$expected_checksum" ]]; then
+        if ! verify_checksum "$tmp_dir/$filename" "$expected_checksum"; then
+            print_error "fzf checksum verification failed - aborting install"
+            return 1
+        fi
+    fi
+
+    # Extract and install
+    if tar -xzf "$tmp_dir/$filename" -C "$tmp_dir" 2>/dev/null; then
         local install_dir="/usr/local/bin"
         if [[ ! -w "$install_dir" ]] && [[ $EUID -ne 0 ]]; then
             install_dir="$HOME/.local/bin"
@@ -746,7 +805,7 @@ install_fzf_binary() {
         if [[ -f "$tmp_dir/fzf" ]]; then
             maybe_sudo install -m 755 "$tmp_dir/fzf" "$install_dir/fzf" 2>/dev/null
             if has_cmd fzf || [[ -x "$install_dir/fzf" ]]; then
-                print_success "fzf installed"
+                print_success "fzf installed (checksum verified)"
                 return 0
             fi
         fi

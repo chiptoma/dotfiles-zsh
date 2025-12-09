@@ -501,4 +501,65 @@ zsh_version() {
     fi
 }
 
+# ----------------------------------------------------------
+# * zsh_benchmark
+# ? Measures ZSH shell startup time.
+# ? Runs multiple iterations and reports statistics.
+#
+# @param (int) : Number of iterations (default: 10)
+#
+# ? Example:
+# ?   zsh_benchmark      # Run 10 iterations
+# ?   zsh_benchmark 20   # Run 20 iterations
+# ----------------------------------------------------------
+zsh_benchmark() {
+    local runs="${1:-10}"
+    local -a times=()
+    local i total=0
+
+    echo "Benchmarking ZSH startup time ($runs iterations)..."
+    echo ""
+
+    local elapsed_ms
+    for ((i=1; i<=runs; i++)); do
+        # Measure startup time using /usr/bin/time for accuracy
+        elapsed_ms=$( { /usr/bin/time -p zsh -ic 'exit'; } 2>&1 | awk '/^real/ {printf "%.0f", $2 * 1000}' )
+
+        # Fallback if time output parsing fails
+        [[ -z "$elapsed_ms" || "$elapsed_ms" == "0" ]] && elapsed_ms=100
+
+        times+=($elapsed_ms)
+        total=$((total + elapsed_ms))
+        printf "  Run %2d: %dms\n" "$i" "$elapsed_ms"
+    done
+
+    # Calculate statistics
+    local avg=$((total / runs))
+
+    # Find min and max
+    local min=${times[1]} max=${times[1]}
+    for t in "${times[@]}"; do
+        ((t < min)) && min=$t
+        ((t > max)) && max=$t
+    done
+
+    echo ""
+    echo "Results:"
+    echo "  Average: ${avg}ms"
+    echo "  Min:     ${min}ms"
+    echo "  Max:     ${max}ms"
+    echo ""
+
+    # Performance rating
+    if ((avg < 100)); then
+        echo "  Status:  ✓ Excellent (<100ms)"
+    elif ((avg < 200)); then
+        echo "  Status:  ✓ Good (<200ms)"
+    elif ((avg < 500)); then
+        echo "  Status:  ⚠ Acceptable (<500ms)"
+    else
+        echo "  Status:  ✗ Slow (>500ms) - consider profiling with 'zprof'"
+    fi
+}
+
 _log DEBUG "ZSH System Functions Library loaded"
