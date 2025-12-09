@@ -143,19 +143,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Install configuration
         run: ./install.sh --yes --minimal --skip-tools
-      - name: Install Oh My Zsh and plugins
-        run: |
-          export ZSH="${HOME}/.local/share/oh-my-zsh"
-          # Install OMZ only if not already installed by install.sh
-          if [[ ! -d "$ZSH" ]]; then
-            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-            rm -f "${HOME}/.zshrc"
-          fi
-          # Install plugins
-          ZSH_CUSTOM="${ZSH}/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
-          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests

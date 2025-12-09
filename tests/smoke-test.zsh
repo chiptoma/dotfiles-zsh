@@ -263,7 +263,7 @@ for func in "${user_functions[@]}"; do
     result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
         export ZSH_LOG_LEVEL=ERROR
-        source \$ZDOTDIR/.zshenv
+        source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if (( \$+functions[$func] )); then
             echo 'DEFINED'
