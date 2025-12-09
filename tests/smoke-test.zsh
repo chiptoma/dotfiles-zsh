@@ -291,19 +291,19 @@ for func in "${user_functions[@]}"; do
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if (( \$+functions[$func] )); then
-            echo 'DEFINED'
+            echo 'FUNC_DEFINED'
         else
-            echo 'MISSING'
+            echo 'FUNC_MISSING'
         fi
     " 2>&1)
 
-    if [[ "$result" == "DEFINED" ]]; then
+    # Use pattern matching to handle OMZ plugin warnings in output
+    if [[ "$result" == *"FUNC_DEFINED"* ]]; then
         pass "$func defined"
-    elif [[ "$result" == "MISSING" ]]; then
+    elif [[ "$result" == *"FUNC_MISSING"* ]]; then
         fail "$func not defined"
     else
         fail "$func check failed (unexpected output)"
-        # Always show unexpected output for debugging in CI
         echo "  Output: $result" | head -5
     fi
 done
@@ -317,13 +317,14 @@ section "Module Loading"
 # Check that HISTFILE is set (required)
 histfile_result=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    export ZSH_LOG_LEVEL=ERROR
-    source \$ZDOTDIR/.zshenv
+    export ZSH_LOG_LEVEL=NONE
+    source \$ZDOTDIR/.zshenv 2>/dev/null
     source \$ZDOTDIR/.zshrc 2>/dev/null
-    [[ -n \"\$HISTFILE\" ]] && echo 'SET' || echo 'UNSET'
+    [[ -n \"\$HISTFILE\" ]] && echo 'HIST_SET' || echo 'HIST_UNSET'
 " 2>&1)
 
-if [[ "$histfile_result" == "SET" ]]; then
+# Use pattern matching to handle OMZ plugin warnings
+if [[ "$histfile_result" == *"HIST_SET"* ]]; then
     pass "History configured (HISTFILE set)"
 else
     fail "History not configured (HISTFILE not set)"
@@ -332,13 +333,14 @@ fi
 # Check EDITOR (optional - depends on what's installed)
 editor_result=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    export ZSH_LOG_LEVEL=ERROR
-    source \$ZDOTDIR/.zshenv
+    export ZSH_LOG_LEVEL=NONE
+    source \$ZDOTDIR/.zshenv 2>/dev/null
     source \$ZDOTDIR/.zshrc 2>/dev/null
-    [[ -n \"\$EDITOR\" ]] && echo 'SET' || echo 'UNSET'
+    [[ -n \"\$EDITOR\" ]] && echo 'EDITOR_SET' || echo 'EDITOR_UNSET'
 " 2>&1)
 
-if [[ "$editor_result" == "SET" ]]; then
+# Use pattern matching to handle OMZ plugin warnings
+if [[ "$editor_result" == *"EDITOR_SET"* ]]; then
     pass "Editor detection ran (EDITOR set)"
 else
     warn "Editor not detected (no editor installed)"
@@ -360,17 +362,18 @@ test_aliases=(
 for alias_name in "${test_aliases[@]}"; do
     result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH_LOG_LEVEL=ERROR
-        source \$ZDOTDIR/.zshenv
+        export ZSH_LOG_LEVEL=NONE
+        source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if alias $alias_name >/dev/null 2>&1; then
-            echo 'EXISTS'
+            echo 'ALIAS_EXISTS'
         else
-            echo 'MISSING'
+            echo 'ALIAS_MISSING'
         fi
     " 2>&1)
 
-    if [[ "$result" == "EXISTS" ]]; then
+    # Use pattern matching to handle OMZ plugin warnings
+    if [[ "$result" == *"ALIAS_EXISTS"* ]]; then
         pass "alias '$alias_name' defined"
     else
         fail "alias '$alias_name' not defined"
