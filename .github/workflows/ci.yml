@@ -145,10 +145,12 @@ jobs:
         run: ./install.sh --yes --minimal --skip-tools
       - name: Install Oh My Zsh and plugins
         run: |
-          # Install Oh My Zsh
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"  # OMZ creates this, we use our own
+          # Install OMZ only if not already installed by install.sh
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           # Install plugins
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"

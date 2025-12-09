@@ -36,8 +36,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
@@ -59,8 +61,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
@@ -88,8 +92,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
@@ -114,8 +120,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
@@ -140,8 +148,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
@@ -180,8 +190,10 @@ jobs:
       - name: Install Oh My Zsh and plugins
         run: |
           export ZSH="${HOME}/.local/share/oh-my-zsh"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "${HOME}/.zshrc"
+          if [[ ! -d "$ZSH" ]]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            rm -f "${HOME}/.zshrc"
+          fi
           ZSH_CUSTOM="${ZSH}/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
