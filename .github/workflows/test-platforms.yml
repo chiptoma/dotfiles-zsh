@@ -128,7 +128,7 @@ jobs:
     container: rockylinux:9
     steps:
       - name: Install dependencies
-        run: dnf install -y git zsh curl
+        run: dnf install -y --allowerasing git zsh curl
       - uses: actions/checkout@v4
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools

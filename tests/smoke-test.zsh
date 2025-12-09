@@ -176,6 +176,26 @@ for func in "${core_functions[@]}"; do
 done
 
 # ----------------------------------------------------------
+# * OH MY ZSH CHECK
+# ----------------------------------------------------------
+
+section "Oh My Zsh"
+
+# Check if OMZ is installed where .zshrc expects it
+omz_path=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    source \$ZDOTDIR/.zshenv 2>/dev/null
+    echo \"\$XDG_DATA_HOME/oh-my-zsh\"
+" 2>&1)
+
+if [[ -d "$omz_path" ]]; then
+    pass "Oh My Zsh found at $omz_path"
+else
+    fail "Oh My Zsh NOT found at $omz_path"
+    warn ".zshrc will fail to load without OMZ"
+fi
+
+# ----------------------------------------------------------
 # * ZSHRC LOADING (NON-INTERACTIVE)
 # ----------------------------------------------------------
 
@@ -283,7 +303,8 @@ for func in "${user_functions[@]}"; do
         fail "$func not defined"
     else
         fail "$func check failed (unexpected output)"
-        $VERBOSE && echo "  Result: $result"
+        # Always show unexpected output for debugging in CI
+        echo "  Output: $result" | head -5
     fi
 done
 
