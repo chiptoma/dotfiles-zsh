@@ -49,6 +49,8 @@ jobs:
 
       - name: Verify ${{ matrix.tool }} installed
         run: |
+          # Source Homebrew on macOS (ARM64 or Intel)
+          eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
           source ~/.zshenv 2>/dev/null || true
           # Handle tool name mappings (Ubuntu uses different names)
           TOOL="${{ matrix.tool }}"
@@ -64,6 +66,8 @@ jobs:
 
       - name: Verify ${{ matrix.tool }} runs
         run: |
+          # Source Homebrew on macOS (ARM64 or Intel)
+          eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
           source ~/.zshenv 2>/dev/null || true
           TOOL="${{ matrix.tool }}"
           [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
@@ -122,6 +126,8 @@ jobs:
 
       - name: Verify all tools
         run: |
+          # Source Homebrew on macOS (ARM64 or Intel)
+          eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
           source ~/.zshenv 2>/dev/null || true
           echo "Checking installed tools..."
           check_tool() {
