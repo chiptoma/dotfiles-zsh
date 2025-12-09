@@ -12,6 +12,7 @@ set -euo pipefail
 # ----------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="2.0.0"
 
 # These are initialized in init_paths() to ensure HOME is correct
 INSTALL_DIR=""
@@ -26,6 +27,25 @@ AUTO_YES=false
 # Dry-run mode (set via --dry-run flag)
 DRY_RUN=false
 
+# Quiet mode (set via --quiet flag)
+QUIET=false
+
+# Skip optional tools (set via --skip-tools flag)
+SKIP_TOOLS=false
+
+# Installation profile: minimal, recommended (default), full
+INSTALL_PROFILE="recommended"
+
+# Specific tools to install (set via --tools flag, comma-separated)
+SELECTED_TOOLS=""
+
+# Step tracking for progress display
+CURRENT_STEP=0
+TOTAL_STEPS=7
+
+# Rollback tracking
+ROLLBACK_ACTIONS=()
+
 # Initialize paths (call this at start of main to pick up env overrides)
 init_paths() {
     INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
@@ -35,16 +55,280 @@ init_paths() {
     BACKUP_DIR="$HOME/.zsh-backup-$(date +%Y%m%d_%H%M%S)"
 }
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
-BOLD='\033[1m'
-DIM='\033[2m'
+# ----------------------------------------------------------
+# * COLORS (NO_COLOR support)
+# ? Respects NO_COLOR environment variable per https://no-color.org
+# ----------------------------------------------------------
+
+init_colors() {
+    # Support NO_COLOR standard (https://no-color.org)
+    if [[ -n "${NO_COLOR:-}" ]] || [[ ! -t 1 ]]; then
+        RED=''
+        GREEN=''
+        YELLOW=''
+        BLUE=''
+        CYAN=''
+        WHITE=''
+        NC=''
+        BOLD=''
+        DIM=''
+    else
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[0;33m'
+        BLUE='\033[0;34m'
+        CYAN='\033[0;36m'
+        WHITE='\033[1;37m'
+        NC='\033[0m'
+        BOLD='\033[1m'
+        DIM='\033[2m'
+    fi
+}
+
+# Initialize colors immediately
+init_colors
+
+# ----------------------------------------------------------
+# * ASCII LOGO
+# ----------------------------------------------------------
+
+print_logo() {
+    $QUIET && return
+    echo ""
+    echo -e "${CYAN}${BOLD}"
+    cat << 'EOF'
+    ______ _____ _   _
+   |___  // ____| | | |
+      / /| (___ | |_| |
+     / /  \___ \|  _  |
+    / /__ ____) | | | |
+   /_____|_____/|_| |_|  dotfiles
+
+         by ChipToma
+EOF
+    echo -e "${NC}"
+    echo -e "  ${DIM}Modern • Modular • Secure${NC}"
+    echo -e "  ${DIM}Version $VERSION${NC}"
+    echo ""
+}
+
+# ----------------------------------------------------------
+# * STATUS LINE
+# ? Single updating line to show current operation
+# ----------------------------------------------------------
+
+LAST_STATUS_MSG=""
+
+# Update status line (replaces previous line)
+# Usage: status "Installing package X..."
+status() {
+    local msg="$1"
+    LAST_STATUS_MSG="$msg"
+
+    # In quiet mode or non-TTY, just print
+    if $QUIET || [[ ! -t 1 ]]; then
+        return
+    fi
+
+    # Clear line and print new status
+    printf "\r\033[K  ${DIM}→ %s${NC}" "$msg"
+}
+
+# Clear status line
+status_clear() {
+    if [[ -t 1 ]] && ! $QUIET; then
+        printf "\r\033[K"
+    fi
+    LAST_STATUS_MSG=""
+}
+
+# ----------------------------------------------------------
+# * LIVE OUTPUT STREAMING
+# ? Runs command and shows last line of output in real-time
+# ----------------------------------------------------------
+
+# Run a command and display its last output line in real-time
+# Usage: run_with_status "Installing ZSH" apt-get install -y zsh
+run_with_status() {
+    local label="$1"
+    shift
+
+    # In non-TTY mode, just run the command silently
+    if [[ ! -t 1 ]] || $QUIET; then
+        "$@" >/dev/null 2>&1
+        return $?
+    fi
+
+    local exit_code=0
+    local last_line=""
+
+    # Run command and capture output line by line
+    {
+        "$@" 2>&1
+    } | while IFS= read -r line; do
+        # Truncate line if too long (keep last 60 chars)
+        if [[ ${#line} -gt 60 ]]; then
+            last_line="...${line: -57}"
+        else
+            last_line="$line"
+        fi
+        # Update status with current line
+        printf "\r\033[K  ${DIM}%s: %s${NC}" "$label" "$last_line"
+    done
+
+    exit_code=${PIPESTATUS[0]}
+
+    # Clear status line when done
+    printf "\r\033[K"
+
+    return $exit_code
+}
+
+# ----------------------------------------------------------
+# * SPINNER FUNCTIONS
+# ? Provides visual feedback for long-running operations
+# ----------------------------------------------------------
+
+SPINNER_PID=""
+SPINNER_CHARS="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+# Start a spinner with a message
+# Usage: start_spinner "Installing packages..."
+start_spinner() {
+    local msg="$1"
+
+    # Skip spinner in quiet mode, non-interactive, or NO_COLOR
+    if $QUIET || [[ ! -t 1 ]] || [[ -n "${NO_COLOR:-}" ]]; then
+        echo -e "  ${CYAN}→${NC} $msg"
+        return
+    fi
+
+    # Kill any existing spinner
+    stop_spinner
+
+    (
+        local i=0
+        local len=${#SPINNER_CHARS}
+        while true; do
+            printf "\r  ${CYAN}%s${NC} %s" "${SPINNER_CHARS:i++%len:1}" "$msg"
+            sleep 0.1
+        done
+    ) &
+    SPINNER_PID=$!
+    disown $SPINNER_PID 2>/dev/null || true
+}
+
+# Stop the spinner and show result
+# Usage: stop_spinner [success|error|warning] "Result message"
+stop_spinner() {
+    if [[ -n "${SPINNER_PID:-}" ]]; then
+        kill $SPINNER_PID 2>/dev/null || true
+        wait $SPINNER_PID 2>/dev/null || true
+        SPINNER_PID=""
+        printf "\r\033[K"  # Clear line
+    fi
+}
+
+# Complete spinner with status
+# Usage: complete_spinner success "Installed successfully"
+complete_spinner() {
+    local status="$1"
+    local msg="$2"
+
+    stop_spinner
+
+    case "$status" in
+        success) print_success "$msg" ;;
+        error)   print_error "$msg" ;;
+        warning) print_warning "$msg" ;;
+        *)       print_info "$msg" ;;
+    esac
+}
+
+# ----------------------------------------------------------
+# * ROLLBACK SYSTEM
+# ? Tracks changes for recovery on failure
+# ----------------------------------------------------------
+
+# Register an action that can be rolled back
+# Usage: register_rollback "rm -rf /path/to/dir"
+register_rollback() {
+    ROLLBACK_ACTIONS+=("$1")
+}
+
+# Perform rollback on error
+perform_rollback() {
+    if [[ ${#ROLLBACK_ACTIONS[@]} -eq 0 ]]; then
+        return
+    fi
+
+    echo ""
+    print_error "Installation failed! Rolling back changes..."
+
+    # Execute rollback actions in reverse order
+    local i
+    for (( i=${#ROLLBACK_ACTIONS[@]}-1; i>=0; i-- )); do
+        local action="${ROLLBACK_ACTIONS[$i]}"
+        print_dim "  Rollback: $action"
+        eval "$action" 2>/dev/null || true
+    done
+
+    print_info "Rollback complete. System restored to previous state."
+}
+
+# ERR trap handler
+on_error() {
+    local exit_code=$?
+    local line_no=$1
+
+    echo ""
+    print_error "Installation failed on line $line_no (exit code: $exit_code)"
+    echo ""
+    echo "  ${YELLOW}${BOLD}Troubleshooting:${NC}"
+    echo ""
+    echo "  1. ${WHITE}Check permissions:${NC}"
+    echo "     - Ensure write access to $HOME"
+    echo "     - Check if config directory is writable"
+    echo ""
+    echo "  2. ${WHITE}Network issues:${NC}"
+    echo "     - Verify internet connectivity"
+    echo "     - Try: curl -I https://github.com"
+    echo ""
+    echo "  3. ${WHITE}Try repair mode:${NC}"
+    echo "     ./install.sh --repair"
+    echo ""
+    echo "  4. ${WHITE}Clean install:${NC}"
+    echo "     ./install.sh --uninstall"
+    echo "     ./install.sh"
+    echo ""
+    echo "  5. ${WHITE}Get help:${NC}"
+    echo "     https://github.com/chiptoma/dotfiles-zsh/issues"
+    echo ""
+
+    perform_rollback
+    exit $exit_code
+}
+
+# Set up ERR trap
+trap 'on_error $LINENO' ERR
+
+# ----------------------------------------------------------
+# * PROGRESS TRACKING
+# ? Shows step-by-step progress through installation
+# ----------------------------------------------------------
+
+# Advance to next step and show progress
+# Usage: next_step "Step description"
+next_step() {
+    local description="$1"
+    ((CURRENT_STEP++)) || true
+
+    $QUIET && return
+
+    echo ""
+    echo -e "${BLUE}${BOLD}[$CURRENT_STEP/$TOTAL_STEPS]${NC} ${BOLD}$description${NC}"
+    echo ""
+}
 
 # ----------------------------------------------------------
 # * HELPER FUNCTIONS
@@ -156,6 +440,24 @@ is_linux() {
     [[ "$(uname -s)" == "Linux" ]]
 }
 
+is_wsl() {
+    # Detect Windows Subsystem for Linux
+    if [[ -f /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null; then
+        return 0
+    fi
+    if [[ -n "${WSL_DISTRO_NAME:-}" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+is_container() {
+    # Detect if running in a container (Docker, Podman, etc.)
+    [[ -f /.dockerenv ]] || \
+    [[ -f /run/.containerenv ]] || \
+    grep -q 'docker\|lxc\|containerd' /proc/1/cgroup 2>/dev/null
+}
+
 # Run command or show what would be done in dry-run mode
 run_cmd() {
     if $DRY_RUN; then
@@ -184,6 +486,42 @@ get_package_manager() {
     else
         echo "none"
     fi
+}
+
+# Install a package with live output (handles different package managers)
+# Usage: install_package git apt
+install_package() {
+    local pkg="$1"
+    local pm="$2"
+
+    case "$pm" in
+        brew)
+            run_with_status "Installing $pkg" brew install "$pkg"
+            ;;
+        apt)
+            run_with_status "Updating packages" maybe_sudo apt-get update || true
+            run_with_status "Installing $pkg" maybe_sudo apt-get install -y "$pkg"
+            ;;
+        dnf)
+            run_with_status "Installing $pkg" maybe_sudo dnf install -y "$pkg"
+            ;;
+        yum)
+            run_with_status "Installing $pkg" maybe_sudo yum install -y "$pkg"
+            ;;
+        pacman)
+            run_with_status "Installing $pkg" maybe_sudo pacman -S --noconfirm --needed "$pkg"
+            ;;
+        apk)
+            run_with_status "Installing $pkg" maybe_sudo apk add "$pkg"
+            ;;
+        zypper)
+            run_with_status "Installing $pkg" maybe_sudo zypper install -y "$pkg"
+            ;;
+        *)
+            print_error "Unknown package manager: $pm"
+            return 1
+            ;;
+    esac
 }
 
 # Get the correct package name for a tool on the current platform
@@ -479,8 +817,6 @@ install_yazi_binary() {
 # ----------------------------------------------------------
 
 preflight_checks() {
-    print_section "Pre-flight Checks"
-
     local all_good=true
 
     # Check write permissions to config directory parent
@@ -543,53 +879,122 @@ preflight_checks() {
 }
 
 # ----------------------------------------------------------
+# * ZSH INSTALLATION
+# ? Offers to install ZSH if not present
+# ----------------------------------------------------------
+
+offer_zsh_install() {
+    local pm
+    pm=$(get_package_manager)
+
+    if [[ "$pm" == "none" ]]; then
+        print_error "No package manager available to install ZSH"
+        print_info "Please install ZSH manually:"
+        print_dim "  macOS: brew install zsh"
+        print_dim "  Ubuntu/Debian: sudo apt install zsh"
+        print_dim "  Fedora: sudo dnf install zsh"
+        print_dim "  Arch: sudo pacman -S zsh"
+        return 1
+    fi
+
+    if ! confirm "Install ZSH using $pm?" "y"; then
+        return 1
+    fi
+
+    local install_result=0
+    case "$pm" in
+        brew)
+            run_with_status "Installing ZSH" brew install zsh || install_result=$?
+            ;;
+        apt)
+            run_with_status "Updating packages" maybe_sudo apt-get update || true
+            run_with_status "Installing ZSH" maybe_sudo apt-get install -y zsh || install_result=$?
+            ;;
+        dnf)
+            run_with_status "Installing ZSH" maybe_sudo dnf install -y zsh || install_result=$?
+            ;;
+        yum)
+            run_with_status "Installing ZSH" maybe_sudo yum install -y zsh || install_result=$?
+            ;;
+        pacman)
+            run_with_status "Installing ZSH" maybe_sudo pacman -S --noconfirm --needed zsh || install_result=$?
+            ;;
+        apk)
+            run_with_status "Installing ZSH" maybe_sudo apk add zsh || install_result=$?
+            ;;
+        zypper)
+            run_with_status "Installing ZSH" maybe_sudo zypper install -y zsh || install_result=$?
+            ;;
+        *)
+            print_error "Unknown package manager: $pm"
+            return 1
+            ;;
+    esac
+
+    if [[ $install_result -eq 0 ]] && has_cmd zsh; then
+        print_success "ZSH installed successfully"
+        return 0
+    else
+        print_error "Failed to install ZSH"
+        return 1
+    fi
+}
+
+# ----------------------------------------------------------
+# * DEFAULT SHELL SETUP
+# ? Offers to set ZSH as the default shell
+# ----------------------------------------------------------
+
+offer_set_default_shell() {
+    # Check if ZSH is already default
+    local current_shell
+    current_shell=$(basename "${SHELL:-}")
+
+    if [[ "$current_shell" == "zsh" ]]; then
+        print_success "ZSH is already your default shell"
+        return 0
+    fi
+
+    print_info "Your current shell is: $current_shell"
+
+    if ! confirm "Set ZSH as your default shell?" "y"; then
+        print_dim "You can change it later with: chsh -s $(command -v zsh)"
+        return 0
+    fi
+
+    local zsh_path
+    zsh_path=$(command -v zsh)
+
+    # macOS: check if zsh is in /etc/shells
+    if is_macos; then
+        if ! grep -q "^${zsh_path}$" /etc/shells 2>/dev/null; then
+            print_info "Adding $zsh_path to /etc/shells..."
+            echo "$zsh_path" | maybe_sudo tee -a /etc/shells >/dev/null
+        fi
+    fi
+
+    start_spinner "Setting default shell..."
+
+    # Use chsh (may prompt for password)
+    if chsh -s "$zsh_path" 2>/dev/null; then
+        complete_spinner success "Default shell set to ZSH"
+        print_info "Changes take effect on next login"
+    else
+        complete_spinner warning "Could not set default shell automatically"
+        print_info "Run manually: chsh -s $zsh_path"
+    fi
+}
+
+# ----------------------------------------------------------
 # * SYSTEM CHECKS
 # ----------------------------------------------------------
 
 check_requirements() {
-    print_section "Checking Requirements"
-
     local all_good=true
-
-    # Check ZSH
-    if has_cmd zsh; then
-        local zsh_version
-        zsh_version=$(zsh --version | awk '{print $2}')
-        print_success "ZSH installed (version $zsh_version)"
-    else
-        print_error "ZSH not found"
-        all_good=false
-    fi
-
-    # Check Git
-    if has_cmd git; then
-        local git_version
-        git_version=$(git --version | awk '{print $3}')
-        print_success "Git installed (version $git_version)"
-    else
-        print_error "Git not found"
-        all_good=false
-    fi
-
-    # Check curl or wget
-    if has_cmd curl; then
-        print_success "curl installed"
-    elif has_cmd wget; then
-        print_success "wget installed"
-    else
-        print_warning "Neither curl nor wget found (needed for some features)"
-    fi
-
-    # Check package manager
     local pm
     pm=$(get_package_manager)
-    if [[ "$pm" != "none" ]]; then
-        print_success "Package manager: $pm"
-    else
-        print_warning "No supported package manager found"
-    fi
 
-    # Platform
+    # Show platform first
     if is_macos; then
         print_info "Platform: macOS ($(uname -m))"
     elif is_linux; then
@@ -597,9 +1002,91 @@ check_requirements() {
         if [[ -f /etc/os-release ]]; then
             distro=$(grep "^PRETTY_NAME=" /etc/os-release | cut -d'"' -f2)
         fi
-        print_info "Platform: Linux ($distro)"
+        if is_wsl; then
+            print_info "Platform: WSL ($distro)"
+            # WSL-specific notes
+            echo ""
+            echo "  ${DIM}WSL detected. Notes:${NC}"
+            echo "  ${DIM}- Windows paths are available via /mnt/c/${NC}"
+            echo "  ${DIM}- Some tools may need Windows Terminal for best experience${NC}"
+            echo "  ${DIM}- Consider installing a Nerd Font in Windows Terminal${NC}"
+            echo ""
+        elif is_container; then
+            print_info "Platform: Container ($distro)"
+        else
+            print_info "Platform: Linux ($distro)"
+        fi
     else
         print_warning "Platform: Unknown ($(uname -s))"
+    fi
+
+    # Check package manager
+    if [[ "$pm" != "none" ]]; then
+        print_success "Package manager: $pm"
+    else
+        print_warning "No supported package manager found"
+    fi
+
+    # Check essential tools FIRST (needed for installation)
+    # Git is required for OMZ and plugins
+    if has_cmd git; then
+        local git_version
+        git_version=$(git --version | awk '{print $3}')
+        print_success "Git installed (version $git_version)"
+    else
+        print_error "Git not found (required for Oh My Zsh)"
+        if [[ "$pm" != "none" ]]; then
+            if confirm "Install Git using $pm?" "y"; then
+                if install_package git "$pm"; then
+                    print_success "Git installed"
+                else
+                    print_error "Failed to install Git"
+                    all_good=false
+                fi
+            else
+                all_good=false
+            fi
+        else
+            all_good=false
+        fi
+    fi
+
+    # curl or wget needed for downloads
+    if has_cmd curl; then
+        print_success "curl installed"
+    elif has_cmd wget; then
+        print_success "wget installed"
+    else
+        print_error "Neither curl nor wget found (required for downloads)"
+        if [[ "$pm" != "none" ]]; then
+            if confirm "Install curl using $pm?" "y"; then
+                if install_package curl "$pm"; then
+                    print_success "curl installed"
+                else
+                    print_error "Failed to install curl"
+                    all_good=false
+                fi
+            else
+                all_good=false
+            fi
+        else
+            all_good=false
+        fi
+    fi
+
+    # Now check ZSH (after we have git and curl for installation)
+    if has_cmd zsh; then
+        local zsh_version
+        zsh_version=$(zsh --version | awk '{print $2}')
+        print_success "ZSH installed (version $zsh_version)"
+    else
+        print_warning "ZSH not found"
+        if offer_zsh_install; then
+            print_success "ZSH installed"
+        else
+            print_error "ZSH is required but not installed"
+            all_good=false
+        fi
     fi
 
     if ! $all_good; then
@@ -614,8 +1101,6 @@ check_requirements() {
 # ----------------------------------------------------------
 
 check_omz() {
-    print_section "Oh My Zsh"
-
     local omz_path="$DATA_DIR/oh-my-zsh"
 
     # Check common OMZ locations
@@ -641,21 +1126,34 @@ check_omz() {
 }
 
 install_omz() {
-    print_info "Installing Oh My Zsh..."
-
     # Set install directory
     export ZSH="$DATA_DIR/oh-my-zsh"
 
-    local install_result=0
-    # Suppress verbose OMZ installer output
+    local tmp_script
+    tmp_script=$(mktemp)
+    trap "rm -f '$tmp_script'" RETURN
+
+    # Download OMZ installer script
+    status "Downloading Oh My Zsh installer..."
     if has_cmd curl; then
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended >/dev/null 2>&1 || install_result=$?
+        curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$tmp_script" 2>/dev/null
     elif has_cmd wget; then
-        sh -c "$(wget -qO- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended >/dev/null 2>&1 || install_result=$?
+        wget -qO "$tmp_script" https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh 2>/dev/null
     else
+        status_clear
         print_error "Neither curl nor wget available for OMZ install"
         return 1
     fi
+    status_clear
+
+    if [[ ! -s "$tmp_script" ]]; then
+        print_error "Failed to download Oh My Zsh installer"
+        return 1
+    fi
+
+    # Run OMZ installer with live output
+    local install_result=0
+    run_with_status "Installing OMZ" sh "$tmp_script" --unattended || install_result=$?
 
     # Verify installation succeeded
     if [[ $install_result -ne 0 ]] || [[ ! -d "$ZSH" ]]; then
@@ -673,8 +1171,6 @@ install_omz() {
 }
 
 install_omz_plugins() {
-    print_info "Installing OMZ plugins..."
-
     local custom_dir="${ZSH_CUSTOM:-$ZSH/custom}/plugins"
     mkdir -p "$custom_dir"
 
@@ -685,21 +1181,29 @@ install_omz_plugins() {
         "fzf-tab:https://github.com/Aloxaf/fzf-tab"
     )
 
+    local plugin_count=${#plugins[@]}
+    local plugin_current=0
+
     for entry in "${plugins[@]}"; do
         local name="${entry%%:*}"
         local url="${entry#*:}"
         local target="$custom_dir/$name"
 
+        ((plugin_current++)) || true
+
         if [[ -d "$target" ]]; then
-            print_dim "  $name (already installed)"
+            status "[$plugin_current/$plugin_count] $name (cached)"
+            sleep 0.2  # Brief pause so user sees cached status
         else
-            if git clone --depth=1 "$url" "$target" >/dev/null 2>&1; then
-                print_success "$name"
+            if run_with_status "[$plugin_current/$plugin_count] $name" git clone --depth=1 "$url" "$target"; then
+                : # success
             else
                 print_warning "Failed to install $name"
             fi
         fi
     done
+    status_clear
+    print_success "OMZ plugins installed ($plugin_count plugins)"
 }
 
 # ----------------------------------------------------------
@@ -707,8 +1211,6 @@ install_omz_plugins() {
 # ----------------------------------------------------------
 
 backup_existing() {
-    print_section "Backing Up Existing Configuration"
-
     # Check for existing files
     local -a existing_files=()
     [[ -f "$HOME/.zshrc" ]] && existing_files+=("$HOME/.zshrc")
@@ -750,8 +1252,6 @@ backup_existing() {
 # ----------------------------------------------------------
 
 install_config() {
-    print_section "Installing Configuration"
-
     # Determine installation method
     local method
     if [[ "$SCRIPT_DIR" == "$INSTALL_DIR" ]]; then
@@ -877,8 +1377,6 @@ install_config() {
 }
 
 setup_zdotdir() {
-    print_section "Configuring ZDOTDIR"
-
     local system_zshenv="$HOME/.zshenv"
 
     # ? ZSH doesn't auto-source $ZDOTDIR/.zshenv after ZDOTDIR is set mid-file,
@@ -912,47 +1410,90 @@ setup_zdotdir() {
 # * OPTIONAL TOOLS
 # ----------------------------------------------------------
 
-install_optional_tools() {
-    print_section "Optional Tools"
+# Tools with descriptions, commands, and categories
+# Format: "tool:command:description:category"
+# Categories: core (recommended), enhanced, extra
+declare -a ALL_TOOLS=(
+    "fzf:fzf:Fuzzy finder for history search:core"
+    "eza:eza:Modern ls replacement:core"
+    "bat:bat:Better cat with syntax highlighting:core"
+    "ripgrep:rg:Fast grep replacement:core"
+    "fd:fd:Modern find replacement:enhanced"
+    "zoxide:zoxide:Smart directory jumping:enhanced"
+    "yazi:yazi:Terminal file manager:extra"
+    "starship:starship:Cross-shell prompt:extra"
+    "atuin:atuin:Shell history sync and search:extra"
+)
 
+# Check if a tool should be installed based on profile and selection
+should_install_tool() {
+    local tool="$1"
+    local category="$2"
+
+    # If specific tools are selected via --tools, only install those
+    if [[ -n "$SELECTED_TOOLS" ]]; then
+        if [[ ",$SELECTED_TOOLS," == *",$tool,"* ]]; then
+            return 0
+        fi
+        return 1
+    fi
+
+    # Profile-based selection
+    case "$INSTALL_PROFILE" in
+        minimal)
+            return 1  # No optional tools in minimal
+            ;;
+        recommended)
+            # Install core and enhanced categories
+            [[ "$category" == "core" || "$category" == "enhanced" ]]
+            ;;
+        full)
+            return 0  # Install everything
+            ;;
+    esac
+}
+
+install_optional_tools() {
     local pm
     pm=$(get_package_manager)
+
+    # Skip if --skip-tools or --minimal profile
+    if $SKIP_TOOLS; then
+        print_info "Skipping optional tools (--skip-tools)"
+        return 0
+    fi
+
+    if [[ "$INSTALL_PROFILE" == "minimal" ]] && [[ -z "$SELECTED_TOOLS" ]]; then
+        print_info "Minimal profile: skipping optional tools"
+        return 0
+    fi
 
     if [[ "$pm" == "none" ]]; then
         print_warning "No package manager available, skipping optional tools"
         return 0
     fi
 
-    # Tools with descriptions and command names for checking
-    # Format: "tool:command:description"
-    local -a tools=(
-        "fzf:fzf:Fuzzy finder for history search"
-        "eza:eza:Modern ls replacement"
-        "bat:bat:Better cat with syntax highlighting"
-        "ripgrep:rg:Fast grep replacement"
-        "fd:fd:Modern find replacement"
-        "zoxide:zoxide:Smart directory jumping"
-        "yazi:yazi:Terminal file manager"
-        "starship:starship:Cross-shell prompt"
-        "atuin:atuin:Shell history sync and search"
-    )
-
     local -a missing=()
     local -a installed=()
+    local -a to_install=()
 
-    for entry in "${tools[@]}"; do
+    # Categorize tools
+    for entry in "${ALL_TOOLS[@]}"; do
         local tool="${entry%%:*}"
         local rest="${entry#*:}"
         local check_cmd="${rest%%:*}"
-        local desc="${rest#*:}"
+        rest="${rest#*:}"
+        local desc="${rest%%:*}"
+        local category="${rest#*:}"
 
         if has_cmd "$check_cmd"; then
             installed+=("$tool")
         else
-            missing+=("$tool:$desc")
+            missing+=("$tool:$check_cmd:$desc:$category")
         fi
     done
 
+    # Show already installed
     if [[ ${#installed[@]} -gt 0 ]]; then
         echo "  Already installed:"
         for tool in "${installed[@]}"; do
@@ -970,68 +1511,375 @@ install_optional_tools() {
     echo "  Missing tools:"
     for entry in "${missing[@]}"; do
         local tool="${entry%%:*}"
-        local desc="${entry#*:}"
-        print_warning "$tool - $desc"
+        local rest="${entry#*:}"
+        rest="${rest#*:}"
+        local desc="${rest%%:*}"
+        local category="${rest#*:}"
+        local marker=""
+        case "$category" in
+            core) marker="[core]" ;;
+            enhanced) marker="[enhanced]" ;;
+            extra) marker="[extra]" ;;
+        esac
+        print_warning "$tool - $desc $marker"
     done
 
+    # Determine which tools to install
+    local install_mode=""
+    if [[ -n "$SELECTED_TOOLS" ]]; then
+        install_mode="selected"
+        echo ""
+        print_info "Installing selected tools: $SELECTED_TOOLS"
+    elif [[ "$INSTALL_PROFILE" == "full" ]]; then
+        install_mode="all"
+        echo ""
+        print_info "Full profile: installing all tools"
+    elif $AUTO_YES; then
+        install_mode="profile"
+    else
+        # Interactive mode - let user choose
+        echo ""
+        echo "  Installation options:"
+        echo "    1) Install recommended (core + enhanced)"
+        echo "    2) Install all missing tools"
+        echo "    3) Select individual tools"
+        echo "    4) Skip tool installation"
+        echo ""
+
+        local choice
+        read -rp "  Choose [1-4] (default: 1): " choice
+        choice="${choice:-1}"
+
+        case "$choice" in
+            1) install_mode="profile" ;;
+            2) install_mode="all" ;;
+            3) install_mode="interactive" ;;
+            4)
+                print_info "Skipping tool installation"
+                return 0
+                ;;
+            *)
+                print_info "Invalid choice, skipping"
+                return 0
+                ;;
+        esac
+    fi
+
+    # Build list of tools to install
+    for entry in "${missing[@]}"; do
+        local tool="${entry%%:*}"
+        local rest="${entry#*:}"
+        rest="${rest#*:}"
+        rest="${rest#*:}"
+        local category="${rest}"
+
+        case "$install_mode" in
+            selected)
+                if [[ ",$SELECTED_TOOLS," == *",$tool,"* ]]; then
+                    to_install+=("$entry")
+                fi
+                ;;
+            all)
+                to_install+=("$entry")
+                ;;
+            profile)
+                if should_install_tool "$tool" "$category"; then
+                    to_install+=("$entry")
+                fi
+                ;;
+            interactive)
+                # Ask for each tool
+                local desc="${entry#*:}"
+                desc="${desc#*:}"
+                desc="${desc%%:*}"
+                if confirm "Install $tool ($desc)?"; then
+                    to_install+=("$entry")
+                fi
+                ;;
+        esac
+    done
+
+    if [[ ${#to_install[@]} -eq 0 ]]; then
+        print_info "No tools selected for installation"
+        return 0
+    fi
+
     echo ""
-    if confirm "Install missing tools?" "y"; then
-        # Separate tools by install method
-        local -a pm_install=()      # Install via package manager
-        local -a special_install=() # Install via script/cargo
+    print_info "Installing ${#to_install[@]} tools..."
 
-        for entry in "${missing[@]}"; do
-            local tool="${entry%%:*}"
-            local pkg_name
-            pkg_name=$(get_package_name "$tool" "$pm")
+    # Separate tools by install method
+    local -a pm_install=()
+    local -a special_install=()
 
-            if [[ "$pkg_name" == CARGO:* ]] || [[ "$pkg_name" == SCRIPT:* ]]; then
-                special_install+=("$pkg_name")
-            else
-                pm_install+=("$pkg_name")
-            fi
-        done
+    for entry in "${to_install[@]}"; do
+        local tool="${entry%%:*}"
+        local pkg_name
+        pkg_name=$(get_package_name "$tool" "$pm")
 
-        # Install via package manager (non-fatal - optional tools)
-        if [[ ${#pm_install[@]} -gt 0 ]]; then
-            print_info "Installing via $pm: ${pm_install[*]}"
+        if [[ "$pkg_name" == CARGO:* ]] || [[ "$pkg_name" == SCRIPT:* ]]; then
+            special_install+=("$pkg_name:$tool")
+        else
+            pm_install+=("$pkg_name:$tool")
+        fi
+    done
 
-            # Package installation is optional - don't fail if some packages unavailable
-            # Suppress verbose output but capture errors
+    # Install via package manager
+    if [[ ${#pm_install[@]} -gt 0 ]]; then
+        local pkg_count=${#pm_install[@]}
+        local pkg_current=0
+        local apt_updated=false
+
+        for entry in "${pm_install[@]}"; do
+            local pkg="${entry%%:*}"
+            local tool="${entry#*:}"
+            ((pkg_current++)) || true
+            status "[$pkg_current/$pkg_count] Installing $tool..."
+
             case "$pm" in
                 brew)
-                    brew install "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    brew install "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
                 apt)
-                    maybe_sudo apt-get update -qq >/dev/null 2>&1
-                    # Also install unzip (needed for yazi) if not present
-                    maybe_sudo apt-get install -qq -y unzip "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    if ! $apt_updated; then
+                        maybe_sudo apt-get update -qq >/dev/null 2>&1
+                        apt_updated=true
+                    fi
+                    maybe_sudo apt-get install -qq -y "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
                 dnf)
-                    maybe_sudo dnf install -y -q --skip-unavailable "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    maybe_sudo dnf install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
                 pacman)
-                    maybe_sudo pacman -S --noconfirm --needed -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    maybe_sudo pacman -S --noconfirm --needed -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
                 apk)
-                    maybe_sudo apk add -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    maybe_sudo apk add -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
                 zypper)
-                    maybe_sudo zypper install -y -q "${pm_install[@]}" >/dev/null 2>&1 || print_warning "Some packages failed to install"
+                    maybe_sudo zypper install -y -q "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool"
                     ;;
             esac
-            print_success "Package manager tools installed"
-        fi
-
-        # Install via special methods (cargo, scripts)
-        if [[ ${#special_install[@]} -gt 0 ]]; then
-            for special in "${special_install[@]}"; do
-                install_special_tool "$special" || true
-            done
-        fi
-
-        print_success "Tool installation complete"
+        done
+        status_clear
+        print_success "Package manager tools installed ($pkg_count packages)"
     fi
+
+    # Install via special methods (cargo, scripts)
+    if [[ ${#special_install[@]} -gt 0 ]]; then
+        local special_count=${#special_install[@]}
+        local special_current=0
+
+        for entry in "${special_install[@]}"; do
+            ((special_current++)) || true
+            # Entry format: "SCRIPT:toolname:toolname" or "CARGO:toolname:toolname"
+            # We need to extract "SCRIPT:toolname" for install_special_tool
+            local tool="${entry##*:}"  # Get last segment (tool name)
+            local method_pkg="${entry%:*}"  # Remove last segment (get METHOD:pkg)
+            status "[$special_current/$special_count] Installing $tool..."
+            install_special_tool "$method_pkg" || print_warning "Failed to install $tool"
+        done
+        status_clear
+    fi
+
+    print_success "Tool installation complete"
+
+    # Setup shell integrations for installed tools
+    setup_shell_integrations
+}
+
+# ----------------------------------------------------------
+# * SHELL INTEGRATIONS
+# ? Configures shell hooks for tools that need initialization
+# ----------------------------------------------------------
+
+setup_shell_integrations() {
+    local local_config="$INSTALL_DIR/local.zsh"
+    local integrations_added=false
+
+    # Check if local.zsh exists and is writable
+    if [[ ! -f "$local_config" ]]; then
+        return 0
+    fi
+
+    if [[ ! -w "$local_config" ]]; then
+        # Config is read-only (e.g., symlinked from read-only mount)
+        print_info "Skipping shell integrations (config is read-only)"
+        print_dim "Add integrations manually to local.zsh if needed"
+        return 0
+    fi
+
+    print_section "Shell Integrations"
+
+    # zoxide integration
+    if has_cmd zoxide && ! grep -q "zoxide init" "$local_config" 2>/dev/null; then
+        echo "" >> "$local_config"
+        echo "# Zoxide - smart directory jumping" >> "$local_config"
+        echo 'eval "$(zoxide init zsh)"' >> "$local_config"
+        print_success "Added zoxide shell integration"
+        integrations_added=true
+    fi
+
+    # atuin integration
+    if has_cmd atuin && ! grep -q "atuin init" "$local_config" 2>/dev/null; then
+        echo "" >> "$local_config"
+        echo "# Atuin - enhanced shell history" >> "$local_config"
+        echo 'eval "$(atuin init zsh --disable-up-arrow)"' >> "$local_config"
+        print_success "Added atuin shell integration"
+        integrations_added=true
+    fi
+
+    # fzf integration (key bindings and completion)
+    if has_cmd fzf && ! grep -q "fzf --zsh" "$local_config" 2>/dev/null; then
+        # Check for fzf shell integration method
+        if fzf --zsh &>/dev/null; then
+            echo "" >> "$local_config"
+            echo "# FZF - fuzzy finder integration" >> "$local_config"
+            echo 'source <(fzf --zsh)' >> "$local_config"
+            print_success "Added fzf shell integration"
+            integrations_added=true
+        elif [[ -f "$HOME/.fzf.zsh" ]]; then
+            echo "" >> "$local_config"
+            echo "# FZF - fuzzy finder integration" >> "$local_config"
+            echo '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh' >> "$local_config"
+            print_success "Added fzf shell integration"
+            integrations_added=true
+        fi
+    fi
+
+    # starship prompt
+    if has_cmd starship && ! grep -q "starship init" "$local_config" 2>/dev/null; then
+        echo "" >> "$local_config"
+        echo "# Starship - cross-shell prompt" >> "$local_config"
+        echo 'eval "$(starship init zsh)"' >> "$local_config"
+        print_success "Added starship shell integration"
+        integrations_added=true
+
+        # Check for Nerd Font
+        check_nerd_fonts
+    fi
+
+    if ! $integrations_added; then
+        print_success "All shell integrations already configured"
+    fi
+}
+
+# ----------------------------------------------------------
+# * NERD FONTS
+# ? Checks and optionally installs Nerd Fonts for prompt icons
+# ----------------------------------------------------------
+
+check_nerd_fonts() {
+    local has_nerd_font=false
+
+    # Check common Nerd Font names
+    if is_macos; then
+        # Check macOS font directories
+        local font_dirs=(
+            "$HOME/Library/Fonts"
+            "/Library/Fonts"
+        )
+        for dir in "${font_dirs[@]}"; do
+            if [[ -d "$dir" ]] && ls "$dir"/*Nerd* &>/dev/null 2>&1; then
+                has_nerd_font=true
+                break
+            fi
+        done
+    else
+        # Check Linux font directories
+        local font_dirs=(
+            "$HOME/.local/share/fonts"
+            "$HOME/.fonts"
+            "/usr/share/fonts"
+            "/usr/local/share/fonts"
+        )
+        for dir in "${font_dirs[@]}"; do
+            if [[ -d "$dir" ]] && find "$dir" -name "*Nerd*" -type f 2>/dev/null | head -1 | grep -q .; then
+                has_nerd_font=true
+                break
+            fi
+        done
+    fi
+
+    if $has_nerd_font; then
+        print_success "Nerd Font detected"
+        return 0
+    fi
+
+    print_warning "No Nerd Font detected - prompt icons may not display correctly"
+    echo ""
+    echo "  Starship and other tools use Nerd Fonts for icons."
+    echo "  Without a Nerd Font, you may see missing characters."
+    echo ""
+
+    if ! $AUTO_YES && confirm "Install a Nerd Font (JetBrainsMono)?" "y"; then
+        install_nerd_font
+    else
+        echo "  To install manually, visit: https://www.nerdfonts.com/"
+        echo "  Recommended: JetBrainsMono Nerd Font"
+        echo ""
+    fi
+}
+
+install_nerd_font() {
+    local font_name="JetBrainsMono"
+    local font_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.zip"
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap "rm -rf '$tmp_dir'" RETURN
+
+    status "Downloading $font_name Nerd Font..."
+
+    # Download font
+    if has_cmd curl; then
+        curl -fsSL "$font_url" -o "$tmp_dir/font.zip" 2>/dev/null
+    elif has_cmd wget; then
+        wget -q "$font_url" -O "$tmp_dir/font.zip" 2>/dev/null
+    else
+        status_clear
+        print_error "Neither curl nor wget available"
+        return 1
+    fi
+
+    if [[ ! -f "$tmp_dir/font.zip" ]]; then
+        status_clear
+        print_error "Failed to download font"
+        return 1
+    fi
+
+    status "Installing font..."
+
+    # Extract and install
+    if ! has_cmd unzip; then
+        status_clear
+        print_warning "unzip not installed - cannot extract font"
+        echo "  Install unzip and try: unzip font.zip -d ~/.local/share/fonts"
+        return 1
+    fi
+
+    # Determine font directory
+    local font_dir
+    if is_macos; then
+        font_dir="$HOME/Library/Fonts"
+    else
+        font_dir="$HOME/.local/share/fonts"
+    fi
+    mkdir -p "$font_dir"
+
+    # Extract only .ttf files (not Windows-compatible variants)
+    unzip -q -o "$tmp_dir/font.zip" "*.ttf" -d "$font_dir" 2>/dev/null || \
+    unzip -q -o "$tmp_dir/font.zip" -d "$font_dir" 2>/dev/null
+
+    # Update font cache on Linux
+    if is_linux && has_cmd fc-cache; then
+        fc-cache -f "$font_dir" 2>/dev/null
+    fi
+
+    status_clear
+    print_success "$font_name Nerd Font installed"
+    echo ""
+    echo "  ${YELLOW}Important:${NC} Restart your terminal and set the font in your"
+    echo "  terminal preferences to '$font_name Nerd Font' or similar."
+    echo ""
 }
 
 # ----------------------------------------------------------
@@ -1039,8 +1887,6 @@ install_optional_tools() {
 # ----------------------------------------------------------
 
 verify_installation() {
-    print_section "Verifying Installation"
-
     local all_good=true
 
     # Check ZDOTDIR is set
@@ -1073,7 +1919,7 @@ verify_installation() {
     for file in "${essential_files[@]}"; do
         if [[ ! -f "$INSTALL_DIR/$file" ]]; then
             print_error "Missing: $file"
-            ((missing_files++))
+            ((missing_files++)) || true
             all_good=false
         fi
     done
@@ -1112,8 +1958,6 @@ verify_installation() {
 # ----------------------------------------------------------
 
 create_local_config() {
-    print_section "Local Configuration"
-
     local local_config="$INSTALL_DIR/local.zsh"
 
     if [[ -f "$local_config" ]]; then
@@ -1265,6 +2109,169 @@ update() {
 }
 
 # ----------------------------------------------------------
+# * REPAIR INSTALLATION
+# ----------------------------------------------------------
+
+repair_installation() {
+    print_header "Repairing ZSH Installation"
+
+    local issues_found=0
+    local issues_fixed=0
+
+    # Check 1: ZDOTDIR configuration
+    print_section "Checking ZDOTDIR Configuration"
+    if [[ ! -f "$HOME/.zshenv" ]]; then
+        print_warning "~/.zshenv is missing"
+        ((issues_found++)) || true
+        if confirm "Create ~/.zshenv with ZDOTDIR?"; then
+            setup_zdotdir
+            ((issues_fixed++)) || true
+        fi
+    elif ! grep -q "ZDOTDIR" "$HOME/.zshenv"; then
+        print_warning "~/.zshenv exists but ZDOTDIR is not set"
+        ((issues_found++)) || true
+        if confirm "Add ZDOTDIR to ~/.zshenv?"; then
+            setup_zdotdir
+            ((issues_fixed++)) || true
+        fi
+    else
+        print_success "ZDOTDIR configured correctly"
+    fi
+
+    # Check 2: Config directory
+    print_section "Checking Configuration Directory"
+    if [[ ! -d "$INSTALL_DIR" && ! -L "$INSTALL_DIR" ]]; then
+        print_warning "Config directory missing: $INSTALL_DIR"
+        ((issues_found++)) || true
+        if confirm "Re-install configuration?"; then
+            install_config
+            ((issues_fixed++)) || true
+        fi
+    else
+        print_success "Config directory exists"
+    fi
+
+    # Check 3: Essential files
+    print_section "Checking Essential Files"
+    local -a essential_files=(
+        ".zshrc"
+        ".zshenv"
+        "lib/utils/index.zsh"
+        "modules/aliases.zsh"
+        "modules/path.zsh"
+        "modules/environment.zsh"
+    )
+
+    for file in "${essential_files[@]}"; do
+        if [[ ! -f "$INSTALL_DIR/$file" ]]; then
+            print_error "Missing: $file"
+            ((issues_found++)) || true
+        fi
+    done
+
+    if [[ $issues_found -gt 0 ]] && [[ ! -f "$INSTALL_DIR/.zshrc" ]]; then
+        print_warning "Essential files missing - configuration may be corrupted"
+        if confirm "Re-install configuration from source?"; then
+            install_config
+            ((issues_fixed++)) || true
+        fi
+    fi
+
+    # Check 4: Oh My Zsh
+    print_section "Checking Oh My Zsh"
+    local omz_path="$DATA_DIR/oh-my-zsh"
+    if [[ ! -d "$omz_path" && ! -d "$HOME/.oh-my-zsh" ]]; then
+        print_warning "Oh My Zsh not found"
+        ((issues_found++)) || true
+        if confirm "Install Oh My Zsh?"; then
+            install_omz
+            ((issues_fixed++)) || true
+        fi
+    else
+        print_success "Oh My Zsh installed"
+    fi
+
+    # Check 5: OMZ plugins
+    print_section "Checking Oh My Zsh Plugins"
+    local custom_dir="${ZSH_CUSTOM:-$omz_path/custom}/plugins"
+    local -a required_plugins=(
+        "zsh-autosuggestions"
+        "zsh-syntax-highlighting"
+        "fzf-tab"
+    )
+
+    local missing_plugins=0
+    for plugin in "${required_plugins[@]}"; do
+        if [[ ! -d "$custom_dir/$plugin" ]]; then
+            print_warning "Missing plugin: $plugin"
+            ((missing_plugins++)) || true
+            ((issues_found++)) || true
+        fi
+    done
+
+    if [[ $missing_plugins -gt 0 ]]; then
+        if confirm "Install missing OMZ plugins?"; then
+            export ZSH="$omz_path"
+            install_omz_plugins
+            ((issues_fixed++)) || true
+        fi
+    else
+        print_success "All OMZ plugins installed"
+    fi
+
+    # Check 6: XDG directories
+    print_section "Checking XDG Directories"
+    local -a xdg_dirs=(
+        "$DATA_DIR/zsh"
+        "$CACHE_DIR/zsh"
+        "$STATE_DIR/zsh"
+    )
+
+    for dir in "${xdg_dirs[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            print_warning "Missing directory: $dir"
+            ((issues_found++)) || true
+            mkdir -p "$dir"
+            print_success "Created $dir"
+            ((issues_fixed++)) || true
+        fi
+    done
+    print_success "XDG directories OK"
+
+    # Check 7: File permissions
+    print_section "Checking File Permissions"
+    if [[ -d "$INSTALL_DIR" ]]; then
+        if [[ ! -r "$INSTALL_DIR/.zshrc" ]]; then
+            print_warning "Cannot read .zshrc - fixing permissions"
+            ((issues_found++)) || true
+            chmod u+r "$INSTALL_DIR/.zshrc" 2>/dev/null && ((issues_fixed++)) || true
+        fi
+    fi
+    print_success "File permissions OK"
+
+    # Summary
+    print_section "Repair Summary"
+    if [[ $issues_found -eq 0 ]]; then
+        print_success "No issues found - installation is healthy!"
+        return 0
+    elif [[ $issues_fixed -eq $issues_found ]]; then
+        print_success "All $issues_found issues have been fixed!"
+        print_info "Restart your shell: exec zsh"
+        return 0
+    else
+        local remaining=$((issues_found - issues_fixed))
+        print_warning "$remaining of $issues_found issues could not be fixed automatically"
+        echo ""
+        echo "  Troubleshooting steps:"
+        echo "    1. Try running: ./install.sh --uninstall && ./install.sh"
+        echo "    2. Check file permissions in $INSTALL_DIR"
+        echo "    3. Ensure you have write access to $HOME"
+        echo ""
+        return 1
+    fi
+}
+
+# ----------------------------------------------------------
 # * UNINSTALL
 # ----------------------------------------------------------
 
@@ -1324,30 +2331,106 @@ main() {
                 DRY_RUN=true
                 shift
                 ;;
+            --quiet|-q)
+                QUIET=true
+                shift
+                ;;
+            --skip-tools)
+                SKIP_TOOLS=true
+                shift
+                ;;
+            --minimal)
+                INSTALL_PROFILE="minimal"
+                shift
+                ;;
+            --full)
+                INSTALL_PROFILE="full"
+                shift
+                ;;
+            --tools)
+                # Comma-separated list of specific tools to install
+                if [[ -z "${2:-}" ]]; then
+                    print_error "--tools requires a comma-separated list (e.g., fzf,eza,bat)"
+                    exit 1
+                fi
+                SELECTED_TOOLS="$2"
+                shift 2
+                ;;
+            --repair|--fix)
+                repair_installation
+                exit $?
+                ;;
+            --user)
+                # Switch to specified user (for Docker testing)
+                if [[ -z "${2:-}" ]]; then
+                    print_error "--user requires a username"
+                    exit 1
+                fi
+                local target_user="$2"
+                if ! id "$target_user" &>/dev/null; then
+                    print_error "User '$target_user' does not exist"
+                    exit 1
+                fi
+                print_info "Switching to user: $target_user"
+                # Re-exec as target user with remaining args
+                shift 2
+                exec su - "$target_user" -c "cd '$SCRIPT_DIR' && ./install.sh $*"
+                ;;
             --check|-c)
                 print_header "ZSH Configuration Health Check"
                 verify_installation
                 exit $?
                 ;;
+            --version|-v)
+                echo "ZSH Dotfiles Installer v$VERSION"
+                exit 0
+                ;;
             --help|-h)
-                echo "ZSH Dotfiles Installer"
+                echo "ZSH Dotfiles Installer v$VERSION"
                 echo ""
                 echo "Usage: $0 [OPTIONS]"
                 echo ""
-                echo "Options:"
-                echo "  --help, -h        Show this help message"
-                echo "  --yes, -y         Non-interactive mode (accept defaults)"
-                echo "  --dry-run, -n     Show what would be done without making changes"
-                echo "  --check, -c       Verify existing installation"
-                echo "  --update          Update to latest version (git pull)"
-                echo "  --uninstall, -u   Uninstall the configuration"
+                echo "Installation options:"
+                echo "  --help, -h          Show this help message"
+                echo "  --version, -v       Show version number"
+                echo "  --yes, -y           Non-interactive mode (accept defaults)"
+                echo "  --quiet, -q         Minimal output (implies --yes)"
+                echo "  --dry-run, -n       Show what would be done without making changes"
+                echo ""
+                echo "Installation profiles:"
+                echo "  --minimal           Core ZSH + Oh My Zsh only (no optional tools)"
+                echo "  --full              Install all optional tools automatically"
+                echo "  --skip-tools        Skip optional tools installation step"
+                echo "  --tools TOOLS       Install specific tools (comma-separated)"
+                echo "                      Available: fzf,eza,bat,ripgrep,fd,zoxide,yazi,starship,atuin"
+                echo ""
+                echo "Maintenance:"
+                echo "  --check, -c         Verify existing installation"
+                echo "  --update            Update to latest version (git pull)"
+                echo "  --repair, --fix     Repair broken installation"
+                echo "  --uninstall, -u     Uninstall the configuration"
+                echo ""
+                echo "Advanced:"
+                echo "  --user USERNAME     Run as specified user (for Docker testing)"
+                echo ""
+                echo "Environment:"
+                echo "  NO_COLOR            Disable colored output"
+                echo "  XDG_CONFIG_HOME     Override config directory (default: ~/.config)"
+                echo "  XDG_DATA_HOME       Override data directory (default: ~/.local/share)"
                 echo ""
                 echo "Examples:"
-                echo "  $0                # Interactive installation"
-                echo "  $0 --yes          # Automated installation"
-                echo "  $0 --dry-run      # Preview installation steps"
-                echo "  $0 --check        # Verify installation health"
-                echo "  $0 --update       # Update to latest version"
+                echo "  $0                        # Interactive installation"
+                echo "  $0 --yes                  # Automated with defaults"
+                echo "  $0 --minimal --yes        # Minimal install (ZSH + OMZ only)"
+                echo "  $0 --full --yes           # Full install with all tools"
+                echo "  $0 --tools fzf,eza,bat    # Install only specific tools"
+                echo "  $0 --skip-tools --yes     # Install config without optional tools"
+                echo "  $0 --repair               # Fix broken installation"
+                echo "  $0 --check                # Verify installation health"
+                echo ""
+                echo "Exit codes:"
+                echo "  0  Success"
+                echo "  1  Error (with rollback attempted)"
                 echo ""
                 exit 0
                 ;;
@@ -1359,11 +2442,13 @@ main() {
         esac
     done
 
-    print_header "ZSH Configuration Installer"
+    # Quiet mode implies auto-yes
+    if $QUIET; then
+        AUTO_YES=true
+    fi
 
-    echo -e "  ${DIM}A modern, modular ZSH configuration framework${NC}"
-    echo -e "  ${DIM}with security hardening, lazy loading, and cross-platform support.${NC}"
-    echo ""
+    # Show logo and intro
+    print_logo
 
     if $DRY_RUN; then
         echo -e "  ${YELLOW}${BOLD}DRY-RUN MODE${NC} - No changes will be made"
@@ -1375,22 +2460,44 @@ main() {
         exit 0
     fi
 
-    # Pre-flight checks
+    # Step 1: Pre-flight checks
+    next_step "Pre-flight Checks"
     if ! preflight_checks; then
         exit 1
     fi
 
+    # Step 2: System requirements
+    next_step "Checking Requirements"
     check_requirements
+
+    # Step 3: Oh My Zsh
+    next_step "Oh My Zsh Setup"
     check_omz
+
+    # Step 4: Backup
+    next_step "Backup Existing Configuration"
     backup_existing
+
+    # Step 5: Installation
+    next_step "Installing Configuration"
     install_config
     setup_zdotdir
 
     # Skip optional tools and local config in dry-run mode
     if ! $DRY_RUN; then
+        # Step 6: Optional tools
+        next_step "Optional Tools"
         install_optional_tools
         create_local_config
+
+        # Step 7: Verification & Finish
+        next_step "Verification"
         verify_installation
+
+        # Offer to set default shell
+        print_section "Default Shell"
+        offer_set_default_shell
+
         print_summary
     else
         print_section "Dry-Run Complete"

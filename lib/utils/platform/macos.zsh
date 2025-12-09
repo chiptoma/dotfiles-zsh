@@ -87,8 +87,13 @@ export BROWSER="${BROWSER:-open}"
 # Detect Homebrew prefix based on architecture
 # ? Called by path.zsh during path_init to set up Homebrew environment
 zsh_detect_homebrew() {
-    # Skip if already detected
-    [[ -n "$HOMEBREW_PREFIX" ]] && return 0
+    # Skip if already detected AND valid (path must exist and be a directory)
+    if [[ -n "$HOMEBREW_PREFIX" && -d "$HOMEBREW_PREFIX" ]]; then
+        return 0
+    fi
+
+    # Clear any invalid/corrupted value
+    unset HOMEBREW_PREFIX HOMEBREW_CELLAR HOMEBREW_REPOSITORY
 
     if _is_apple_silicon; then
         if [[ -x /opt/homebrew/bin/brew ]]; then
