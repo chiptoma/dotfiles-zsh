@@ -106,8 +106,13 @@ required_files=(
     "lib/utils/logging.zsh"
     "lib/utils/core.zsh"
     "lib/utils/index.zsh"
+    "lib/functions/index.zsh"
+    "lib/functions/system.zsh"
     "modules/environment.zsh"
     "modules/path.zsh"
+    "modules/lazy.zsh"
+    "modules/history.zsh"
+    "modules/aliases.zsh"
 )
 
 for file in "${required_files[@]}"; do
@@ -262,7 +267,7 @@ user_functions=(
 for func in "${user_functions[@]}"; do
     result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH_LOG_LEVEL=ERROR
+        export ZSH_LOG_LEVEL=NONE
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if (( \$+functions[$func] )); then
@@ -274,8 +279,11 @@ for func in "${user_functions[@]}"; do
 
     if [[ "$result" == "DEFINED" ]]; then
         pass "$func defined"
+    elif [[ "$result" == "MISSING" ]]; then
+        fail "$func not defined"
     else
-        fail "$func not loaded (.zshrc modules failed)"
+        fail "$func check failed (unexpected output)"
+        $VERBOSE && echo "  Result: $result"
     fi
 done
 
