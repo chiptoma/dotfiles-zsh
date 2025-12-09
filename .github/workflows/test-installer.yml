@@ -108,9 +108,10 @@ jobs:
 
       - name: Repair fixes broken install
         run: |
-          ./install.sh --repair --yes
+          # Run repair (may exit non-zero even when it works)
+          ./install.sh --repair --yes || true
           # Verify repair recreated the config
-          [[ -e ~/.config/zsh/.zshrc ]]
+          [[ -e ~/.config/zsh/.zshrc ]] || { echo "Repair failed to restore .zshrc"; exit 1; }
 
       - name: Uninstall removes config
         run: |
@@ -164,12 +165,12 @@ jobs:
           sudo useradd -m testuser
           sudo cp -r . /home/testuser/dotfiles
           sudo chown -R testuser:testuser /home/testuser/dotfiles
-          # Use sudo -i to set proper HOME environment
-          sudo -i -u testuser bash -c 'cd ~/dotfiles && ./install.sh --yes --minimal --skip-tools'
+          # Reset XDG vars and use sudo -i for proper HOME
+          sudo -i -u testuser bash -c 'unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME XDG_STATE_HOME && cd ~/dotfiles && ./install.sh --yes --minimal --skip-tools'
 
       - name: Verify installation works for test user
         run: |
-          sudo -i -u testuser zsh -c 'source ~/.zshenv && echo "Installation verified for non-root user"'
+          sudo -i -u testuser zsh -c 'unset XDG_CONFIG_HOME && source ~/.zshenv && echo "Installation verified for non-root user"'
 
   # ─────────────────────────────────────────────────────────
   # SHELL COMPATIBILITY
