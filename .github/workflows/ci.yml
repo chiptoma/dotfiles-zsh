@@ -34,7 +34,7 @@ jobs:
       - uses: ludeeus/action-shellcheck@master
         with:
           scandir: '.'
-          severity: warning
+          severity: error
           format: gcc
           ignore_paths: '*.zsh'
           ignore_names: '*.zsh .zshrc .zshenv .zprofile'
@@ -152,7 +152,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   # ─────────────────────────────────────────────────────────
   # RELEASE

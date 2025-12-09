@@ -92,7 +92,9 @@ jobs:
         run: ./install.sh --check
 
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   # ─────────────────────────────────────────────────────────
   # TOOL BUNDLE TEST
