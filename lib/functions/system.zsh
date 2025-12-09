@@ -57,6 +57,8 @@ zsh_detect_homebrew() {
             if [[ "$line" =~ ^export[[:space:]]+(PATH|MANPATH|INFOPATH|HOMEBREW_[A-Z_]+)=(.*)$ ]]; then
                 var_name="${match[1]}"
                 var_value="${match[2]}"
+                # ? Strip trailing semicolon (shell statement terminator)
+                var_value="${var_value%;}"
                 # ? Strip surrounding quotes if present
                 var_value="${var_value#\"}"
                 var_value="${var_value%\"}"
