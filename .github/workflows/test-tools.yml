@@ -51,8 +51,7 @@ jobs:
         run: |
           # Source Homebrew on macOS (ARM64 or Intel)
           eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
-          source ~/.zshenv 2>/dev/null || true
-          # Handle tool name mappings (Ubuntu uses different names)
+          # Handle tool name mappings
           TOOL="${{ matrix.tool }}"
           [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
           # Try both names for tools with Ubuntu aliases
@@ -68,7 +67,6 @@ jobs:
         run: |
           # Source Homebrew on macOS (ARM64 or Intel)
           eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
-          source ~/.zshenv 2>/dev/null || true
           TOOL="${{ matrix.tool }}"
           [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
           # Handle Ubuntu binary name aliases
@@ -128,7 +126,6 @@ jobs:
         run: |
           # Source Homebrew on macOS (ARM64 or Intel)
           eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
-          source ~/.zshenv 2>/dev/null || true
           echo "Checking installed tools..."
           check_tool() {
             local tool="$1"
