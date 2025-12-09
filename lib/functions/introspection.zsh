@@ -164,17 +164,9 @@ zsh_alias_browser() {
 
     local selected
 
-    # Determine clipboard command (macOS, Wayland, X11)
+    # Use platform-specific clipboard command (defined in lib/utils/platform/*.zsh)
     local clip_cmd
-    if [[ "$OSTYPE" == darwin* ]]; then
-        clip_cmd="pbcopy"
-    elif [[ -n "$WAYLAND_DISPLAY" ]] && command -v wl-copy &>/dev/null; then
-        clip_cmd="wl-copy"
-    elif command -v xclip &>/dev/null; then
-        clip_cmd="xclip -selection clipboard"
-    else
-        clip_cmd="cat"  # Fallback: no clipboard
-    fi
+    clip_cmd="$(_get_clipboard_cmd)"
 
     selected=$(_als_all_list | fzf \
         --ansi \
