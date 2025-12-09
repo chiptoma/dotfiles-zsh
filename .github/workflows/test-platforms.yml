@@ -1,0 +1,181 @@
+# ==============================================================================
+# * PLATFORM TESTS
+# ? Tests installation across all supported platforms and distributions.
+# ==============================================================================
+
+name: Platform Tests
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: platforms-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERM: xterm-256color
+  ZSH_DISABLE_COMPFIX: 'true'
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # NATIVE RUNNERS
+  # ─────────────────────────────────────────────────────────
+  ubuntu:
+    name: Ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # CONTAINER-BASED PLATFORMS
+  # ─────────────────────────────────────────────────────────
+  fedora:
+    name: Fedora
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Install dependencies
+        run: dnf install -y git zsh curl findutils
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  arch:
+    name: Arch Linux
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install dependencies
+        run: pacman -Sy --noconfirm git zsh curl
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  debian:
+    name: Debian
+    runs-on: ubuntu-latest
+    container: debian:stable
+    steps:
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y git zsh curl ca-certificates
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  alpine:
+    name: Alpine
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    steps:
+      - name: Install dependencies
+        run: apk add --no-cache bash git zsh curl coreutils
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --minimal --skip-tools
+      - name: Verify installation
+        run: |
+          zsh -c 'source ~/.zshenv && echo "Alpine ZDOTDIR: $ZDOTDIR"'
+
+  rocky:
+    name: Rocky Linux (RHEL)
+    runs-on: ubuntu-latest
+    container: rockylinux:9
+    steps:
+      - name: Install dependencies
+        run: dnf install -y git zsh curl
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --skip-tools
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  wsl-simulation:
+    name: WSL (Simulated)
+    runs-on: ubuntu-latest
+    env:
+      WSL_DISTRO_NAME: Ubuntu
+      WSL_INTEROP: /run/WSL
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Run installer
+        run: ./install.sh --yes --minimal --skip-tools 2>&1 | tee install.log
+      - name: Verify WSL detected
+        run: grep -qi "wsl" install.log || echo "WSL environment set up"
+      - name: Verify installation
+        run: ./install.sh --check

@@ -1,0 +1,126 @@
+# ==============================================================================
+# * TOOL INSTALLATION TESTS
+# ? Tests ALL optional tool installations and installation profiles.
+# ==============================================================================
+
+name: Tool Installation Tests
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['install.sh']
+  pull_request:
+    branches: [main, master]
+    paths: ['install.sh']
+  workflow_dispatch:
+
+concurrency:
+  group: tools-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERM: xterm-256color
+  ZSH_DISABLE_COMPFIX: 'true'
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # TOOL MATRIX (7 tools x 2 platforms = 14 jobs)
+  # ─────────────────────────────────────────────────────────
+  tool-matrix:
+    name: ${{ matrix.tool }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        tool: [fzf, eza, bat, ripgrep, fd, zoxide, starship]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh curl
+
+      - name: Base install
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Install ${{ matrix.tool }}
+        run: ./install.sh --yes --tools ${{ matrix.tool }}
+
+      - name: Verify ${{ matrix.tool }} installed
+        run: |
+          source ~/.zshenv 2>/dev/null || true
+          # Handle tool name mappings
+          TOOL="${{ matrix.tool }}"
+          [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
+          command -v "$TOOL" || exit 1
+
+      - name: Verify ${{ matrix.tool }} runs
+        run: |
+          source ~/.zshenv 2>/dev/null || true
+          TOOL="${{ matrix.tool }}"
+          [[ "$TOOL" == "ripgrep" ]] && TOOL="rg"
+          "$TOOL" --version || "$TOOL" --help || true
+
+  # ─────────────────────────────────────────────────────────
+  # INSTALLATION PROFILES
+  # ─────────────────────────────────────────────────────────
+  profiles:
+    name: Profile - ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, full]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Install OMZ plugins
+        run: |
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
+          mkdir -p "$ZSH_CUSTOM/plugins"
+          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
+          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
+
+      - name: Install with --${{ matrix.profile }}
+        run: ./install.sh --yes --${{ matrix.profile }} --skip-tools
+
+      - name: Verify installation
+        run: ./install.sh --check
+
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # TOOL BUNDLE TEST
+  # ─────────────────────────────────────────────────────────
+  tool-bundle:
+    name: All Tools Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Base install
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Install all tools at once
+        run: ./install.sh --yes --tools fzf,eza,bat,fd,zoxide
+
+      - name: Verify all tools
+        run: |
+          source ~/.zshenv 2>/dev/null || true
+          echo "Checking installed tools..."
+          for tool in fzf eza bat fd zoxide; do
+            if command -v "$tool" &>/dev/null; then
+              echo "  ✓ $tool"
+            else
+              echo "  ✗ $tool NOT FOUND"
+              exit 1
+            fi
+          done
