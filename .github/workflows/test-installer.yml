@@ -184,4 +184,6 @@ jobs:
         run: zsh -c 'source ~/.zshenv && echo "ZDOTDIR=$ZDOTDIR"'
 
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh

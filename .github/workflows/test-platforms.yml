@@ -32,7 +32,7 @@ jobs:
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -42,7 +42,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   macos:
     name: macOS
@@ -50,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -60,7 +62,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   # ─────────────────────────────────────────────────────────
   # CONTAINER-BASED PLATFORMS
@@ -74,7 +78,7 @@ jobs:
         run: dnf install -y git zsh curl findutils
       - uses: actions/checkout@v4
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -84,7 +88,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   arch:
     name: Arch Linux
@@ -95,7 +101,7 @@ jobs:
         run: pacman -Sy --noconfirm git zsh curl
       - uses: actions/checkout@v4
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -105,7 +111,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   debian:
     name: Debian
@@ -116,7 +124,7 @@ jobs:
         run: apt-get update && apt-get install -y git zsh curl ca-certificates
       - uses: actions/checkout@v4
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -126,7 +134,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   alpine:
     name: Alpine
@@ -151,7 +161,7 @@ jobs:
         run: dnf install -y git zsh curl
       - uses: actions/checkout@v4
       - name: Run installer
-        run: ./install.sh --yes --skip-tools
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
           ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
@@ -161,7 +171,9 @@ jobs:
       - name: Verify installation
         run: ./install.sh --check
       - name: Run smoke tests
-        run: zsh tests/smoke-test.zsh
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   wsl-simulation:
     name: WSL (Simulated)
