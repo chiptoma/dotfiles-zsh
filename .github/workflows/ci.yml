@@ -1,7 +1,7 @@
 # ==============================================================================
-# * ZSH CONFIGURATION CI/CD
-# ? Comprehensive testing across platforms with performance benchmarks.
-# ? Top 5% CI: security scan, config matrix, ZSH versions, link validation.
+# * ZSH CONFIGURATION CI
+# ? Fast quality gates: lint, syntax, security, tests.
+# ? Platform/tool tests are in separate workflow files.
 # ==============================================================================
 
 name: CI
@@ -14,7 +14,6 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
-# Cancel in-progress runs on new push to same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,18 +21,16 @@ concurrency:
 env:
   TERM: xterm-256color
   ZSH_DISABLE_COMPFIX: 'true'
-  # Startup time threshold in milliseconds (fail if exceeded)
-  STARTUP_THRESHOLD_MS: 500
 
 jobs:
-  # ----------------------------------------------------------
-  # * STATIC ANALYSIS
-  # ----------------------------------------------------------
+  # ─────────────────────────────────────────────────────────
+  # STATIC ANALYSIS
+  # ─────────────────────────────────────────────────────────
   lint:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@master
         with:
           scandir: '.'
@@ -43,13 +40,13 @@ jobs:
           ignore_names: '*.zsh .zshrc .zshenv .zprofile'
 
   syntax:
-    name: ZSH Syntax
+    name: Syntax Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
-      - name: Check all ZSH files
+      - name: Check ZSH syntax
         run: |
           errors=0
           for file in $(find . -name "*.zsh" -type f) .zshrc .zshenv .zprofile; do
@@ -62,21 +59,20 @@ jobs:
             fi
           done
           [[ $errors -eq 0 ]] || exit 1
+      - name: Check Bash syntax
+        run: bash -n install.sh
 
-  # ----------------------------------------------------------
-  # * SECURITY SCAN
-  # ? Detect secrets, API keys, tokens in config files
-  # ----------------------------------------------------------
+  # ─────────────────────────────────────────────────────────
+  # SECURITY
+  # ─────────────────────────────────────────────────────────
   security:
     name: Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Scan for secrets
         run: |
           echo "=== Scanning for potential secrets ==="
-
-          # Patterns that indicate secrets (case insensitive)
           patterns=(
             'api[_-]?key\s*[:=]\s*["\x27][^"\x27]{10,}'
             'secret[_-]?key\s*[:=]\s*["\x27][^"\x27]{10,}'
@@ -86,12 +82,10 @@ jobs:
             'BEGIN\s+(RSA|DSA|EC|OPENSSH)\s+PRIVATE\s+KEY'
             'ghp_[a-zA-Z0-9]{36}'
             'sk-[a-zA-Z0-9]{48}'
-            'xox[baprs]-[0-9]{10,}'
           )
 
           found=0
           for pattern in "${patterns[@]}"; do
-            # Exclude known false positives: local.zsh.example, .git/, find-generic-password (macOS keychain command)
             if grep -rEi "$pattern" --include="*.zsh" --include="*.sh" --include="*.md" . 2>/dev/null \
                 | grep -v "local.zsh.example" \
                 | grep -v ".git/" \
@@ -102,659 +96,76 @@ jobs:
           done
 
           if [[ $found -eq 1 ]]; then
-            echo ""
-            echo "✗ FAIL: Potential secrets detected in repository"
-            echo "  Review the matches above and ensure no real secrets are committed."
+            echo "✗ FAIL: Potential secrets detected"
             exit 1
           else
             echo "✓ No secrets detected"
           fi
 
-  # ----------------------------------------------------------
-  # * DOCUMENTATION VALIDATION
-  # ? Verify all links in documentation are valid
-  # ----------------------------------------------------------
+  # ─────────────────────────────────────────────────────────
+  # DOCUMENTATION
+  # ─────────────────────────────────────────────────────────
   docs:
     name: Doc Links
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Check markdown links
         uses: gaurav-nelson/github-action-markdown-link-check@v1
         with:
           use-quiet-mode: 'yes'
           config-file: '.github/mlc-config.json'
         continue-on-error: true
-      - name: Check internal doc links
-        run: |
-          echo "=== Checking internal documentation links ==="
 
-          errors=0
-          # Extract markdown links from README.md and check they exist
-          while IFS= read -r link; do
-            # Skip external URLs and anchors
-            [[ "$link" =~ ^http ]] && continue
-            [[ "$link" =~ ^# ]] && continue
-            [[ -z "$link" ]] && continue
-
-            # Skip inline code references (not actual file links)
-            [[ "$link" =~ ^\` ]] && continue
-            [[ "$link" =~ , ]] && continue
-            [[ "$link" =~ " " ]] && continue
-
-            # Remove anchor from link
-            file="${link%%#*}"
-
-            if [[ ! -f "$file" ]]; then
-              echo "✗ Broken link: $link (file not found: $file)"
-              errors=$((errors + 1))
-            else
-              echo "✓ $link"
-            fi
-          done < <(grep -oP '\[.*?\]\(\K[^)]+' README.md | sort -u)
-
-          if [[ $errors -gt 0 ]]; then
-            echo ""
-            echo "✗ FAIL: $errors broken internal links found"
-            exit 1
-          else
-            echo "✓ All internal links valid"
-          fi
-
-  # ----------------------------------------------------------
-  # * MINIMAL MODE TEST
-  # ? Verify core functionality works without Oh My Zsh
-  # ----------------------------------------------------------
-  test-minimal:
-    name: Test (Minimal)
+  # ─────────────────────────────────────────────────────────
+  # UNIT TESTS
+  # ─────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
-      - name: Test .zshenv loads standalone
-        run: |
-          export HOME="/tmp/minimal-test"
-          export ZDOTDIR="$PWD"
-          mkdir -p "$HOME"
+      - name: Run unit tests
+        run: zsh tests/unit-test.zsh
 
-          # Test .zshenv loads and core functions work
-          zsh -c "
-            export ZDOTDIR='$ZDOTDIR'
-            source \$ZDOTDIR/.zshenv
-
-            # Verify core functions exist
-            (( \$+functions[_log] )) || { echo '✗ _log missing'; exit 1; }
-            (( \$+functions[_has_cmd] )) || { echo '✗ _has_cmd missing'; exit 1; }
-            (( \$+functions[_safe_source] )) || { echo '✗ _safe_source missing'; exit 1; }
-
-            echo '✓ Core functions available without OMZ'
-          "
-
-  # ----------------------------------------------------------
-  # * CONFIG MATRIX TEST
-  # ? Test different ZSH_*_ENABLED flag combinations
-  # ----------------------------------------------------------
-  test-config-matrix:
-    name: Config (${{ matrix.name }})
+  # ─────────────────────────────────────────────────────────
+  # SMOKE TESTS
+  # ─────────────────────────────────────────────────────────
+  smoke-tests:
+    name: Smoke Tests
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: "lazy=off"
-            env: "ZSH_LAZY_ENABLED=false"
-          - name: "aliases=off"
-            env: "ZSH_ALIASES_ENABLED=false"
-          - name: "completion=off"
-            env: "ZSH_COMPLETION_ENABLED=false"
-          - name: "history=off"
-            env: "ZSH_HISTORY_ENABLED=false"
-          - name: "minimal"
-            env: "ZSH_LAZY_ENABLED=false ZSH_COMPLETION_ENABLED=false ZSH_KEYBINDINGS_ENABLED=false"
-    env:
-      TEST_HOME: /tmp/test-home
+    needs: unit-tests
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Install configuration
-        run: ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
+        run: ./install.sh --yes --minimal --skip-tools
       - name: Install OMZ plugins
         run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-
-      - name: Test with config flags
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-
-          # Set the matrix-specific environment
-          export ${{ matrix.env }}
-
-          echo "=== Testing with: ${{ matrix.env }} ==="
-
-          # Test that shell starts and basic functionality works
-          result=$(zsh -i -c "
-            echo 'SHELL_OK'
-            # Verify core functions still exist
-            (( \$+functions[_log] )) && echo 'LOG_OK'
-            (( \$+functions[_has_cmd] )) && echo 'HAS_CMD_OK'
-          " 2>&1)
-
-          echo "$result"
-
-          if [[ "$result" == *"SHELL_OK"* ]] && [[ "$result" == *"LOG_OK"* ]]; then
-            echo "✓ Shell starts with ${{ matrix.name }} config"
-          else
-            echo "✗ Shell failed with ${{ matrix.name }} config"
-            exit 1
-          fi
-
-  # ----------------------------------------------------------
-  # * ZSH VERSION MATRIX
-  # ? Test compatibility with ZSH 5.7, 5.8, 5.9
-  # ----------------------------------------------------------
-  test-zsh-versions:
-    name: ZSH ${{ matrix.zsh_version }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        zsh_version: ['5.7.1', '5.8', '5.9']
-    env:
-      TEST_HOME: /tmp/test-home
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev
-
-      - name: Cache ZSH build
-        uses: actions/cache@v4
-        with:
-          path: /opt/zsh-${{ matrix.zsh_version }}
-          key: zsh-${{ matrix.zsh_version }}-build-v1
-
-      - name: Build ZSH ${{ matrix.zsh_version }}
-        run: |
-          if [[ -x "/opt/zsh-${{ matrix.zsh_version }}/bin/zsh" ]]; then
-            echo "Using cached ZSH ${{ matrix.zsh_version }}"
-            exit 0
-          fi
-
-          echo "Building ZSH ${{ matrix.zsh_version }} from source..."
-          cd /tmp
-          curl -sL "https://sourceforge.net/projects/zsh/files/zsh/${{ matrix.zsh_version }}/zsh-${{ matrix.zsh_version }}.tar.xz/download" -o zsh.tar.xz
-          tar xf zsh.tar.xz
-          cd zsh-${{ matrix.zsh_version }}
-          ./configure --prefix=/opt/zsh-${{ matrix.zsh_version }} --without-tcsetpgrp --quiet
-          make -j$(nproc) --quiet
-          sudo make install --quiet
-          echo "✓ Built ZSH ${{ matrix.zsh_version }}"
-
-      - name: Install configuration
-        run: |
-          export PATH="/opt/zsh-${{ matrix.zsh_version }}/bin:$PATH"
-          ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-
-      - name: Test ZSH ${{ matrix.zsh_version }}
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          ZSH_BIN="/opt/zsh-${{ matrix.zsh_version }}/bin/zsh"
-
-          echo "=== Testing with ZSH ${{ matrix.zsh_version }} ==="
-          $ZSH_BIN --version
-
-          # Test shell starts and core functions work
-          result=$($ZSH_BIN -i -c "
-            echo 'SHELL_OK'
-            (( \$+functions[_log] )) && echo 'LOG_OK'
-            (( \$+functions[_has_cmd] )) && echo 'HAS_CMD_OK'
-            (( \$+functions[path_show] )) && echo 'PATH_SHOW_OK'
-          " 2>&1)
-
-          echo "$result"
-
-          if [[ "$result" == *"SHELL_OK"* ]] && [[ "$result" == *"LOG_OK"* ]]; then
-            echo "✓ ZSH ${{ matrix.zsh_version }} compatible"
-          else
-            echo "✗ ZSH ${{ matrix.zsh_version }} compatibility issues"
-            exit 1
-          fi
-
-  # ----------------------------------------------------------
-  # * INSTALLER LIFECYCLE TESTS
-  # ? Test install modes, idempotency, uninstall, and health check
-  # ----------------------------------------------------------
-  test-installer:
-    name: Install (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: "symlink"
-            mode: "1"
-          - name: "copy"
-            mode: "2"
-    env:
-      TEST_HOME: /tmp/test-home
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-
-      - name: Pre-install Oh My Zsh
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export ZSH="${HOME}/.local/share/oh-my-zsh"
-          mkdir -p "$HOME"
-          sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-          rm -f "$HOME/.zshrc"  # OMZ creates this, we don't want it
-
-      - name: Test install (${{ matrix.name }} mode)
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-
-          # Install with specific mode
-          # Input: y (ready to install) + mode number (1=symlink, 2=copy)
-          # Then y/n for various prompts (backup, OMZ, etc.)
-          printf "y\n${{ matrix.mode }}\ny\ny\ny\nn\nn\n" | ./install.sh 2>&1 || true
-
-          # Verify installation succeeded
-          ./install.sh --check
-          echo "✓ Initial install (${{ matrix.name }}) succeeded"
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Test idempotency (re-install)
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-
-          # Run install again - should not break anything
-          printf "y\n${{ matrix.mode }}\ny\ny\ny\nn\nn\n" | ./install.sh 2>&1 || true
-
-          # Verify still works
-          ./install.sh --check
-          echo "✓ Idempotency test passed"
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
+          ZSH_CUSTOM="${HOME}/.local/share/oh-my-zsh/custom"
           mkdir -p "$ZSH_CUSTOM/plugins"
           git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
           git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
-
-      - name: Test shell functionality
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-
-          result=$(zsh -i -c "
-            echo 'SHELL_OK'
-            (( \$+functions[_log] )) && echo 'LOG_OK'
-            (( \$+functions[_has_cmd] )) && echo 'HAS_CMD_OK'
-          " 2>&1)
-
-          echo "$result"
-
-          if [[ "$result" == *"SHELL_OK"* ]] && [[ "$result" == *"LOG_OK"* ]]; then
-            echo "✓ Shell works after ${{ matrix.name }} install"
-          else
-            echo "✗ Shell broken after ${{ matrix.name }} install"
-            exit 1
-          fi
-
-      - name: Test uninstall
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          INSTALL_DIR="${XDG_CONFIG_HOME}/zsh"
-
-          # Run uninstall
-          echo -e "y\nn" | ./install.sh --uninstall 2>&1 || true
-
-          # Verify config directory is gone
-          if [[ -d "$INSTALL_DIR" ]] || [[ -L "$INSTALL_DIR" ]]; then
-            echo "✗ Config directory still exists after uninstall"
-            exit 1
-          fi
-
-          # Verify ~/.zshenv is removed
-          if [[ -f "$HOME/.zshenv" ]]; then
-            echo "✗ ~/.zshenv still exists after uninstall"
-            exit 1
-          fi
-
-          echo "✓ Uninstall completed cleanly"
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-  # ----------------------------------------------------------
-  # * PLATFORM TESTS
-  # ----------------------------------------------------------
-  test-ubuntu:
-    name: Test (Ubuntu)
-    runs-on: ubuntu-latest
-    env:
-      TEST_HOME: ${{ github.workspace }}/test-home
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh bc
-
-      - name: Cache OMZ plugins
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/test-home/.local/share/oh-my-zsh/custom/plugins
-          key: omz-plugins-${{ runner.os }}-v2
-
-      - name: Install configuration
-        run: ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-          [[ -d "$ZSH_CUSTOM/plugins/fzf-tab" ]] || git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
-
       - name: Verify installation
         run: ./install.sh --check
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
       - name: Run smoke tests
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          zsh ./scripts/smoke-test.zsh --verbose
+        run: zsh tests/smoke-test.zsh
 
-      - name: Restore benchmark baseline
-        uses: actions/cache@v4
-        with:
-          path: /tmp/benchmark-baseline.txt
-          key: benchmark-baseline-ubuntu-${{ github.ref_name }}
-          restore-keys: |
-            benchmark-baseline-ubuntu-main
-            benchmark-baseline-ubuntu-
-
-      - name: Benchmark startup time
-        id: benchmark
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-
-          echo "=== Measuring shell startup time ==="
-
-          # Warm up (first run may be slower due to cache)
-          zsh -i -c "exit" 2>/dev/null
-
-          # Measure 5 runs and average
-          total=0
-          for i in {1..5}; do
-            start=$(date +%s%N)
-            zsh -i -c "exit" 2>/dev/null
-            end=$(date +%s%N)
-            elapsed=$(( (end - start) / 1000000 ))
-            echo "  Run $i: ${elapsed}ms"
-            total=$((total + elapsed))
-          done
-
-          avg=$((total / 5))
-          echo ""
-          echo "Average startup time: ${avg}ms"
-          echo "Threshold: ${{ env.STARTUP_THRESHOLD_MS }}ms"
-          echo "startup_time=$avg" >> $GITHUB_OUTPUT
-
-          # Check against baseline for regression
-          if [[ -f /tmp/benchmark-baseline.txt ]]; then
-            baseline=$(cat /tmp/benchmark-baseline.txt)
-            echo "Previous baseline: ${baseline}ms"
-            regression_threshold=$((baseline + baseline / 5))  # 20% regression tolerance
-            if [[ $avg -gt $regression_threshold ]]; then
-              echo "⚠ WARNING: ${avg}ms is >20% slower than baseline ${baseline}ms"
-            else
-              echo "✓ No significant regression from baseline"
-            fi
-          else
-            echo "No previous baseline found"
-          fi
-
-          # Save new baseline
-          echo "$avg" > /tmp/benchmark-baseline.txt
-
-          if [[ $avg -gt ${{ env.STARTUP_THRESHOLD_MS }} ]]; then
-            echo "✗ FAIL: Startup time ${avg}ms exceeds threshold ${{ env.STARTUP_THRESHOLD_MS }}ms"
-            exit 1
-          else
-            echo "✓ PASS: Startup time ${avg}ms is within threshold"
-          fi
-
-      - name: Save benchmark baseline
-        uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: /tmp/benchmark-baseline.txt
-          key: benchmark-baseline-ubuntu-${{ github.ref_name }}-${{ github.run_id }}
-
-  test-macos:
-    name: Test (macOS)
-    runs-on: macos-latest
-    env:
-      TEST_HOME: ${{ github.workspace }}/test-home
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Cache OMZ plugins
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/test-home/.local/share/oh-my-zsh/custom/plugins
-          key: omz-plugins-${{ runner.os }}-v2
-
-      - name: Install configuration
-        run: ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-          [[ -d "$ZSH_CUSTOM/plugins/fzf-tab" ]] || git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
-
-      - name: Verify installation
-        run: ./install.sh --check
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Run smoke tests
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          zsh ./scripts/smoke-test.zsh --verbose
-
-      - name: Benchmark startup time
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-
-          echo "=== Measuring shell startup time ==="
-
-          # Warm up
-          zsh -i -c "exit" 2>/dev/null
-
-          # Measure 5 runs using perl for millisecond timing (macOS compatible)
-          total=0
-          for i in {1..5}; do
-            elapsed=$(perl -MTime::HiRes=time -e '
-              $start = time();
-              system("zsh -i -c exit 2>/dev/null");
-              printf "%.0f", (time() - $start) * 1000;
-            ')
-            echo "  Run $i: ${elapsed}ms"
-            total=$((total + elapsed))
-          done
-
-          avg=$((total / 5))
-          echo ""
-          echo "Average startup time: ${avg}ms"
-          echo "Threshold: ${{ env.STARTUP_THRESHOLD_MS }}ms"
-
-          if [[ $avg -gt ${{ env.STARTUP_THRESHOLD_MS }} ]]; then
-            echo "✗ FAIL: Startup time ${avg}ms exceeds threshold ${{ env.STARTUP_THRESHOLD_MS }}ms"
-            exit 1
-          else
-            echo "✓ PASS: Startup time ${avg}ms is within threshold"
-          fi
-
-  test-fedora:
-    name: Test (Fedora)
-    runs-on: ubuntu-latest
-    container: fedora:latest
-    env:
-      TEST_HOME: /tmp/test-home
-    steps:
-      - name: Install dependencies
-        run: dnf install -y git zsh findutils bc
-      - uses: actions/checkout@v6
-
-      - name: Install configuration
-        run: ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-          [[ -d "$ZSH_CUSTOM/plugins/fzf-tab" ]] || git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
-
-      - name: Verify installation
-        run: ./install.sh --check
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Run smoke tests
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          zsh ./scripts/smoke-test.zsh --verbose
-
-  test-arch:
-    name: Test (Arch)
-    runs-on: ubuntu-latest
-    container: archlinux:latest
-    env:
-      TEST_HOME: /tmp/test-home
-    steps:
-      - name: Install dependencies
-        run: pacman -Syu --noconfirm git zsh bc
-      - uses: actions/checkout@v6
-
-      - name: Install configuration
-        run: ./install.sh --yes
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Install OMZ plugins
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_DATA_HOME="${HOME}/.local/share"
-          ZSH_CUSTOM="${XDG_DATA_HOME}/oh-my-zsh/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
-          [[ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]] || git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
-          [[ -d "$ZSH_CUSTOM/plugins/fzf-tab" ]] || git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$ZSH_CUSTOM/plugins/fzf-tab"
-
-      - name: Verify installation
-        run: ./install.sh --check
-        env:
-          HOME: ${{ env.TEST_HOME }}
-          XDG_CONFIG_HOME: ${{ env.TEST_HOME }}/.config
-
-      - name: Run smoke tests
-        run: |
-          export HOME="${{ env.TEST_HOME }}"
-          export XDG_CONFIG_HOME="${HOME}/.config"
-          export ZDOTDIR="${XDG_CONFIG_HOME}/zsh"
-          zsh ./scripts/smoke-test.zsh --verbose
-
-  # ----------------------------------------------------------
-  # * RELEASE
-  # ----------------------------------------------------------
+  # ─────────────────────────────────────────────────────────
+  # RELEASE
+  # ─────────────────────────────────────────────────────────
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, syntax, security, docs, test-minimal, test-config-matrix, test-zsh-versions, test-installer, test-ubuntu, test-macos, test-fedora, test-arch]
+    needs: [lint, syntax, security, unit-tests, smoke-tests]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Generate changelog

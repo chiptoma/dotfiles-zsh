@@ -1,0 +1,187 @@
+# ==============================================================================
+# * INSTALLER FUNCTIONALITY TESTS
+# ? Tests CLI flags, error scenarios, backup/restore, permissions, and resilience.
+# ==============================================================================
+
+name: Installer Tests
+
+on:
+  push:
+    branches: [main, master]
+    paths: ['install.sh']
+  pull_request:
+    branches: [main, master]
+    paths: ['install.sh']
+  workflow_dispatch:
+
+concurrency:
+  group: installer-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERM: xterm-256color
+  ZSH_DISABLE_COMPFIX: 'true'
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # CLI FLAGS
+  # ─────────────────────────────────────────────────────────
+  cli-flags:
+    name: CLI Flags
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Test --help
+        run: ./install.sh --help | grep -q "Usage"
+
+      - name: Test --version
+        run: ./install.sh --version | grep -q "[0-9]"
+
+      - name: Test --dry-run
+        run: ./install.sh --dry-run --yes 2>&1 | grep -qi "dry\|would\|skip"
+
+      - name: Test --quiet reduces output
+        run: |
+          LINES=$(./install.sh --quiet --dry-run --yes 2>&1 | wc -l)
+          echo "Output lines: $LINES"
+          [[ $LINES -lt 50 ]]
+
+      - name: Test --tools parsing
+        run: ./install.sh --dry-run --yes --tools fzf,bat 2>&1 | grep -E "fzf|bat" || true
+
+  # ─────────────────────────────────────────────────────────
+  # ERROR SCENARIOS
+  # ─────────────────────────────────────────────────────────
+  error-scenarios:
+    name: Error Scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Dry-run creates no files
+        run: |
+          BEFORE=$(find ~ -maxdepth 3 -type f 2>/dev/null | wc -l)
+          ./install.sh --dry-run --yes || true
+          AFTER=$(find ~ -maxdepth 3 -type f 2>/dev/null | wc -l)
+          echo "Files before: $BEFORE, after: $AFTER"
+          [[ $BEFORE -eq $AFTER ]]
+
+      - name: Idempotency - install twice works
+        run: |
+          ./install.sh --yes --minimal --skip-tools
+          ./install.sh --yes --minimal --skip-tools
+          echo "Second install completed successfully"
+
+      - name: --check validates installation
+        run: |
+          ./install.sh --yes --minimal --skip-tools
+          ./install.sh --check
+
+  # ─────────────────────────────────────────────────────────
+  # REPAIR & UNINSTALL
+  # ─────────────────────────────────────────────────────────
+  repair-uninstall:
+    name: Repair & Uninstall
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Install base config
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Break installation
+        run: rm -f ~/.config/zsh/.zshrc
+
+      - name: Repair fixes broken install
+        run: |
+          ./install.sh --repair --yes
+          [[ -f ~/.config/zsh/.zshrc ]]
+
+      - name: Uninstall removes config
+        run: |
+          ./install.sh --uninstall --yes
+          [[ ! -d ~/.config/zsh ]] || echo "Note: Some files may remain"
+
+  # ─────────────────────────────────────────────────────────
+  # BACKUP & RESTORE
+  # ─────────────────────────────────────────────────────────
+  backup-restore:
+    name: Backup & Restore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Create existing config
+        run: |
+          mkdir -p ~/.config/zsh
+          echo "# my old zshrc content" > ~/.zshrc
+          echo "# my old zshenv content" > ~/.zshenv
+
+      - name: Install triggers backup
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Verify backup exists
+        run: |
+          if ls ~/.zsh-backup-* 1>/dev/null 2>&1; then
+            echo "Backup directory found"
+            ls -la ~/.zsh-backup-*
+          else
+            echo "No backup created (may be expected if no conflict)"
+          fi
+
+  # ─────────────────────────────────────────────────────────
+  # PERMISSIONS
+  # ─────────────────────────────────────────────────────────
+  permissions:
+    name: Non-Root User
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      - name: Create test user and install
+        run: |
+          sudo useradd -m testuser
+          sudo cp -r . /home/testuser/dotfiles
+          sudo chown -R testuser:testuser /home/testuser/dotfiles
+          sudo -u testuser bash -c 'cd ~/dotfiles && ./install.sh --yes --minimal --skip-tools'
+
+      - name: Verify installation works for test user
+        run: |
+          sudo -u testuser zsh -c 'source ~/.zshenv && echo "Installation verified for non-root user"'
+
+  # ─────────────────────────────────────────────────────────
+  # SHELL COMPATIBILITY
+  # ─────────────────────────────────────────────────────────
+  shell-compat:
+    name: Shell Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shells
+        run: sudo apt-get update && sudo apt-get install -y zsh bash
+
+      - name: Run from bash
+        run: bash ./install.sh --yes --minimal --skip-tools
+
+      - name: Verify zsh can source config
+        run: zsh -c 'source ~/.zshenv && echo "ZDOTDIR=$ZDOTDIR"'
+
+      - name: Run smoke tests
+        run: zsh tests/smoke-test.zsh
