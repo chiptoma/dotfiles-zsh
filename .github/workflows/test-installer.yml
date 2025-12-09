@@ -100,12 +100,17 @@ jobs:
         run: ./install.sh --yes --minimal --skip-tools
 
       - name: Break installation
-        run: rm -f ~/.config/zsh/.zshrc
+        run: |
+          # Remove symlink (not the source files!)
+          rm ~/.config/zsh
+          # Create empty directory to simulate broken install
+          mkdir -p ~/.config/zsh
 
       - name: Repair fixes broken install
         run: |
           ./install.sh --repair --yes
-          [[ -f ~/.config/zsh/.zshrc ]]
+          # Verify repair recreated the config
+          [[ -e ~/.config/zsh/.zshrc ]]
 
       - name: Uninstall removes config
         run: |
@@ -159,11 +164,12 @@ jobs:
           sudo useradd -m testuser
           sudo cp -r . /home/testuser/dotfiles
           sudo chown -R testuser:testuser /home/testuser/dotfiles
-          sudo -u testuser bash -c 'cd ~/dotfiles && ./install.sh --yes --minimal --skip-tools'
+          # Use sudo -i to set proper HOME environment
+          sudo -i -u testuser bash -c 'cd ~/dotfiles && ./install.sh --yes --minimal --skip-tools'
 
       - name: Verify installation works for test user
         run: |
-          sudo -u testuser zsh -c 'source ~/.zshenv && echo "Installation verified for non-root user"'
+          sudo -i -u testuser zsh -c 'source ~/.zshenv && echo "Installation verified for non-root user"'
 
   # ─────────────────────────────────────────────────────────
   # SHELL COMPATIBILITY
