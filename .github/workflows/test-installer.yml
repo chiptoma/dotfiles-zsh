@@ -180,18 +180,6 @@ jobs:
       - name: Run from bash
         run: bash ./install.sh --yes --minimal --skip-tools
 
-      - name: Install Oh My Zsh and plugins
-        run: |
-          export ZSH="${HOME}/.local/share/oh-my-zsh"
-          if [[ ! -d "$ZSH" ]]; then
-            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-            rm -f "${HOME}/.zshrc"
-          fi
-          ZSH_CUSTOM="${ZSH}/custom"
-          mkdir -p "$ZSH_CUSTOM/plugins"
-          git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" 2>/dev/null || true
-          git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" 2>/dev/null || true
-
       - name: Verify zsh can source config
         run: zsh -c 'source ~/.zshenv && echo "ZDOTDIR=$ZDOTDIR"'
 
