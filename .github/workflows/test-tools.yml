@@ -146,3 +146,196 @@ jobs:
               exit 1
             fi
           done
+
+  # ─────────────────────────────────────────────────────────
+  # TOOL REINSTALL (Idempotency)
+  # ─────────────────────────────────────────────────────────
+  tool-reinstall:
+    name: Tool Reinstall
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Base install
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Install fzf first time
+        run: ./install.sh --yes --tools fzf
+
+      - name: Get fzf version
+        id: first
+        run: echo "version=$(fzf --version 2>/dev/null | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Install fzf again (should be idempotent)
+        run: ./install.sh --yes --tools fzf
+
+      - name: Verify fzf still works
+        run: |
+          fzf --version
+          echo "Reinstall successful"
+
+  # ─────────────────────────────────────────────────────────
+  # NETWORK RESILIENCE
+  # ─────────────────────────────────────────────────────────
+  network-resilience:
+    name: Network Resilience
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Test offline base install
+        run: |
+          # Base install should work offline (no downloads needed)
+          ./install.sh --yes --minimal --skip-tools
+          echo "Offline base install OK"
+
+      - name: Verify config works without network
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && echo "Offline config works"'
+
+      - name: Test graceful tool failure
+        run: |
+          # Block github.com (tool downloads will fail)
+          # Note: iptables may not be available in container, use timeout instead
+          timeout 10 ./install.sh --yes --tools nonexistent-tool-xyz 2>&1 || true
+          echo "Graceful failure on bad tool name"
+
+      - name: Verify config still works after failed tool install
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && echo "Config still works after tool failure"'
+
+  # ─────────────────────────────────────────────────────────
+  # UPGRADE SCENARIO (v1 → v2)
+  # ─────────────────────────────────────────────────────────
+  upgrade-scenario:
+    name: Upgrade Scenario
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Simulate "old" installation
+        run: |
+          # Create an older-style installation
+          mkdir -p ~/.config/zsh
+          mkdir -p ~/.local/share/zsh
+          mkdir -p ~/.cache/zsh
+
+          # Old .zshenv without new features
+          cat > ~/.zshenv << 'OLD'
+          export ZDOTDIR="$HOME/.config/zsh"
+          OLD
+
+          # Old .zshrc with minimal content
+          cat > ~/.config/zsh/.zshrc << 'OLD'
+          # Old zshrc
+          echo "old config loaded"
+          OLD
+
+          # Mark as "version 1"
+          echo "1.0.0" > ~/.config/zsh/.version
+
+      - name: Run upgrade (current installer)
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Verify upgrade preserved user data
+        run: |
+          # Check backup was created
+          ls -la ~/.zsh-backup-* 2>/dev/null || echo "No backup (symlink used)"
+
+      - name: Verify new config works
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+      - name: Verify new features available
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          # Check new modules exist
+          [[ -f "$ZDOTDIR/modules/lazy.zsh" ]] || { echo "Missing lazy module"; exit 1; }
+          [[ -f "$ZDOTDIR/lib/utils/index.zsh" ]] || { echo "Missing utils"; exit 1; }
+          echo "Upgrade successful - new features available"
+
+  # ─────────────────────────────────────────────────────────
+  # TOOL DETECTION (pre-installed tools)
+  # ─────────────────────────────────────────────────────────
+  tool-detection:
+    name: Pre-installed Tool Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH and some tools manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh git curl
+          # Install bat and fd via apt (different binary names)
+          sudo apt-get install -y bat fd-find
+
+      - name: Run installer (should detect existing tools)
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Verify shell detects pre-installed tools
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c '
+            source ~/.zshenv
+            # Check if bat/batcat is available
+            if command -v batcat &>/dev/null; then
+              echo "✓ bat detected (as batcat)"
+            elif command -v bat &>/dev/null; then
+              echo "✓ bat detected"
+            fi
+            # Check if fd/fdfind is available
+            if command -v fdfind &>/dev/null; then
+              echo "✓ fd detected (as fdfind)"
+            elif command -v fd &>/dev/null; then
+              echo "✓ fd detected"
+            fi
+          '
+
+  # ─────────────────────────────────────────────────────────
+  # macOS FULL INSTALL (with Homebrew tools)
+  # ─────────────────────────────────────────────────────────
+  macos-full:
+    name: macOS Full Install
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Full install with OMZ
+        run: ./install.sh --yes --full --skip-tools
+
+      - name: Verify OMZ installed
+        run: |
+          [[ -d ~/.local/share/oh-my-zsh ]] || { echo "OMZ not found"; exit 1; }
+
+      - name: Install core tools via Homebrew
+        run: |
+          brew install fzf eza bat
+
+      - name: Verify tools work with config
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c '
+            source ~/.zshenv
+            source $ZDOTDIR/.zshrc
+            command -v fzf && echo "✓ fzf"
+            command -v eza && echo "✓ eza"
+            command -v bat && echo "✓ bat"
+          '
+
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh

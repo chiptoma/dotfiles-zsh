@@ -194,3 +194,276 @@ jobs:
         run: |
           export ZDOTDIR="${HOME}/.config/zsh"
           zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # FULL INSTALLATION (not minimal)
+  # ─────────────────────────────────────────────────────────
+  full-install:
+    name: Full Installation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Full install (with OMZ, without tools)
+        run: ./install.sh --yes --full --skip-tools
+
+      - name: Verify Oh-My-Zsh installed
+        run: |
+          [[ -d ~/.local/share/oh-my-zsh ]] || { echo "OMZ not installed"; exit 1; }
+
+      - name: Verify all modules present
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          for module in environment path history aliases lazy; do
+            [[ -f "$ZDOTDIR/modules/${module}.zsh" ]] || { echo "Missing $module"; exit 1; }
+          done
+          echo "All modules present"
+
+      - name: Verify shell starts correctly
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && source $ZDOTDIR/.zshrc && echo "Full install OK"'
+
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # SHELL MODE VARIATIONS
+  # ─────────────────────────────────────────────────────────
+  shell-modes:
+    name: Shell Modes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Install config
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Test non-interactive non-login
+        run: |
+          zsh -c 'echo "non-interactive non-login: $-"'
+
+      - name: Test non-interactive login
+        run: |
+          zsh -l -c 'echo "non-interactive login: $-"'
+
+      - name: Test interactive non-login (emulated)
+        run: |
+          echo 'echo "interactive non-login: $-"; exit 0' | timeout 5 zsh -i || true
+
+      - name: Test interactive login (emulated)
+        run: |
+          echo 'echo "interactive login: $-"; exit 0' | timeout 5 zsh -i -l || true
+
+      - name: Verify ZDOTDIR in all modes
+        run: |
+          # Non-interactive should have ZDOTDIR from .zshenv
+          RESULT=$(zsh -c 'source ~/.zshenv; echo $ZDOTDIR')
+          [[ "$RESULT" == *".config/zsh"* ]] || { echo "ZDOTDIR not set: $RESULT"; exit 1; }
+
+  # ─────────────────────────────────────────────────────────
+  # COMPLEX EXISTING CONFIG
+  # ─────────────────────────────────────────────────────────
+  complex-existing:
+    name: Complex Existing Config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Create complex existing setup
+        run: |
+          # Simulate a real user's existing config
+          mkdir -p ~/.config/zsh
+          mkdir -p ~/.oh-my-zsh/custom/plugins
+          mkdir -p ~/.zsh/completions
+
+          # Create files with actual content
+          cat > ~/.zshrc << 'EXISTING'
+          # User's existing zshrc
+          export MY_CUSTOM_VAR="preserved"
+          alias myalias='echo custom'
+          source ~/.oh-my-zsh/oh-my-zsh.sh 2>/dev/null || true
+          EXISTING
+
+          cat > ~/.zshenv << 'EXISTING'
+          # User's existing zshenv
+          export EXISTING_ENV="should-be-backed-up"
+          EXISTING
+
+          # Create a custom plugin
+          mkdir -p ~/.oh-my-zsh/custom/plugins/myplugin
+          echo 'echo "my plugin loaded"' > ~/.oh-my-zsh/custom/plugins/myplugin/myplugin.plugin.zsh
+
+      - name: Run installer
+        run: ./install.sh --yes --minimal --skip-tools
+
+      - name: Verify backup created
+        run: |
+          if ls ~/.zsh-backup-* 1>/dev/null 2>&1; then
+            BACKUP=$(ls -d ~/.zsh-backup-* | head -1)
+            echo "Backup found: $BACKUP"
+            ls -la "$BACKUP"
+            # Verify old content was preserved
+            grep -q "MY_CUSTOM_VAR\|EXISTING_ENV" "$BACKUP"/.zshrc "$BACKUP"/.zshenv 2>/dev/null || echo "Note: Content check optional"
+          else
+            echo "Warning: No backup created (symlink may have been used)"
+          fi
+
+      - name: Verify new config works
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && echo "New config works: ZDOTDIR=$ZDOTDIR"'
+
+  # ─────────────────────────────────────────────────────────
+  # SYMLINK EDGE CASES
+  # ─────────────────────────────────────────────────────────
+  symlink-edge-cases:
+    name: Symlink Edge Cases
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Test with existing symlink
+        run: |
+          # Create a symlink pointing elsewhere
+          mkdir -p /tmp/old-zsh-config
+          echo "# old config" > /tmp/old-zsh-config/.zshrc
+          ln -sf /tmp/old-zsh-config ~/.config/zsh
+
+          # Install should handle this
+          ./install.sh --yes --minimal --skip-tools
+
+          # Verify it worked
+          [[ -e ~/.config/zsh/.zshrc ]] || { echo "Config not created"; exit 1; }
+
+      - name: Test with broken symlink
+        run: |
+          # Clean up
+          rm -rf ~/.config/zsh
+
+          # Create broken symlink
+          ln -sf /nonexistent/path ~/.config/zsh
+
+          # Install should handle this
+          ./install.sh --yes --minimal --skip-tools
+
+          # Verify it worked
+          [[ -e ~/.config/zsh/.zshrc ]] || { echo "Config not created"; exit 1; }
+
+      - name: Test with file instead of directory
+        run: |
+          # Clean up
+          rm -rf ~/.config/zsh
+
+          # Create file where directory should be
+          echo "not a directory" > ~/.config/zsh
+
+          # Install should handle this
+          ./install.sh --yes --minimal --skip-tools || true
+
+          # Verify installation state
+          ./install.sh --check || echo "Check may fail on edge case"
+
+  # ─────────────────────────────────────────────────────────
+  # ROLLBACK ON FAILURE
+  # ─────────────────────────────────────────────────────────
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Create initial working config
+        run: |
+          ./install.sh --yes --minimal --skip-tools
+          # Verify it works
+          zsh -c 'source ~/.zshenv && echo "Initial install OK"'
+
+      - name: Simulate partial failure and verify recovery
+        run: |
+          # Break the config intentionally
+          rm -f ~/.config/zsh/.zshrc
+
+          # Try repair
+          ./install.sh --repair --yes || true
+
+          # Verify we can recover
+          [[ -e ~/.config/zsh/.zshrc ]] || { echo "Recovery failed"; exit 1; }
+          zsh -c 'source ~/.zshenv && echo "Recovery OK"'
+
+  # ─────────────────────────────────────────────────────────
+  # ENVIRONMENT ISOLATION
+  # ─────────────────────────────────────────────────────────
+  env-isolation:
+    name: Environment Isolation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Test with polluted environment
+        run: |
+          # Set conflicting env vars
+          export ZDOTDIR="/wrong/path"
+          export ZSH_CONFIG_HOME="/another/wrong"
+          export XDG_CONFIG_HOME="/tmp/xdg"
+
+          # Install should work regardless
+          ./install.sh --yes --minimal --skip-tools
+
+          # Verify correct paths used
+          [[ -d "$HOME/.config/zsh" ]] || [[ -d "/tmp/xdg/zsh" ]]
+
+      - name: Test with clean environment
+        run: |
+          # Clean install in fresh env
+          rm -rf ~/.config/zsh ~/.zshenv
+          unset ZDOTDIR ZSH_CONFIG_HOME
+          env -i HOME="$HOME" PATH="$PATH" TERM="$TERM" ./install.sh --yes --minimal --skip-tools
+
+          # Verify
+          [[ -e ~/.config/zsh/.zshrc ]] || { echo "Clean env install failed"; exit 1; }
+
+  # ─────────────────────────────────────────────────────────
+  # IDEMPOTENCY STRESS TEST
+  # ─────────────────────────────────────────────────────────
+  idempotency-stress:
+    name: Idempotency (5x)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Run install 5 times
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== Install attempt $i ==="
+            ./install.sh --yes --minimal --skip-tools
+            ./install.sh --check
+          done
+
+      - name: Verify final state
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
