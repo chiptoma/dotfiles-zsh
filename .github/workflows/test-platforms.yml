@@ -155,3 +155,129 @@ jobs:
         run: grep -qi "wsl" install.log || echo "WSL environment set up"
       - name: Verify installation
         run: ./install.sh --check
+
+  # ─────────────────────────────────────────────────────────
+  # macOS ARM64 vs Intel
+  # ─────────────────────────────────────────────────────────
+  macos-homebrew:
+    name: macOS Homebrew Integration
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect architecture
+        run: |
+          echo "Architecture: $(uname -m)"
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            echo "HOMEBREW_PREFIX=/opt/homebrew" >> $GITHUB_ENV
+          else
+            echo "HOMEBREW_PREFIX=/usr/local" >> $GITHUB_ENV
+          fi
+
+      - name: Verify Homebrew available
+        run: |
+          eval "$($HOMEBREW_PREFIX/bin/brew shellenv)"
+          brew --version
+
+      - name: Install with full profile
+        run: ./install.sh --yes --full --skip-tools
+
+      - name: Verify Homebrew PATH in shell
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c '
+            source ~/.zshenv
+            echo "PATH includes brew: $(echo $PATH | grep -o homebrew || echo "Intel path")"
+            echo "HOMEBREW_PREFIX=$HOMEBREW_PREFIX"
+          '
+
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # UBUNTU WITH FULL OMZ
+  # ─────────────────────────────────────────────────────────
+  ubuntu-full:
+    name: Ubuntu Full (with OMZ)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+      - name: Full install
+        run: ./install.sh --yes --full --skip-tools
+      - name: Verify OMZ
+        run: |
+          [[ -d ~/.local/share/oh-my-zsh ]] || { echo "OMZ not installed"; exit 1; }
+          [[ -f ~/.local/share/oh-my-zsh/oh-my-zsh.sh ]] || { echo "OMZ main file missing"; exit 1; }
+      - name: Verify shell loads OMZ
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && source $ZDOTDIR/.zshrc && echo "OMZ loaded: $ZSH"'
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # OLD UBUNTU LTS
+  # ─────────────────────────────────────────────────────────
+  ubuntu-20:
+    name: Ubuntu 20.04 LTS
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+      - name: Show ZSH version
+        run: zsh --version
+      - name: Run installer
+        run: ./install.sh --yes --minimal --skip-tools
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # OPENSUSE
+  # ─────────────────────────────────────────────────────────
+  opensuse:
+    name: openSUSE
+    runs-on: ubuntu-latest
+    container: opensuse/leap:latest
+    steps:
+      - name: Install dependencies
+        run: zypper install -y git zsh curl tar gzip
+      - uses: actions/checkout@v4
+      - name: Run installer
+        run: ./install.sh --yes --minimal --skip-tools
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # MINIMAL CONTAINER (No git pre-installed)
+  # ─────────────────────────────────────────────────────────
+  minimal-container:
+    name: Minimal Container
+    runs-on: ubuntu-latest
+    container: ubuntu:latest
+    steps:
+      - name: Install only essentials
+        run: |
+          apt-get update
+          apt-get install -y zsh curl ca-certificates git
+      - uses: actions/checkout@v4
+      - name: Run minimal install
+        run: ./install.sh --yes --minimal --skip-tools
+      - name: Verify core functionality
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && echo "Minimal install works"'
