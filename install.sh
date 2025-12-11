@@ -414,7 +414,15 @@ confirm() {
     fi
 
     echo -ne "  ${YELLOW}?${NC} $prompt"
-    read -r response
+
+    # Try to read from /dev/tty (works even when stdin is piped)
+    # Fall back to stdin if /dev/tty not available
+    local response
+    if [[ -r /dev/tty ]]; then
+        read -r response </dev/tty
+    else
+        read -r response
+    fi
 
     if [[ -z "$response" ]]; then
         response="$default"
@@ -441,7 +449,14 @@ prompt_choice() {
         ((i++))
     done
     echo -ne "  ${YELLOW}?${NC} Enter choice [1-${#options[@]}]: "
-    read -r choice
+
+    # Try to read from /dev/tty (works even when stdin is piped)
+    local choice
+    if [[ -r /dev/tty ]]; then
+        read -r choice </dev/tty
+    else
+        read -r choice
+    fi
 
     echo "$choice"
 }
@@ -2577,11 +2592,11 @@ main() {
         exec bash "$tmp_dir/install.sh" "${ORIGINAL_ARGS[@]}"
     fi
 
-    # Force non-interactive mode if stdin is not a terminal
-    # This handles cases where script is run via pipe or in non-interactive context
-    if [[ ! -t 0 ]] && ! $AUTO_YES; then
+    # Only force non-interactive mode if /dev/tty is unavailable (true CI/automation)
+    # When /dev/tty exists, we can read from it even if stdin is piped
+    if [[ ! -r /dev/tty ]] && ! $AUTO_YES; then
         AUTO_YES=true
-        echo -e "  ${DIM}Non-interactive mode (stdin not a terminal)${NC}"
+        echo -e "  ${DIM}Non-interactive mode (no TTY available)${NC}"
         echo ""
     fi
 
