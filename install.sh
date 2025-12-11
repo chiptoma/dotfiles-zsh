@@ -2577,6 +2577,14 @@ main() {
         exec bash "$tmp_dir/install.sh" "${ORIGINAL_ARGS[@]}"
     fi
 
+    # Force non-interactive mode if stdin is not a terminal
+    # This handles cases where script is run via pipe or in non-interactive context
+    if [[ ! -t 0 ]] && ! $AUTO_YES; then
+        AUTO_YES=true
+        echo -e "  ${DIM}Non-interactive mode (stdin not a terminal)${NC}"
+        echo ""
+    fi
+
     if ! confirm "Ready to install?" "y"; then
         echo "Installation cancelled."
         exit 0
