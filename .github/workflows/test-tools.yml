@@ -7,12 +7,15 @@ name: Tool Installation Tests
 
 on:
   push:
-    branches: [main, master]
-    paths: ['install.sh']
+    branches: [main]
+    paths: ['install.sh', 'tests/**']
   pull_request:
-    branches: [main, master]
-    paths: ['install.sh']
+    branches: [main]
+    paths: ['install.sh', 'tests/**']
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: tools-${{ github.ref }}
@@ -29,6 +32,7 @@ jobs:
   tool-matrix:
     name: ${{ matrix.tool }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -83,6 +87,7 @@ jobs:
   profiles:
     name: Profile - ${{ matrix.profile }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -110,6 +115,7 @@ jobs:
   tool-bundle:
     name: All Tools Bundle
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -153,6 +159,7 @@ jobs:
   tool-reinstall:
     name: Tool Reinstall
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -183,6 +190,7 @@ jobs:
   network-resilience:
     name: Network Resilience
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -218,6 +226,7 @@ jobs:
   upgrade-scenario:
     name: Upgrade Scenario
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -272,6 +281,7 @@ jobs:
   tool-detection:
     name: Pre-installed Tool Detection
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
