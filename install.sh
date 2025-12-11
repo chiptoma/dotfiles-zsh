@@ -1415,7 +1415,12 @@ install_config() {
                 fi
             else
                 echo -ne "  ${YELLOW}?${NC} Git repository URL: "
-                read -r repo_url
+                local repo_url=""
+                if [[ -r /dev/tty ]] && read -r repo_url </dev/tty 2>/dev/null; then
+                    : # Read from /dev/tty
+                elif ! read -r repo_url 2>/dev/null; then
+                    repo_url=""  # Read failed, empty URL
+                fi
                 if [[ -n "$repo_url" ]]; then
                     if $DRY_RUN; then
                         print_dim "[dry-run] rm -rf $INSTALL_DIR"
@@ -1650,8 +1655,13 @@ install_optional_tools() {
         echo "    4) Skip tool installation"
         echo ""
 
-        local choice
-        read -rp "  Choose [1-4] (default: 1): " choice
+        local choice=""
+        echo -n "  Choose [1-4] (default: 1): "
+        if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
+            : # Read from /dev/tty
+        elif ! read -r choice 2>/dev/null; then
+            choice="1"  # Read failed, use default
+        fi
         choice="${choice:-1}"
 
         case "$choice" in
