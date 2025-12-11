@@ -318,11 +318,6 @@ ZSH_ENV_TERMINAL=(
 # ? Internal utilities for environment configuration.
 # ----------------------------------------------------------
 
-# Check if we're in an SSH session (uses utils library)
-_env_is_ssh_session() {
-    _is_ssh_session
-}
-
 # Find first available editor from list
 _env_find_first_available_editor() {
     local editors="$1"
@@ -570,7 +565,7 @@ _env_setup_tools() {
 # Setup terminal configuration
 _env_setup_terminal() {
     _log "DEBUG" "Setting up terminal environment..."
-    if _env_is_ssh_session && [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]]; then
+    if _is_ssh_session && [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]]; then
         _log "INFO" "Minimal SSH session, skipping terminal environment setup"
         return 0
     fi
@@ -616,7 +611,7 @@ _environment_init() {
     _log "INFO" "Initializing ZSH Environment Module..."
 
     # Detect SSH session
-    if [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]] && _env_is_ssh_session; then
+    if [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]] && _is_ssh_session; then
         ZSH_ENVIRONMENT_IS_SSH=true
         _log "INFO" "SSH session detected, using minimal environment"
     else

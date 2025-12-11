@@ -136,24 +136,6 @@ _get_clipboard_cmd() {
 }
 
 # ----------------------------------------------------------
-# * SSH AGENT DETECTION
-# ----------------------------------------------------------
-
-_macos_detect_ssh_agent() {
-    [[ -S "${SSH_AUTH_SOCK:-}" ]] && return 0
-
-    # 1Password SSH Agent
-    local op_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-    [[ -S "$op_sock" ]] && { export SSH_AUTH_SOCK="$op_sock"; return 0; }
-
-    # GPG Agent
-    local gpg_sock="$HOME/.gnupg/S.gpg-agent.ssh"
-    [[ -S "$gpg_sock" ]] && { export SSH_AUTH_SOCK="$gpg_sock"; return 0; }
-
-    return 0
-}
-
-# ----------------------------------------------------------
 # * UTILITY FUNCTIONS
 # ? Used via aliases in modules/aliases.zsh
 # ----------------------------------------------------------
