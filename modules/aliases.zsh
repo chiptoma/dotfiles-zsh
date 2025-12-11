@@ -533,6 +533,15 @@ if _is_macos; then
 fi
 
 # ----------------------------------------------------------
+# * BSD SPECIFIC
+# ? Platform-specific aliases for BSD variants (FreeBSD, OpenBSD, etc.)
+# ----------------------------------------------------------
+
+if _is_bsd && ! _is_macos; then
+    alias check-tools='zsh_bsd_check_tools'  # Check recommended tools
+fi
+
+# ----------------------------------------------------------
 # * LINUX SPECIFIC
 # ? Platform-specific aliases for Linux only
 # ----------------------------------------------------------

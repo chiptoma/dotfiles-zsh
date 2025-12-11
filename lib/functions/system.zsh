@@ -15,65 +15,6 @@ typeset -g _ZSH_FUNCTIONS_SYSTEM_LOADED=1
 [[ "$ZSH_FUNCTIONS_SYSTEM_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * SYSTEM DETECTION FUNCTIONS
-# ----------------------------------------------------------
-
-# ----------------------------------------------------------
-# * zsh_detect_homebrew
-# ? Detects and initializes Homebrew on macOS (Intel/Apple Silicon) and Linux.
-# ? Should be called from .zshenv for PATH setup.
-#
-# @return (int) : 0 if Homebrew found and initialized, 1 otherwise
-#
-# ? Notes:
-# ? - Apple Silicon: /opt/homebrew/bin/brew
-# ? - Intel Mac: /usr/local/bin/brew
-# ? - Linux: /home/linuxbrew/.linuxbrew/bin/brew
-# ----------------------------------------------------------
-zsh_detect_homebrew() {
-    local brew_path=""
-
-    if [[ -f /opt/homebrew/bin/brew ]]; then
-        brew_path="/opt/homebrew/bin/brew"
-    elif [[ -f /usr/local/bin/brew ]]; then
-        brew_path="/usr/local/bin/brew"
-    elif [[ -f /home/linuxbrew/.linuxbrew/bin/brew ]]; then
-        brew_path="/home/linuxbrew/.linuxbrew/bin/brew"
-    fi
-
-    if [[ -n "$brew_path" ]]; then
-        local brew_env
-        brew_env="$("$brew_path" shellenv 2>/dev/null)" || {
-            _log WARN "Failed to get Homebrew environment from $brew_path"
-            return 1
-        }
-        # ! Security: Parse brew shellenv output safely without eval
-        # ? Known safe variables from Homebrew: PATH, MANPATH, INFOPATH, HOMEBREW_*
-        local line var_name var_value
-        while IFS= read -r line; do
-            # Skip empty lines and comments
-            [[ -z "$line" || "$line" == \#* ]] && continue
-            # Only process 'export VAR=value' patterns for known variables
-            if [[ "$line" =~ ^export[[:space:]]+(PATH|MANPATH|INFOPATH|HOMEBREW_[A-Z_]+)=(.*)$ ]]; then
-                var_name="${match[1]}"
-                var_value="${match[2]}"
-                # ? Strip trailing semicolon (shell statement terminator)
-                var_value="${var_value%;}"
-                # ? Strip surrounding quotes if present
-                var_value="${var_value#\"}"
-                var_value="${var_value%\"}"
-                var_value="${var_value#\'}"
-                var_value="${var_value%\'}"
-                export "$var_name"="$var_value"
-            fi
-        done <<< "$brew_env"
-        return 0
-    fi
-
-    return 1
-}
-
-# ----------------------------------------------------------
 # * zsh_detect_ssh_agent
 # ? Detects and configures SSH agent socket from various providers.
 # ? Priority: 1Password > GPG Agent > GNOME Keyring > System default

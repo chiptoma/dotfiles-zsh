@@ -200,28 +200,6 @@ _get_clipboard_cmd() {
 }
 
 # ----------------------------------------------------------
-# * SSH AGENT DETECTION
-# ----------------------------------------------------------
-
-_linux_detect_ssh_agent() {
-    [[ -S "${SSH_AUTH_SOCK:-}" ]] && return 0
-
-    # GNOME Keyring
-    local gnome_sock="$XDG_RUNTIME_DIR/keyring/ssh"
-    [[ -S "$gnome_sock" ]] && { export SSH_AUTH_SOCK="$gnome_sock"; return 0; }
-
-    # GPG Agent
-    local gpg_sock="$XDG_RUNTIME_DIR/gnupg/S.gpg-agent.ssh"
-    [[ -S "$gpg_sock" ]] && { export SSH_AUTH_SOCK="$gpg_sock"; return 0; }
-
-    # KDE Wallet / systemd
-    local kde_sock="$XDG_RUNTIME_DIR/ssh-agent.socket"
-    [[ -S "$kde_sock" ]] && { export SSH_AUTH_SOCK="$kde_sock"; return 0; }
-
-    return 1
-}
-
-# ----------------------------------------------------------
 # * UTILITY FUNCTIONS
 # ? Used via aliases in modules/aliases.zsh
 # ----------------------------------------------------------
