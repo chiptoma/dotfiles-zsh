@@ -329,13 +329,46 @@ zsh_pskill() {
 zsh_update() {
     local config_dir="${ZDOTDIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zsh}"
     local install_script="$config_dir/install.sh"
+    local cache_dir="${ZSH_CACHE_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh}"
+    local lock_file="$cache_dir/update.lock"
+
+    # Prevent concurrent updates with lock file
+    if [[ -f "$lock_file" ]]; then
+        local lock_age lock_mtime now
+        now=$(date +%s)
+        # Cross-platform stat: macOS uses -f%m, Linux uses -c%Y
+        lock_mtime=$(stat -f%m "$lock_file" 2>/dev/null || stat -c%Y "$lock_file" 2>/dev/null)
+        if [[ -n "$lock_mtime" ]]; then
+            lock_age=$(( now - lock_mtime ))
+            if (( lock_age < 300 )); then  # 5 minute timeout
+                echo "Update already in progress (started ${lock_age}s ago)" >&2
+                return 1
+            fi
+        fi
+        # Stale lock - remove it
+        rm -f "$lock_file"
+    fi
 
     if [[ ! -f "$install_script" ]]; then
         echo "Error: install.sh not found at $install_script" >&2
         return 1
     fi
 
+    # Create lock file
+    mkdir -p "$cache_dir"
+    echo "$$" > "$lock_file"
+
+    # Ensure lock is removed on exit (normal or error)
+    trap "rm -f '$lock_file'" EXIT INT TERM
+
     bash "$install_script" --update
+    local result=$?
+
+    # Clean up lock
+    rm -f "$lock_file"
+    trap - EXIT INT TERM
+
+    return $result
 }
 
 # ------------------------------------------------------------------------------
@@ -371,10 +404,14 @@ _zsh_check_updates() {
     # Check cache - skip if checked recently
     if [[ -f "$cache_file" ]]; then
         local last_check
-        last_check=$(cat "$cache_file" 2>/dev/null | head -1)
+        last_check=$(head -1 "$cache_file" 2>/dev/null)
+        # Validate cache timestamp is numeric (protects against corruption)
+        if [[ ! "$last_check" =~ ^[0-9]+$ ]]; then
+            last_check=0  # Force re-check if corrupted
+        fi
         local now
         now=$(date +%s)
-        if [[ -n "$last_check" ]] && (( now - last_check < interval )); then
+        if (( last_check > 0 )) && (( now - last_check < interval )); then
             # Show cached notification if updates were found
             local cached_status
             cached_status=$(sed -n '2p' "$cache_file" 2>/dev/null)
@@ -436,19 +473,24 @@ _zsh_handle_available_updates() {
 
     # Interactive prompt mode (default)
     if [[ "${ZSH_UPDATE_PROMPT:-true}" == "true" ]]; then
-        print -P "%F{yellow}⚡ ZSH config updates available.%f"
-        print -n "Apply now? [y/N] "
-        if read -q; then
-            echo ""
-            zsh_update
-        else
-            echo ""
-            print -P "%F{242}Run %F{cyan}zsh_update%F{242} when ready.%f"
+        # CRITICAL: Only prompt if interactive shell AND stdin is a terminal
+        # Without this check, read -q will hang non-interactive shells (scripts, cron, CI)
+        if [[ -o interactive ]] && [[ -t 0 ]]; then
+            print -P "%F{yellow}⚡ ZSH config updates available.%f"
+            print -n "Apply now? [y/N] "
+            if read -q; then
+                echo ""
+                zsh_update
+            else
+                echo ""
+                print -P "%F{242}Run %F{cyan}zsh_update%F{242} when ready.%f"
+            fi
+            return 0
         fi
-        return 0
+        # Fall through to passive notification for non-interactive shells
     fi
 
-    # Passive notification (legacy behavior)
+    # Passive notification (non-interactive or ZSH_UPDATE_PROMPT=false)
     print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}zsh_update%F{yellow} to update.%f"
 }
 
