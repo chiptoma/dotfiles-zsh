@@ -772,9 +772,18 @@ install_github_binary() {
     local tmp_dir=$(mktemp -d)
     trap "rm -rf '$tmp_dir'" RETURN
 
-    # Download
-    if ! curl -fsSL "$url" -o "$tmp_dir/archive" 2>/dev/null; then
-        print_warning "Failed to download $tool"
+    # Download with retries (GitHub can rate limit)
+    local retry_count=0 max_retries=3
+    while (( retry_count < max_retries )); do
+        if curl -fsSL --retry 2 --retry-delay 1 "$url" -o "$tmp_dir/archive" 2>/dev/null; then
+            break
+        fi
+        (( retry_count++ ))
+        [[ $retry_count -lt $max_retries ]] && sleep 2
+    done
+
+    if [[ ! -s "$tmp_dir/archive" ]]; then
+        print_warning "Failed to download $tool (after $max_retries attempts)"
         return 1
     fi
 
