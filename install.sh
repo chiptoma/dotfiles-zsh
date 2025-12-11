@@ -11,7 +11,16 @@ set -euo pipefail
 # * CONFIGURATION
 # ----------------------------------------------------------
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Handle curl-pipe execution (BASH_SOURCE is empty when piped)
+if [[ -z "${BASH_SOURCE[0]:-}" ]]; then
+    # Running via: curl ... | bash
+    # We need to clone the repo first
+    SCRIPT_DIR=""
+    CURL_PIPE_MODE=true
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CURL_PIPE_MODE=false
+fi
 VERSION="2.0.0"
 
 # These are initialized in init_paths() to ensure HOME is correct
@@ -2539,6 +2548,30 @@ main() {
     if $DRY_RUN; then
         echo -e "  ${YELLOW}${BOLD}DRY-RUN MODE${NC} - No changes will be made"
         echo ""
+    fi
+
+    # Handle curl-pipe mode: clone repo first
+    if $CURL_PIPE_MODE; then
+        echo -e "  ${CYAN}Detected curl-pipe installation${NC}"
+        echo -e "  ${DIM}Cloning repository first...${NC}"
+        echo ""
+
+        local tmp_dir
+        tmp_dir=$(mktemp -d)
+        local repo_url="https://github.com/chiptoma/dotfiles-zsh.git"
+
+        if ! git clone --depth=1 "$repo_url" "$tmp_dir" 2>/dev/null; then
+            echo -e "  ${RED}✗ Failed to clone repository${NC}" >&2
+            rm -rf "$tmp_dir"
+            exit 1
+        fi
+
+        echo -e "  ${GREEN}✓ Repository cloned${NC}"
+        echo ""
+
+        # Re-exec the installer from the cloned repo
+        cd "$tmp_dir"
+        exec bash "$tmp_dir/install.sh" "$@"
     fi
 
     if ! confirm "Ready to install?" "y"; then
