@@ -66,6 +66,43 @@ pskill node     # Filter to processes matching "node"
 - Preview shows full process details
 - Confirms before killing
 
+## Update Management
+
+### `zsh_update` / `zupdate`
+
+Update the ZSH configuration to the latest version.
+
+```bash
+zsh_update   # or zupdate
+```
+
+**Configuration:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZSH_UPDATE_CHECK_ENABLED` | `true` | Check for updates on shell startup |
+| `ZSH_UPDATE_CHECK_INTERVAL` | `86400` | Seconds between checks (24h) |
+| `ZSH_UPDATE_AUTO_FETCH` | `true` | Fetch updates in background |
+| `ZSH_UPDATE_PROMPT` | `true` | Interactive prompt when updates available |
+| `ZSH_UPDATE_AUTO_APPLY` | `false` | Auto-apply updates without prompting |
+
+**Behavior modes:**
+
+1. **Interactive prompt (default)**: Shows "Updates available. Apply now? [y/N]"
+2. **Auto-apply**: Set `ZSH_UPDATE_AUTO_APPLY=true` to update automatically
+3. **Passive notification**: Set `ZSH_UPDATE_PROMPT=false` for notification only
+
+**Example configuration in `.zshlocal`:**
+
+```bash
+# Check every 12 hours, auto-apply
+export ZSH_UPDATE_CHECK_INTERVAL=43200
+export ZSH_UPDATE_AUTO_APPLY=true
+
+# Or: disable update checks entirely
+export ZSH_UPDATE_CHECK_ENABLED=false
+```
+
 ## File Functions
 
 ### `zsh_sizeof` / `sizeof`

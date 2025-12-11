@@ -310,6 +310,8 @@ zsh_pskill() {
 #     ZSH_UPDATE_CHECK_ENABLED  = true    (check for updates on launch)
 #     ZSH_UPDATE_CHECK_INTERVAL = 86400   (seconds between checks, default 24h)
 #     ZSH_UPDATE_AUTO_FETCH     = true    (fetch in background)
+#     ZSH_UPDATE_PROMPT         = true    (interactive prompt when updates available)
+#     ZSH_UPDATE_AUTO_APPLY     = false   (auto-apply updates without prompting)
 # ----------------------------------------------------------
 
 # ------------------------------------------------------------------------------
@@ -377,7 +379,7 @@ _zsh_check_updates() {
             local cached_status
             cached_status=$(sed -n '2p' "$cache_file" 2>/dev/null)
             if [[ "$cached_status" == "updates_available" ]]; then
-                print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}zsh_update%F{yellow} to update.%f"
+                _zsh_handle_available_updates
             fi
             return 0
         fi
@@ -410,6 +412,44 @@ _zsh_check_updates() {
             fi
         ) &!
     fi
+}
+
+# ------------------------------------------------------------------------------
+# * _zsh_handle_available_updates
+# ? Handles update notification with configurable behavior.
+# ? Supports: interactive prompt, auto-apply, or passive notification.
+#
+# @return     (int)     : 0 always
+#
+# ? Configuration:
+# ? - ZSH_UPDATE_AUTO_APPLY=true  → auto-apply without asking
+# ? - ZSH_UPDATE_PROMPT=true      → interactive prompt (default)
+# ? - ZSH_UPDATE_PROMPT=false     → passive notification only
+# ------------------------------------------------------------------------------
+_zsh_handle_available_updates() {
+    # Auto-apply mode (highest priority)
+    if [[ "${ZSH_UPDATE_AUTO_APPLY:-false}" == "true" ]]; then
+        print -P "%F{cyan}⚡ Auto-applying ZSH config updates...%f"
+        zsh_update
+        return 0
+    fi
+
+    # Interactive prompt mode (default)
+    if [[ "${ZSH_UPDATE_PROMPT:-true}" == "true" ]]; then
+        print -P "%F{yellow}⚡ ZSH config updates available.%f"
+        print -n "Apply now? [y/N] "
+        if read -q; then
+            echo ""
+            zsh_update
+        else
+            echo ""
+            print -P "%F{242}Run %F{cyan}zsh_update%F{242} when ready.%f"
+        fi
+        return 0
+    fi
+
+    # Passive notification (legacy behavior)
+    print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}zsh_update%F{yellow} to update.%f"
 }
 
 # ------------------------------------------------------------------------------
