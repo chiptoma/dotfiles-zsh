@@ -2404,6 +2404,9 @@ uninstall() {
 # ----------------------------------------------------------
 
 main() {
+    # Save original arguments for curl-pipe re-exec
+    local -a ORIGINAL_ARGS=("$@")
+
     # Initialize paths (must be first to pick up env overrides like custom HOME)
     init_paths
 
@@ -2569,9 +2572,9 @@ main() {
         echo -e "  ${GREEN}✓ Repository cloned${NC}"
         echo ""
 
-        # Re-exec the installer from the cloned repo
+        # Re-exec the installer from the cloned repo with original arguments
         cd "$tmp_dir"
-        exec bash "$tmp_dir/install.sh" "$@"
+        exec bash "$tmp_dir/install.sh" "${ORIGINAL_ARGS[@]}"
     fi
 
     if ! confirm "Ready to install?" "y"; then
