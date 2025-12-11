@@ -1746,7 +1746,7 @@ install_optional_tools() {
 # ? Configures shell hooks for tools that need initialization
 # ----------------------------------------------------------
 
-# Helper: Add a shell integration to local.zsh if not already present
+# Helper: Add a shell integration to .zshlocal if not already present
 add_integration() {
     local tool="$1" pattern="$2" comment="$3" cmd="$4"
     has_cmd "$tool" || return 1
@@ -1757,14 +1757,14 @@ add_integration() {
 }
 
 setup_shell_integrations() {
-    _LOCAL_CONFIG="$INSTALL_DIR/local.zsh"
+    _LOCAL_CONFIG="$INSTALL_DIR/.zshlocal"
     local integrations_added=false
 
-    # Check if local.zsh exists and is writable
+    # Check if .zshlocal exists and is writable
     [[ ! -f "$_LOCAL_CONFIG" ]] && return 0
     if [[ ! -w "$_LOCAL_CONFIG" ]]; then
         print_info "Skipping shell integrations (config is read-only)"
-        print_dim "Add integrations manually to local.zsh if needed"
+        print_dim "Add integrations manually to .zshlocal if needed"
         return 0
     fi
 
@@ -1951,17 +1951,17 @@ verify_installation() {
 # ----------------------------------------------------------
 
 create_local_config() {
-    local local_config="$INSTALL_DIR/local.zsh"
+    local local_config="$INSTALL_DIR/.zshlocal"
 
     if [[ -f "$local_config" ]]; then
-        print_info "local.zsh already exists"
+        print_info ".zshlocal already exists"
         return 0
     fi
 
-    if [[ -f "$INSTALL_DIR/local.zsh.example" ]]; then
-        if confirm "Create local.zsh from example template?" "y"; then
-            cp "$INSTALL_DIR/local.zsh.example" "$local_config"
-            print_success "Created local.zsh"
+    if [[ -f "$INSTALL_DIR/.zshlocal.example" ]]; then
+        if confirm "Create .zshlocal from example template?" "y"; then
+            cp "$INSTALL_DIR/.zshlocal.example" "$local_config"
+            print_success "Created .zshlocal"
             print_info "Edit with: \$EDITOR $local_config"
         fi
     fi
@@ -2012,7 +2012,7 @@ print_summary() {
     echo ""
     echo -e "  ${CYAN}${BOLD}Getting Started:${NC}"
     echo -e "    1. Start new shell:    ${WHITE}exec zsh${NC}"
-    echo -e "    2. Customize settings: ${WHITE}nano $INSTALL_DIR/local.zsh${NC}"
+    echo -e "    2. Customize settings: ${WHITE}nano $INSTALL_DIR/.zshlocal${NC}"
     echo ""
     echo -e "  ${CYAN}${BOLD}Essential Shortcuts:${NC}"
     echo -e "    ${WHITE}Ctrl+R${NC}  - Search command history (fuzzy search)"
@@ -2030,7 +2030,7 @@ print_summary() {
     echo ""
     echo -e "  ${CYAN}${BOLD}Customization:${NC}"
     echo -e "    Add your own aliases and settings to:"
-    echo -e "    ${WHITE}$INSTALL_DIR/local.zsh${NC}"
+    echo -e "    ${WHITE}$INSTALL_DIR/.zshlocal${NC}"
     echo ""
     echo -e "  ${CYAN}${BOLD}Need Help?${NC}"
     echo -e "    Check config:  ${WHITE}./install.sh --check${NC}"

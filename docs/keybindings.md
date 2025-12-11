@@ -68,7 +68,7 @@ bindkey | grep atuin
 
 ### Manual Binding (if needed)
 
-If bindings aren't working, add to `local.zsh`:
+If bindings aren't working, add to `.zshlocal`:
 
 ```bash
 bindkey '^[[A' atuin-up-search
@@ -79,7 +79,7 @@ bindkey '^[OA' atuin-up-search
 
 ### Adding Custom Bindings
 
-Add to `local.zsh`:
+Add to `.zshlocal`:
 
 ```bash
 # Bind Ctrl+G to git status
@@ -129,7 +129,7 @@ Common escape sequences:
 
 **Bindings overridden after shell start:**
 
-Some plugins load asynchronously. Add your bindings at the very end of `local.zsh`.
+Some plugins load asynchronously. Add your bindings at the very end of `.zshlocal`.
 
 **Terminal-specific issues:**
 
@@ -148,7 +148,7 @@ The keybindings module is intentionally loaded **last** in `.zshrc`:
 2. fzf bindings load
 3. Other modules load
 4. **Keybindings module loads** (overrides all)
-5. `local.zsh` loads (for user overrides)
+5. `.zshlocal` loads (for user overrides)
 
 ## Dependencies
 

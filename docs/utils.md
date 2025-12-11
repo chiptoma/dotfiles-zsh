@@ -179,7 +179,7 @@ _cache_eval "helm-completion" "helm completion zsh" "helm"
 Source a file with optional ownership verification.
 
 ```bash
-_safe_source "$HOME/.config/zsh/local.zsh"
+_safe_source "$HOME/.config/zsh/.zshlocal"
 ```
 
 **Behavior:**

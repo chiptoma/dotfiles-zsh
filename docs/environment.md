@@ -126,7 +126,7 @@ ZSH_TERMINAL_EDITORS_ORDER="nvim vim vi"
 ### Custom Editor Order
 
 ```bash
-# In local.zsh
+# In .zshlocal
 export ZSH_GUI_EDITORS_ORDER="code cursor sublime"
 export ZSH_TERMINAL_EDITORS_ORDER="vim nano"
 ```
@@ -150,7 +150,7 @@ export ZSH_ENVIRONMENT_SSH_AGENT=false
 Override system locale:
 
 ```bash
-# In local.zsh
+# In .zshlocal
 export ZSH_LOCALE_OVERRIDE="en_US.UTF-8"
 ```
 

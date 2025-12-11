@@ -1,0 +1,116 @@
+# ==============================================================================
+# * ATUIN CONFIGURATION
+# ? Enhanced shell history with sync capabilities.
+# ? Copy to ~/.config/atuin/config.toml and customize.
+# ? Documentation: https://docs.atuin.sh/configuration/
+# ==============================================================================
+
+# ----------------------------------------------------------
+# * SEARCH SETTINGS
+# ----------------------------------------------------------
+
+# Search mode: prefix, fulltext, fuzzy, skim
+# ? fuzzy is recommended - matches anywhere in command
+search_mode = "fuzzy"
+
+# Filter mode: global, host, session, directory, workspace
+# ? global shows all history, directory shows only commands from current dir
+filter_mode = "global"
+
+# ----------------------------------------------------------
+# * DISPLAY SETTINGS
+# ----------------------------------------------------------
+
+# Date format: us (MM/DD) or uk (DD/MM)
+dialect = "uk"
+
+# UI style: auto, full, compact
+style = "auto"
+
+# Maximum height of the search interface (0 = full screen)
+inline_height = 20
+
+# Show preview of selected command
+show_preview = true
+
+# Show help row with version and keymap hints
+show_help = true
+
+# ----------------------------------------------------------
+# * BEHAVIOR SETTINGS
+# ----------------------------------------------------------
+
+# Execute command immediately on Enter (Tab to edit instead)
+enter_accept = true
+
+# Filter out commands containing secrets (API keys, tokens, etc.)
+# ? Highly recommended - prevents accidental secret exposure
+secrets_filter = true
+
+# Keymap mode: auto, emacs, vim-insert, vim-normal
+keymap_mode = "auto"
+
+# ----------------------------------------------------------
+# * SYNC SETTINGS
+# ? Sync is disabled by default. To enable:
+# ? 1. Create account: atuin register -u <username> -e <email>
+# ? 2. Or login: atuin login -u <username>
+# ? 3. Set auto_sync = true below
+# ----------------------------------------------------------
+
+# Enable automatic sync (requires account)
+auto_sync = false
+
+# Sync server address
+# sync_address = "https://api.atuin.sh"
+
+# How often to sync (only triggers on command execution)
+# sync_frequency = "10m"
+
+# ----------------------------------------------------------
+# * HISTORY FILTERS
+# ? Prevent sensitive commands from being saved
+# ----------------------------------------------------------
+
+# Regex patterns to exclude from history
+# history_filter = [
+#     "^secret-cmd",
+#     ".*--password=.*",
+#     ".*API_KEY.*",
+# ]
+
+# Directories to exclude from history
+# cwd_filter = [
+#     "^/private/secrets",
+# ]
+
+# ----------------------------------------------------------
+# * STATISTICS
+# ----------------------------------------------------------
+
+[stats]
+# Commands to track subcommands for (e.g., "git status" vs just "git")
+common_subcommands = [
+    "cargo",
+    "docker",
+    "git",
+    "go",
+    "kubectl",
+    "npm",
+    "pnpm",
+    "yarn",
+]
+
+# Commands to strip from stats
+common_prefix = ["sudo"]
+
+# Commands to ignore in stats
+ignored_commands = ["cd", "ls", "clear"]
+
+# ----------------------------------------------------------
+# * SYNC V2
+# ----------------------------------------------------------
+
+[sync]
+# Enable sync v2 (recommended for new installs)
+records = true

@@ -37,7 +37,7 @@ See [INSTALL.md](INSTALL.md) for detailed instructions.
 ~/.config/zsh/
 ├── .zshenv                 # Entry point: XDG, logging, utils, platform, path
 ├── .zshrc                  # Interactive: plugins, modules, keybindings
-├── local.zsh               # User customizations (gitignored)
+├── .zshlocal               # User customizations (gitignored)
 │
 ├── modules/
 │   ├── logging.zsh         # Log levels, colors, caller info
@@ -120,7 +120,7 @@ Detailed documentation for each module:
 
 ## Configuration Reference
 
-All options can be set in `local.zsh` or exported before sourcing.
+All options can be set in `.zshlocal` or exported before sourcing.
 
 ### Global
 
@@ -217,11 +217,11 @@ All options can be set in `local.zsh` or exported before sourcing.
 
 ## Customization
 
-Create `local.zsh` (gitignored) for personal settings:
+Create `.zshlocal` (gitignored) for personal settings:
 
 ```bash
-cp local.zsh.example local.zsh
-$EDITOR local.zsh
+cp .zshlocal.example .zshlocal
+$EDITOR .zshlocal
 ```
 
 Example customizations:

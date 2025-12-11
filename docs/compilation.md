@@ -24,7 +24,7 @@ ZSH can compile scripts to bytecode (`.zwc` files) for faster loading. This modu
 
 ## Enable Compilation
 
-Add to `local.zsh`:
+Add to `.zshlocal`:
 
 ```bash
 export ZSH_COMPILATION_ENABLED=true

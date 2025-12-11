@@ -1,6 +1,5 @@
 # Local customization (user-specific, not tracked)
-local.zsh
-.zsh.local
+.zshlocal
 
 # Compiled zsh files
 *.zwc

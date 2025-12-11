@@ -609,7 +609,7 @@ fi
 
 alias zshrc='${EDITOR:-vi} "${ZDOTDIR}/.zshrc"'           # Edit .zshrc
 alias zshenv='${EDITOR:-vi} "${ZDOTDIR}/.zshenv"'         # Edit .zshenv
-alias zlocal='${EDITOR:-vi} "${ZDOTDIR}/local.zsh"'       # Edit local.zsh
+alias zlocal='${EDITOR:-vi} "${ZDOTDIR}/.zshlocal"'       # Edit .zshlocal
 alias gitconfig='${EDITOR:-vi} "${XDG_CONFIG_HOME}/git/config"'  # Edit git config
 
 alias e='${EDITOR:-vi}'         # Open in editor

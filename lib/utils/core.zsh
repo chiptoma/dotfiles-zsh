@@ -144,7 +144,7 @@ _is_not_empty() {
 # ! This function uses eval to execute the command string.
 # ! Only call with TRUSTED, HARDCODED command strings.
 # ! NEVER pass user input or external data as the command parameter.
-# ! Current trusted callers: direnv, atuin, helm completion
+# ! Current trusted callers: direnv, atuin, starship, helm completion
 _cache_eval() {
     local name="$1"
     local cmd="$2"

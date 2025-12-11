@@ -31,7 +31,7 @@ That's it! The installer handles everything automatically.
 4. **Installs Configuration** - Symlinks (recommended) or copies files
 5. **Configures ZDOTDIR** - Creates ~/.zshenv pointing to config
 6. **Installs Optional Tools** - fzf, eza, bat, ripgrep, fd, zoxide, starship, atuin
-7. **Creates local.zsh** - For your personal customizations
+7. **Creates .zshlocal** - For your personal customizations
 8. **Verifies Installation** - Checks all components are in place
 
 ---
@@ -130,7 +130,7 @@ sudo pacman -S fzf eza bat ripgrep fd zoxide starship atuin
 
 ```bash
 # Edit your personal configuration
-$EDITOR ~/.config/zsh/local.zsh
+$EDITOR ~/.config/zsh/.zshlocal
 ```
 
 ### Verify Installation
@@ -181,7 +181,7 @@ The config expects OMZ at `~/.local/share/oh-my-zsh`:
 mv ~/.oh-my-zsh ~/.local/share/oh-my-zsh
 ```
 
-Or set a custom path in `local.zsh`:
+Or set a custom path in `.zshlocal`:
 ```bash
 export ZSH="$HOME/.oh-my-zsh"
 ```

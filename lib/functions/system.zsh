@@ -25,7 +25,7 @@ typeset -g _ZSH_FUNCTIONS_SYSTEM_LOADED=1
 # ? Notes:
 # ? - Skips detection if SSH_AUTH_SOCK already points to valid socket
 # ? - Does not start agents, only detects existing ones
-# ? - User can override by setting SSH_AUTH_SOCK in local.zsh
+# ? - User can override by setting SSH_AUTH_SOCK in .zshlocal
 # ----------------------------------------------------------
 zsh_detect_ssh_agent() {
     # Skip if already set to a valid socket

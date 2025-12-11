@@ -50,7 +50,7 @@ After lazy loading:
 If you need immediate initialization for a specific tool:
 
 ```bash
-# In local.zsh
+# In .zshlocal
 export ZSH_LAZY_NVM=false     # Initialize nvm immediately
 export ZSH_LAZY_STARSHIP=false  # Initialize starship immediately
 ```
@@ -123,7 +123,7 @@ Initialized Tools:
 You can register your own commands for lazy loading:
 
 ```bash
-# In local.zsh
+# In .zshlocal
 
 # Simple command wrapping
 lazy_load "mycmd" "eval \"\$(mycmd init zsh)\""

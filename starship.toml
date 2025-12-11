@@ -5,7 +5,7 @@ add_newline = false
 
 # 2. The order of modules (Left side)
 format = """
-[╭─](245)$directory$git_branch$git_state$git_metrics$git_status$docker_context$package$python$nodejs$rust$golang
+[╭─](245)$username$hostname$directory$git_branch$git_state$git_metrics$git_status$docker_context$package$python$nodejs$rust$golang
 [╰─](245)$character"""
 
 # 3. The order of modules (Right side - usually time/duration)
@@ -108,7 +108,17 @@ min_time = 2_000
 style = "yellow"
 format = "took [$duration]($style)"
 
-[custom.transient_prompt]
-command = "echo -n '➜ '" # The symbol to leave behind
-when = "true"
-shell = ["bash", "zsh"]
+# ----------------------------------------------------------
+# * HOSTNAME & USERNAME (SSH sessions only)
+# ----------------------------------------------------------
+
+[hostname]
+ssh_only = true
+format = "[@$hostname]($style) "
+style = "bold green"
+
+[username]
+show_always = false
+style_user = "bold blue"
+style_root = "bold red"
+format = "[$user]($style)"
