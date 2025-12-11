@@ -1967,6 +1967,53 @@ create_local_config() {
     fi
 }
 
+setup_atuin_config() {
+    # Skip if atuin is not installed
+    if ! has_cmd atuin && [[ ! -x "$HOME/.atuin/bin/atuin" ]]; then
+        return 0
+    fi
+
+    local atuin_config_dir="$HOME/.config/atuin"
+    local atuin_config="$atuin_config_dir/config.toml"
+    local atuin_example="$INSTALL_DIR/atuin.toml.example"
+
+    # Skip if example doesn't exist
+    [[ ! -f "$atuin_example" ]] && return 0
+
+    # Skip if config already exists
+    if [[ -f "$atuin_config" ]]; then
+        print_info "atuin config already exists"
+        return 0
+    fi
+
+    print_section "Atuin Configuration"
+
+    if confirm "Set up atuin config from template?" "y"; then
+        # Create config directory
+        mkdir -p "$atuin_config_dir"
+
+        # Copy template
+        cp "$atuin_example" "$atuin_config"
+        print_success "Created atuin config"
+
+        # Ask about sync
+        echo ""
+        if confirm "Enable atuin sync (requires account)?" "n"; then
+            # Enable auto_sync in config
+            sed -i.bak 's/^auto_sync = false/auto_sync = true/' "$atuin_config" 2>/dev/null || \
+            sed -i '' 's/^auto_sync = false/auto_sync = true/' "$atuin_config" 2>/dev/null
+            rm -f "$atuin_config.bak" 2>/dev/null
+
+            echo ""
+            print_info "To complete sync setup, run:"
+            echo -e "    ${WHITE}atuin register -u <username> -e <email>${NC}  (new account)"
+            echo -e "    ${WHITE}atuin login -u <username>${NC}                (existing account)"
+        fi
+
+        print_info "Config: $atuin_config"
+    fi
+}
+
 print_installation_failed() {
     local reason="$1"
     print_header "Installation Failed"
@@ -2541,6 +2588,7 @@ main() {
         next_step "Optional Tools"
         install_optional_tools
         create_local_config
+        setup_atuin_config
 
         # Step 7: Verification & Finish
         next_step "Verification"
