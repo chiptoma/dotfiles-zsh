@@ -896,7 +896,7 @@ fi
 _env_init_starship() {
     if _has_cmd starship; then
         export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
-        eval "$(starship init zsh)"
+        _cache_eval "starship-init" "starship init zsh" "starship"
         _log "DEBUG" "starship prompt initialized"
     fi
 }

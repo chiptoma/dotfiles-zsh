@@ -334,7 +334,7 @@ Most functions work without dependencies, but some require:
 
 ## Adding Custom Functions
 
-Create functions in `local.zsh` (gitignored):
+Create functions in `.zshlocal` (gitignored):
 
 ```bash
 # Custom function example

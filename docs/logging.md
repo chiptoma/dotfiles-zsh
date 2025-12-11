@@ -9,7 +9,7 @@ The logging module provides a consistent way to output debug, info, warning, and
 ## Quick Start
 
 ```bash
-# In any module or local.zsh
+# In any module or .zshlocal
 _log DEBUG "This is a debug message"
 _log INFO "Operation completed"
 _log WARN "Something might be wrong"
@@ -53,7 +53,7 @@ _log ERROR "Failed to initialize prompt"
 
 ### Enable Debug Mode
 
-In `local.zsh` or before starting shell:
+In `.zshlocal` or before starting shell:
 
 ```bash
 export ZSH_LOG_LEVEL=DEBUG

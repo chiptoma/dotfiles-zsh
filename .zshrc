@@ -219,10 +219,10 @@ _run_post_interactive_hooks
 # * LOCAL CUSTOMIZATION
 # ----------------------------------------------------------
 # Source user's local config (not tracked in git)
-if [[ -r "${ZDOTDIR}/local.zsh" ]]; then
-    source "${ZDOTDIR}/local.zsh"
-elif [[ -r "${HOME}/.zsh.local" ]]; then
-    source "${HOME}/.zsh.local"
+if [[ -r "${ZDOTDIR}/.zshlocal" ]]; then
+    source "${ZDOTDIR}/.zshlocal"
+elif [[ -r "${HOME}/.zshlocal" ]]; then
+    source "${HOME}/.zshlocal"
 fi
 
 # ----------------------------------------------------------

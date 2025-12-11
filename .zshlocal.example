@@ -1,7 +1,7 @@
 # ==============================================================================
 # * LOCAL ZSH CUSTOMIZATION
 # ? Personal settings that override the defaults.
-# ? Copy this file to local.zsh (or ~/.zsh.local) and customize.
+# ? Copy this file to .zshlocal and customize.
 # ? This file is gitignored and will not be tracked.
 # ==============================================================================
 
