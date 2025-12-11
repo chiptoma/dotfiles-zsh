@@ -1504,8 +1504,8 @@ declare -a ALL_TOOLS=(
     "ripgrep:rg:Fast grep - search file contents 10x faster:core"
     "fd:fd:Modern find - find files by name quickly:enhanced"
     "zoxide:zoxide:Smart cd - jump to directories you use often:enhanced"
+    "starship:starship:Custom prompt - shows git status and more:enhanced"
     "yazi:yazi:File manager - browse files in terminal with preview:extra"
-    "starship:starship:Custom prompt - shows git status and more:extra"
     "atuin:atuin:History sync - search/sync shell history across machines:extra"
 )
 
