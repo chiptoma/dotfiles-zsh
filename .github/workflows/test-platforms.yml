@@ -7,10 +7,13 @@ name: Platform Tests
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: platforms-${{ github.ref }}
@@ -27,6 +30,7 @@ jobs:
   ubuntu:
     name: Ubuntu
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install ZSH
@@ -43,6 +47,7 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Run installer
@@ -60,6 +65,7 @@ jobs:
   fedora:
     name: Fedora
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: fedora:latest
     steps:
       - name: Install dependencies
@@ -77,6 +83,7 @@ jobs:
   arch:
     name: Arch Linux
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: archlinux:latest
     steps:
       - name: Install dependencies
@@ -94,6 +101,7 @@ jobs:
   debian:
     name: Debian
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: debian:stable
     steps:
       - name: Install dependencies
@@ -111,6 +119,7 @@ jobs:
   alpine:
     name: Alpine
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: alpine:latest
     steps:
       - name: Install dependencies
@@ -128,6 +137,7 @@ jobs:
   rocky:
     name: Rocky Linux (RHEL)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: rockylinux:9
     steps:
       - name: Install dependencies
@@ -145,6 +155,7 @@ jobs:
   wsl-simulation:
     name: WSL (Simulated)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       WSL_DISTRO_NAME: Ubuntu
       WSL_INTEROP: /run/WSL
@@ -172,6 +183,7 @@ jobs:
   macos-homebrew:
     name: macOS Homebrew Integration
     runs-on: macos-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -212,6 +224,7 @@ jobs:
   ubuntu-full:
     name: Ubuntu Full (with OMZ)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install ZSH
@@ -237,6 +250,7 @@ jobs:
   ubuntu-22:
     name: Ubuntu 22.04 LTS
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - name: Install ZSH
@@ -258,6 +272,7 @@ jobs:
   opensuse:
     name: openSUSE
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: opensuse/leap:latest
     steps:
       - name: Install dependencies
@@ -278,6 +293,7 @@ jobs:
   minimal-container:
     name: Minimal Container
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     container: ubuntu:latest
     steps:
       - name: Install only essentials

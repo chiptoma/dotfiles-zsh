@@ -7,12 +7,15 @@ name: Installer Tests
 
 on:
   push:
-    branches: [main, master]
-    paths: ['install.sh']
+    branches: [main]
+    paths: ['install.sh', 'tests/**']
   pull_request:
-    branches: [main, master]
-    paths: ['install.sh']
+    branches: [main]
+    paths: ['install.sh', 'tests/**']
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: installer-${{ github.ref }}
@@ -29,6 +32,7 @@ jobs:
   cli-flags:
     name: CLI Flags
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +63,7 @@ jobs:
   error-scenarios:
     name: Error Scenarios
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -90,6 +95,7 @@ jobs:
   repair-uninstall:
     name: Repair & Uninstall
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -124,6 +130,7 @@ jobs:
   backup-restore:
     name: Backup & Restore
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -154,6 +161,7 @@ jobs:
   permissions:
     name: Non-Root User
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -178,6 +186,7 @@ jobs:
   shell-compat:
     name: Shell Compatibility
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -201,6 +210,7 @@ jobs:
   shell-modes:
     name: Shell Modes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -238,6 +248,7 @@ jobs:
   complex-existing:
     name: Complex Existing Config
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -294,6 +305,7 @@ jobs:
   symlink-edge-cases:
     name: Symlink Edge Cases
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -347,6 +359,7 @@ jobs:
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -379,6 +392,7 @@ jobs:
   env-isolation:
     name: Environment Isolation
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -411,6 +425,7 @@ jobs:
   idempotency-stress:
     name: Idempotency (5x)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
