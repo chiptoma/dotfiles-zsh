@@ -119,8 +119,11 @@ jobs:
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
         run: |
-          zsh -c 'source ~/.zshenv && echo "Alpine ZDOTDIR: $ZDOTDIR"'
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
 
   rocky:
     name: Rocky Linux (RHEL)
@@ -145,16 +148,23 @@ jobs:
     env:
       WSL_DISTRO_NAME: Ubuntu
       WSL_INTEROP: /run/WSL
+      WSLENV: PATH
     steps:
       - uses: actions/checkout@v4
       - name: Install ZSH
-        run: sudo apt-get update && sudo apt-get install -y zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools 2>&1 | tee install.log
-      - name: Verify WSL detected
-        run: grep -qi "wsl" install.log || echo "WSL environment set up"
       - name: Verify installation
         run: ./install.sh --check
+      - name: Run smoke tests
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh tests/smoke-test.zsh
+      - name: Verify WSL env vars preserved
+        run: |
+          export ZDOTDIR="${HOME}/.config/zsh"
+          zsh -c 'source ~/.zshenv && [[ -n "$WSL_DISTRO_NAME" ]] && echo "WSL env preserved: $WSL_DISTRO_NAME"'
 
   # ─────────────────────────────────────────────────────────
   # macOS ARM64 vs Intel
@@ -277,7 +287,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run minimal install
         run: ./install.sh --yes --minimal --skip-tools
-      - name: Verify core functionality
+      - name: Verify installation
+        run: ./install.sh --check
+      - name: Run smoke tests
         run: |
           export ZDOTDIR="${HOME}/.config/zsh"
-          zsh -c 'source ~/.zshenv && echo "Minimal install works"'
+          zsh tests/smoke-test.zsh
