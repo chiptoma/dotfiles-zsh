@@ -92,7 +92,7 @@ jobs:
           found=0
           for pattern in "${patterns[@]}"; do
             if grep -rEi "$pattern" --include="*.zsh" --include="*.sh" --include="*.md" . 2>/dev/null \
-                | grep -v "local.zsh.example" \
+                | grep -v "examples/zshlocal" \
                 | grep -v ".git/" \
                 | grep -v "find-generic-password"; then
               echo "⚠ Potential secret found matching: $pattern"
