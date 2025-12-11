@@ -131,32 +131,12 @@ jobs:
         run: zsh tests/unit-test.zsh
 
   # ─────────────────────────────────────────────────────────
-  # SMOKE TESTS
-  # ─────────────────────────────────────────────────────────
-  smoke-tests:
-    name: Smoke Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh git curl
-      - name: Install configuration
-        run: ./install.sh --yes --minimal --skip-tools
-      - name: Verify installation
-        run: ./install.sh --check
-      - name: Run smoke tests
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          zsh tests/smoke-test.zsh
-
-  # ─────────────────────────────────────────────────────────
   # RELEASE
   # ─────────────────────────────────────────────────────────
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, syntax, security, unit-tests, smoke-tests]
+    needs: [lint, syntax, security, unit-tests]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write

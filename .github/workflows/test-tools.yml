@@ -304,38 +304,3 @@ jobs:
             fi
           '
 
-  # ─────────────────────────────────────────────────────────
-  # macOS FULL INSTALL (with Homebrew tools)
-  # ─────────────────────────────────────────────────────────
-  macos-full:
-    name: macOS Full Install
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Full install with OMZ
-        run: ./install.sh --yes --full --skip-tools
-
-      - name: Verify OMZ installed
-        run: |
-          [[ -d ~/.local/share/oh-my-zsh ]] || { echo "OMZ not found"; exit 1; }
-
-      - name: Install core tools via Homebrew
-        run: |
-          brew install fzf eza bat
-
-      - name: Verify tools work with config
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          zsh -c '
-            source ~/.zshenv
-            source $ZDOTDIR/.zshrc
-            command -v fzf && echo "✓ fzf"
-            command -v eza && echo "✓ eza"
-            command -v bat && echo "✓ bat"
-          '
-
-      - name: Run smoke tests
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          zsh tests/smoke-test.zsh

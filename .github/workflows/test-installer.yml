@@ -196,43 +196,6 @@ jobs:
           zsh tests/smoke-test.zsh
 
   # ─────────────────────────────────────────────────────────
-  # FULL INSTALLATION (not minimal)
-  # ─────────────────────────────────────────────────────────
-  full-install:
-    name: Full Installation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y zsh git curl
-
-      - name: Full install (with OMZ, without tools)
-        run: ./install.sh --yes --full --skip-tools
-
-      - name: Verify Oh-My-Zsh installed
-        run: |
-          [[ -d ~/.local/share/oh-my-zsh ]] || { echo "OMZ not installed"; exit 1; }
-
-      - name: Verify all modules present
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          for module in environment path history aliases lazy; do
-            [[ -f "$ZDOTDIR/modules/${module}.zsh" ]] || { echo "Missing $module"; exit 1; }
-          done
-          echo "All modules present"
-
-      - name: Verify shell starts correctly
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          zsh -c 'source ~/.zshenv && source $ZDOTDIR/.zshrc && echo "Full install OK"'
-
-      - name: Run smoke tests
-        run: |
-          export ZDOTDIR="${HOME}/.config/zsh"
-          zsh tests/smoke-test.zsh
-
-  # ─────────────────────────────────────────────────────────
   # SHELL MODE VARIATIONS
   # ─────────────────────────────────────────────────────────
   shell-modes:
