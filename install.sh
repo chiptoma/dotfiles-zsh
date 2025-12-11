@@ -1496,17 +1496,17 @@ setup_zdotdir() {
 
 # Tools with descriptions, commands, and categories
 # Format: "tool:command:description:category"
-# Categories: core (recommended), enhanced, extra
+# Categories: core (essential shell experience), enhanced (useful utilities), extra (optional)
 declare -a ALL_TOOLS=(
-    "fzf:fzf:Fuzzy finder - search history and files with Ctrl+R/T:core"
+    "starship:starship:Custom prompt - shows git status and more:core"
+    "atuin:atuin:History sync - search/sync shell history across machines:core"
     "eza:eza:Modern ls - colorful file listings with icons:core"
-    "bat:bat:Better cat - view files with syntax highlighting:core"
-    "ripgrep:rg:Fast grep - search file contents 10x faster:core"
+    "zoxide:zoxide:Smart cd - jump to directories you use often:core"
+    "fzf:fzf:Fuzzy finder - search history and files with Ctrl+R/T:enhanced"
+    "bat:bat:Better cat - view files with syntax highlighting:enhanced"
+    "ripgrep:rg:Fast grep - search file contents 10x faster:enhanced"
     "fd:fd:Modern find - find files by name quickly:enhanced"
-    "zoxide:zoxide:Smart cd - jump to directories you use often:enhanced"
-    "starship:starship:Custom prompt - shows git status and more:enhanced"
     "yazi:yazi:File manager - browse files in terminal with preview:extra"
-    "atuin:atuin:History sync - search/sync shell history across machines:extra"
 )
 
 # Check if a tool should be installed based on profile and selection
