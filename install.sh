@@ -1958,9 +1958,9 @@ create_local_config() {
         return 0
     fi
 
-    if [[ -f "$INSTALL_DIR/.zshlocal.example" ]]; then
+    if [[ -f "$INSTALL_DIR/examples/zshlocal" ]]; then
         if confirm "Create .zshlocal from example template?" "y"; then
-            cp "$INSTALL_DIR/.zshlocal.example" "$local_config"
+            cp "$INSTALL_DIR/examples/zshlocal" "$local_config"
             print_success "Created .zshlocal"
             print_info "Edit with: \$EDITOR $local_config"
         fi
@@ -1975,7 +1975,7 @@ setup_atuin_config() {
 
     local atuin_config_dir="$HOME/.config/atuin"
     local atuin_config="$atuin_config_dir/config.toml"
-    local atuin_example="$INSTALL_DIR/atuin.toml.example"
+    local atuin_example="$INSTALL_DIR/examples/atuin.toml"
 
     # Skip if example doesn't exist
     [[ ! -f "$atuin_example" ]] && return 0

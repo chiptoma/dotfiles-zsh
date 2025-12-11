@@ -220,7 +220,7 @@ All options can be set in `.zshlocal` or exported before sourcing.
 Create `.zshlocal` (gitignored) for personal settings:
 
 ```bash
-cp .zshlocal.example .zshlocal
+cp examples/zshlocal .zshlocal
 $EDITOR .zshlocal
 ```
 
