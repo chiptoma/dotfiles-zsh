@@ -416,12 +416,14 @@ confirm() {
     echo -ne "  ${YELLOW}?${NC} $prompt"
 
     # Try to read from /dev/tty (works even when stdin is piped)
-    # Fall back to stdin if /dev/tty not available
-    local response
-    if [[ -r /dev/tty ]]; then
-        read -r response </dev/tty
+    # Fall back to stdin, then default if all reads fail
+    local response=""
+    if [[ -r /dev/tty ]] && read -r response </dev/tty 2>/dev/null; then
+        : # Successfully read from /dev/tty
+    elif read -r response 2>/dev/null; then
+        : # Successfully read from stdin
     else
-        read -r response
+        response="$default"  # All reads failed, use default
     fi
 
     if [[ -z "$response" ]]; then
@@ -451,14 +453,17 @@ prompt_choice() {
     echo -ne "  ${YELLOW}?${NC} Enter choice [1-${#options[@]}]: "
 
     # Try to read from /dev/tty (works even when stdin is piped)
-    local choice
-    if [[ -r /dev/tty ]]; then
-        read -r choice </dev/tty
+    # Fall back to stdin, then default (1) if all reads fail
+    local choice=""
+    if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
+        : # Successfully read from /dev/tty
+    elif read -r choice 2>/dev/null; then
+        : # Successfully read from stdin
     else
-        read -r choice
+        choice="1"  # All reads failed, use first option
     fi
 
-    echo "$choice"
+    echo "${choice:-1}"
 }
 
 has_cmd() {
