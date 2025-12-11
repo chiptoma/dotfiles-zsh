@@ -222,11 +222,11 @@ jobs:
           zsh tests/smoke-test.zsh
 
   # ─────────────────────────────────────────────────────────
-  # OLD UBUNTU LTS
+  # UBUNTU LTS (previous version)
   # ─────────────────────────────────────────────────────────
-  ubuntu-20:
-    name: Ubuntu 20.04 LTS
-    runs-on: ubuntu-20.04
+  ubuntu-22:
+    name: Ubuntu 22.04 LTS
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install ZSH
