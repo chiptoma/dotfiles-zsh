@@ -56,6 +56,15 @@
 # export ZSH_HISTORY_SECURITY_FILTER=false  # Disable sensitive command filtering
 
 # ----------------------------------------------------------
+# * UPDATE SETTINGS
+# ? Customize auto-update behavior
+# ----------------------------------------------------------
+# export ZSH_UPDATE_CHECK_ENABLED=true      # Check for updates on launch
+# export ZSH_UPDATE_CHECK_INTERVAL=86400    # Seconds between checks (default: 24h)
+# export ZSH_UPDATE_PROMPT=true             # Interactive "Apply now? [y/N]" prompt
+# export ZSH_UPDATE_AUTO_APPLY=false        # Auto-apply updates (no prompt)
+
+# ----------------------------------------------------------
 # * PERSONAL ALIASES
 # ? Add your personal aliases below
 # ----------------------------------------------------------
