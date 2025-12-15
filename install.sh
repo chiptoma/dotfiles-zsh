@@ -1367,16 +1367,16 @@ install_config() {
             print_info "Copying files (atomic)..."
             if $DRY_RUN; then
                 print_dim "[dry-run] mkdir -p $INSTALL_DIR.tmp.$$"
-                print_dim "[dry-run] cp -r $SCRIPT_DIR/* $INSTALL_DIR.tmp.$$/"
+                print_dim "[dry-run] cp -r $SCRIPT_DIR/. $INSTALL_DIR.tmp.$$/"
                 print_dim "[dry-run] verify essential files"
                 print_dim "[dry-run] rm -rf $INSTALL_DIR"
                 print_dim "[dry-run] mv $INSTALL_DIR.tmp.$$ $INSTALL_DIR"
             else
                 temp_install="$INSTALL_DIR.tmp.$$"
 
-                # Copy to temp location
+                # Copy to temp location (use /. to include dotfiles)
                 mkdir -p "$temp_install"
-                if ! cp -r "$SCRIPT_DIR"/* "$temp_install/"; then
+                if ! cp -r "$SCRIPT_DIR"/. "$temp_install/"; then
                     print_error "Failed to copy files"
                     rm -rf "$temp_install"
                     return 1
