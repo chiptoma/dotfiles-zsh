@@ -417,8 +417,9 @@ confirm() {
 
     # Try to read from /dev/tty (works even when stdin is piped)
     # Fall back to stdin (only if terminal), then default if all reads fail
+    # Note: Use { } 2>/dev/null to suppress redirect errors when /dev/tty doesn't exist
     local response=""
-    if [[ -r /dev/tty ]] && read -r response </dev/tty 2>/dev/null; then
+    if { read -r response </dev/tty; } 2>/dev/null; then
         : # Successfully read from /dev/tty
     elif [[ -t 0 ]] && read -r response 2>/dev/null; then
         : # Successfully read from stdin (only if stdin is a terminal)
@@ -454,8 +455,9 @@ prompt_choice() {
 
     # Try to read from /dev/tty (works even when stdin is piped)
     # Fall back to stdin (only if terminal), then default (1) if all reads fail
+    # Note: Use { } 2>/dev/null to suppress redirect errors when /dev/tty doesn't exist
     local choice=""
-    if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
+    if { read -r choice </dev/tty; } 2>/dev/null; then
         : # Successfully read from /dev/tty
     elif [[ -t 0 ]] && read -r choice 2>/dev/null; then
         : # Successfully read from stdin (only if stdin is a terminal)
@@ -1416,7 +1418,7 @@ install_config() {
             else
                 echo -ne "  ${YELLOW}?${NC} Git repository URL: "
                 local repo_url=""
-                if [[ -r /dev/tty ]] && read -r repo_url </dev/tty 2>/dev/null; then
+                if { read -r repo_url </dev/tty; } 2>/dev/null; then
                     : # Read from /dev/tty
                 elif [[ -t 0 ]] && read -r repo_url 2>/dev/null; then
                     : # Read from stdin (only if stdin is a terminal)
@@ -1659,7 +1661,7 @@ install_optional_tools() {
 
         local choice=""
         echo -n "  Choose [1-4] (default: 1): "
-        if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
+        if { read -r choice </dev/tty; } 2>/dev/null; then
             : # Read from /dev/tty
         elif [[ -t 0 ]] && read -r choice 2>/dev/null; then
             : # Read from stdin (only if stdin is a terminal)
