@@ -1631,14 +1631,17 @@ install_optional_tools() {
         rest="${rest#*:}"
         local desc="${rest%%:*}"
         local category="${rest#*:}"
-        local marker=""
+        local marker="" pad=""
         case "$category" in
-            core)     marker="${GREEN}core${NC}    " ;;
-            enhanced) marker="${CYAN}enhanced${NC}" ;;
-            extra)    marker="${YELLOW}extra${NC}   " ;;
+            core)     marker="${GREEN}core${NC}"; pad="    " ;;
+            enhanced) marker="${CYAN}enhanced${NC}"; pad="" ;;
+            extra)    marker="${YELLOW}extra${NC}"; pad="   " ;;
         esac
         # Columnar format: [marker]  tool  description
-        printf "    ${DIM}[${NC}%s${DIM}]${NC}  ${YELLOW}%-10s${NC} %s\n" "$marker" "$tool" "$desc"
+        # Use printf for tool padding, echo -e for color interpretation
+        local padded_tool
+        padded_tool=$(printf '%-10s' "$tool")
+        echo -e "    ${DIM}[${NC}${marker}${pad}${DIM}]${NC}  ${YELLOW}${padded_tool}${NC} ${desc}"
     done
 
     # Determine which tools to install
