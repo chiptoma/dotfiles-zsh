@@ -1321,6 +1321,16 @@ install_config() {
     if [[ "$SCRIPT_DIR" == "$INSTALL_DIR" ]]; then
         print_info "Already in target directory, no installation needed"
         method="none"
+    elif [[ "$SCRIPT_DIR" == /tmp/* ]]; then
+        # Source is in temp directory (curl-pipe mode) - don't offer symlink
+        local choice
+        choice=$(prompt_choice "How would you like to install?" "Copy files (recommended)" "Clone from Git repository")
+
+        case "$choice" in
+            1) method="copy" ;;
+            2) method="clone" ;;
+            *) method="copy" ;;
+        esac
     else
         local choice
         choice=$(prompt_choice "How would you like to install?" "Symlink (recommended for development)" "Copy files" "Clone from Git repository")
