@@ -3,9 +3,12 @@
 ## Quick Start
 
 ```bash
-# Clone and run the installer
+# Option 1: Clone and run (recommended)
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 ~/.config/zsh/install.sh
+
+# Option 2: One-liner via curl
+curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
 That's it! The installer handles everything automatically.
@@ -14,13 +17,38 @@ That's it! The installer handles everything automatically.
 
 ## Installer Options
 
+### Basic Options
 ```bash
 ./install.sh              # Interactive installation
-./install.sh --yes        # Non-interactive (accept all defaults)
-./install.sh --check      # Verify existing installation
-./install.sh --update     # Update to latest version
-./install.sh --uninstall  # Remove configuration
-./install.sh --help       # Show all options
+./install.sh --yes, -y    # Non-interactive (accept all defaults)
+./install.sh --quiet, -q  # Minimal output (implies --yes)
+./install.sh --dry-run, -n # Show what would be done without changes
+./install.sh --help, -h   # Show all options
+./install.sh --version, -v # Show version number
+```
+
+### Installation Profiles
+```bash
+./install.sh --minimal    # Core ZSH + Oh My Zsh only (no optional tools)
+./install.sh --full       # Install all optional tools automatically
+./install.sh --skip-tools # Skip optional tools installation step
+./install.sh --tools fzf,eza,bat  # Install only specific tools
+```
+
+**Available tools:** `fzf`, `eza`, `bat`, `ripgrep`, `fd`, `zoxide`, `yazi`, `starship`, `atuin`
+
+### Maintenance
+```bash
+./install.sh --check, -c  # Verify existing installation
+./install.sh --update     # Update to latest version (git pull)
+./install.sh --repair     # Repair broken installation
+./install.sh --uninstall, -u # Remove configuration
+```
+
+### Environment Variables
+```bash
+NO_COLOR=1 ./install.sh   # Disable colored output
+XDG_CONFIG_HOME=~/.config ./install.sh  # Override config directory
 ```
 
 ## What the Installer Does

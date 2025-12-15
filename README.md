@@ -1,6 +1,8 @@
 # ZSH Configuration
 
-[![CI](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml)
+[![Quality](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml)
+[![Installer](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml)
+[![Platforms](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml)
 
 A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support.
 
@@ -18,9 +20,12 @@ A modular, modern ZSH configuration with security-first defaults, lazy loading, 
 ## Quick Start
 
 ```bash
-# Clone and install (handles everything automatically)
+# Option 1: Clone and install (recommended)
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 ~/.config/zsh/install.sh
+
+# Option 2: One-liner via curl
+curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
 The installer automatically:
