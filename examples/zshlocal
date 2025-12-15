@@ -49,6 +49,32 @@
 # export ZSH_VERIFY_FILE_OWNERSHIP=true
 
 # ----------------------------------------------------------
+# * DEBUG MODE
+# ? Set log level for troubleshooting (DEBUG shows all module loading)
+# ? Levels: DEBUG, INFO, WARN, ERROR, NONE
+# ----------------------------------------------------------
+# export ZSH_LOG_LEVEL=DEBUG
+
+# ----------------------------------------------------------
+# * MODULE TOGGLES
+# ? Disable specific modules if not needed
+# ----------------------------------------------------------
+# export ZSH_LAZY_ENABLED=false        # Disable lazy loading
+# export ZSH_COMPLETION_ENABLED=false  # Disable completion module
+# export ZSH_ALIASES_ENABLED=false     # Disable aliases module
+# export ZSH_COMPILATION_ENABLED=true  # Enable .zwc bytecode compilation
+
+# ----------------------------------------------------------
+# * LAZY LOADING
+# ? Control which tools are lazy loaded
+# ----------------------------------------------------------
+# export ZSH_LAZY_STARSHIP=false  # Load starship immediately
+# export ZSH_LAZY_ATUIN=false     # Load atuin immediately
+# export ZSH_LAZY_ZOXIDE=false    # Load zoxide immediately
+# export ZSH_LAZY_NVM=true        # Lazy load nvm (default)
+# export ZSH_LAZY_PYENV=true      # Lazy load pyenv (default)
+
+# ----------------------------------------------------------
 # * HISTORY SETTINGS
 # ? Customize history behavior
 # ----------------------------------------------------------
