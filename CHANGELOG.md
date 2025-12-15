@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.2](https://github.com/chiptoma/dotfiles-zsh/compare/dotfiles-zsh-v0.1.1...dotfiles-zsh-v0.1.2) (2025-12-15)
+
+
+### Bug Fixes
+
+* auto-install unzip when needed for yazi ([faf51ff](https://github.com/chiptoma/dotfiles-zsh/commit/faf51ffae840554be4f517d9c2849ee8a902233b))
+* copy installation not copying dotfiles (.zshenv, .zshrc) ([37d0634](https://github.com/chiptoma/dotfiles-zsh/commit/37d063401708a63395560aa3ddaf5a6951916648))
+* display prompt_choice menu when called in subshell ([11b2fde](https://github.com/chiptoma/dotfiles-zsh/commit/11b2fde334064829fbea1863071f69771bcfa520))
+* don't offer symlink option in curl-pipe mode ([6a9c405](https://github.com/chiptoma/dotfiles-zsh/commit/6a9c4051e52bb111ae071136b35c28c9fb92f6c7))
+* escape code interpretation in tool list display ([696b560](https://github.com/chiptoma/dotfiles-zsh/commit/696b56011956795eb591f33a026e7201b2138b78))
+* prevent stdin read blocking in curl-pipe mode ([b702e40](https://github.com/chiptoma/dotfiles-zsh/commit/b702e4025b8c55a0eeeb59142842d8a08a3d5bcd))
+* suppress /dev/tty redirect errors in curl-pipe mode ([6a224c0](https://github.com/chiptoma/dotfiles-zsh/commit/6a224c0616edd102059573e31d236f2c16daf020))
+* unified tool counter and exec zsh in curl-pipe mode ([5a6ac3e](https://github.com/chiptoma/dotfiles-zsh/commit/5a6ac3e70ff7b76ab2f82f6e1a443f5b9d703958))
+* use correct function name get_package_manager for unzip install ([d9d8a1e](https://github.com/chiptoma/dotfiles-zsh/commit/d9d8a1efe60517b5858d66e32828566cbdb9f2d5))
+
+
+### Documentation
+
+* fix CI badges and add complete installer options ([1f32562](https://github.com/chiptoma/dotfiles-zsh/commit/1f325622d432a71572b2e2c517bacca384b08961))
+
 ## [0.1.1](https://github.com/chiptoma/dotfiles-zsh/compare/dotfiles-zsh-v0.1.0...dotfiles-zsh-v0.1.1) (2025-12-11)
 
 
