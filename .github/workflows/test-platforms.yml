@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Run installer
@@ -49,7 +49,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -70,7 +70,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: dnf install -y git zsh curl findutils
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -88,7 +88,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: pacman -Sy --noconfirm git zsh curl
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -106,7 +106,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: apt-get update && apt-get install -y git zsh curl ca-certificates
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -124,7 +124,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: apk add --no-cache bash git zsh curl coreutils
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -142,7 +142,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: dnf install -y --allowerasing git zsh curl
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -161,7 +161,7 @@ jobs:
       WSL_INTEROP: /run/WSL
       WSLENV: PATH
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Run installer
@@ -185,7 +185,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Detect architecture
         run: |
@@ -226,7 +226,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Full install
@@ -252,7 +252,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
       - name: Show ZSH version
@@ -277,7 +277,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: zypper install -y git zsh curl tar gzip
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run installer
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation
@@ -300,7 +300,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y zsh curl ca-certificates git
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run minimal install
         run: ./install.sh --yes --minimal --skip-tools
       - name: Verify installation

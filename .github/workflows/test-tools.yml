@@ -39,7 +39,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         tool: [fzf, eza, bat, ripgrep, fd, zoxide, starship]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH (Linux)
         if: runner.os == 'Linux'
@@ -93,7 +93,7 @@ jobs:
       matrix:
         profile: [minimal, full]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
@@ -161,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
@@ -228,7 +228,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH
         run: sudo apt-get update && sudo apt-get install -y zsh git curl
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install ZSH and some tools manually
         run: |
