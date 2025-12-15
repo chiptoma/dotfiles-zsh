@@ -445,13 +445,14 @@ prompt_choice() {
         return
     fi
 
-    echo -e "  ${YELLOW}?${NC} $prompt"
+    # Output prompts to stderr so they display even when called in $()
+    echo -e "  ${YELLOW}?${NC} $prompt" >&2
     local i=1
     for opt in "${options[@]}"; do
-        echo -e "    ${CYAN}$i)${NC} $opt"
+        echo -e "    ${CYAN}$i)${NC} $opt" >&2
         ((i++))
     done
-    echo -ne "  ${YELLOW}?${NC} Enter choice [1-${#options[@]}]: "
+    echo -ne "  ${YELLOW}?${NC} Enter choice [1-${#options[@]}]: " >&2
 
     # Try to read from /dev/tty (works even when stdin is piped)
     # Fall back to stdin (only if terminal), then default (1) if all reads fail
