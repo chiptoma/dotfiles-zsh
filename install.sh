@@ -753,7 +753,7 @@ install_special_tool() {
             if ! has_cmd unzip; then
                 print_dim "Installing unzip (required for yazi)..."
                 local pm
-                pm=$(detect_package_manager)
+                pm=$(get_package_manager)
                 case "$pm" in
                     apt)    maybe_sudo apt-get install -qq -y unzip >/dev/null 2>&1 ;;
                     dnf)    maybe_sudo dnf install -y -q unzip >/dev/null 2>&1 ;;
