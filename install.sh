@@ -416,14 +416,14 @@ confirm() {
     echo -ne "  ${YELLOW}?${NC} $prompt"
 
     # Try to read from /dev/tty (works even when stdin is piped)
-    # Fall back to stdin, then default if all reads fail
+    # Fall back to stdin (only if terminal), then default if all reads fail
     local response=""
     if [[ -r /dev/tty ]] && read -r response </dev/tty 2>/dev/null; then
         : # Successfully read from /dev/tty
-    elif read -r response 2>/dev/null; then
-        : # Successfully read from stdin
+    elif [[ -t 0 ]] && read -r response 2>/dev/null; then
+        : # Successfully read from stdin (only if stdin is a terminal)
     else
-        response="$default"  # All reads failed, use default
+        response="$default"  # All reads failed or non-interactive, use default
     fi
 
     if [[ -z "$response" ]]; then
@@ -453,14 +453,14 @@ prompt_choice() {
     echo -ne "  ${YELLOW}?${NC} Enter choice [1-${#options[@]}]: "
 
     # Try to read from /dev/tty (works even when stdin is piped)
-    # Fall back to stdin, then default (1) if all reads fail
+    # Fall back to stdin (only if terminal), then default (1) if all reads fail
     local choice=""
     if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
         : # Successfully read from /dev/tty
-    elif read -r choice 2>/dev/null; then
-        : # Successfully read from stdin
+    elif [[ -t 0 ]] && read -r choice 2>/dev/null; then
+        : # Successfully read from stdin (only if stdin is a terminal)
     else
-        choice="1"  # All reads failed, use first option
+        choice="1"  # All reads failed or non-interactive, use first option
     fi
 
     echo "${choice:-1}"
@@ -1418,8 +1418,10 @@ install_config() {
                 local repo_url=""
                 if [[ -r /dev/tty ]] && read -r repo_url </dev/tty 2>/dev/null; then
                     : # Read from /dev/tty
-                elif ! read -r repo_url 2>/dev/null; then
-                    repo_url=""  # Read failed, empty URL
+                elif [[ -t 0 ]] && read -r repo_url 2>/dev/null; then
+                    : # Read from stdin (only if stdin is a terminal)
+                else
+                    repo_url=""  # All reads failed or non-interactive, empty URL
                 fi
                 if [[ -n "$repo_url" ]]; then
                     if $DRY_RUN; then
@@ -1659,8 +1661,10 @@ install_optional_tools() {
         echo -n "  Choose [1-4] (default: 1): "
         if [[ -r /dev/tty ]] && read -r choice </dev/tty 2>/dev/null; then
             : # Read from /dev/tty
-        elif ! read -r choice 2>/dev/null; then
-            choice="1"  # Read failed, use default
+        elif [[ -t 0 ]] && read -r choice 2>/dev/null; then
+            : # Read from stdin (only if stdin is a terminal)
+        else
+            choice="1"  # All reads failed or non-interactive, use default
         fi
         choice="${choice:-1}"
 
