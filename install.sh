@@ -749,9 +749,23 @@ install_special_tool() {
                 "tar"
             ;;
         SCRIPT:yazi)
+            # Install unzip if needed (required for yazi)
             if ! has_cmd unzip; then
-                print_warning "yazi requires unzip (not installed)"
-                return 1
+                print_dim "Installing unzip (required for yazi)..."
+                local pm
+                pm=$(detect_package_manager)
+                case "$pm" in
+                    apt)    maybe_sudo apt-get install -qq -y unzip >/dev/null 2>&1 ;;
+                    dnf)    maybe_sudo dnf install -y -q unzip >/dev/null 2>&1 ;;
+                    pacman) maybe_sudo pacman -S --noconfirm -q unzip >/dev/null 2>&1 ;;
+                    apk)    maybe_sudo apk add -q unzip >/dev/null 2>&1 ;;
+                    zypper) maybe_sudo zypper install -y -q unzip >/dev/null 2>&1 ;;
+                    brew)   brew install unzip >/dev/null 2>&1 ;;
+                esac
+                if ! has_cmd unzip; then
+                    print_warning "Could not install unzip - skipping yazi"
+                    return 1
+                fi
             fi
             print_info "Installing yazi..."
             install_github_binary "yazi" \
