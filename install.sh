@@ -1623,6 +1623,8 @@ install_optional_tools() {
 
     echo ""
     echo "  Missing tools:"
+    echo ""
+    # Print with columnar alignment: tool name, description, category
     for entry in "${missing[@]}"; do
         local tool="${entry%%:*}"
         local rest="${entry#*:}"
@@ -1631,11 +1633,12 @@ install_optional_tools() {
         local category="${rest#*:}"
         local marker=""
         case "$category" in
-            core) marker="[core]" ;;
-            enhanced) marker="[enhanced]" ;;
-            extra) marker="[extra]" ;;
+            core)     marker="${GREEN}core${NC}    " ;;
+            enhanced) marker="${CYAN}enhanced${NC}" ;;
+            extra)    marker="${YELLOW}extra${NC}   " ;;
         esac
-        print_warning "$tool - $desc $marker"
+        # Columnar format: [marker]  tool  description
+        printf "    ${DIM}[${NC}%s${DIM}]${NC}  ${YELLOW}%-10s${NC} %s\n" "$marker" "$tool" "$desc"
     done
 
     # Determine which tools to install
