@@ -1724,8 +1724,10 @@ install_optional_tools() {
         return 0
     fi
 
+    local total_count=${#to_install[@]}
+    local current=0
     echo ""
-    print_info "Installing ${#to_install[@]} tools..."
+    print_info "Installing $total_count tools..."
 
     # Separate tools by install method
     local -a pm_install=()
@@ -1744,16 +1746,13 @@ install_optional_tools() {
     done
 
     # Install via package manager
+    local apt_updated=false
     if [[ ${#pm_install[@]} -gt 0 ]]; then
-        local pkg_count=${#pm_install[@]}
-        local pkg_current=0
-        local apt_updated=false
-
         for entry in "${pm_install[@]}"; do
             local pkg="${entry%%:*}"
             local tool="${entry#*:}"
-            ((pkg_current++)) || true
-            status "[$pkg_current/$pkg_count] Installing $tool..."
+            ((current++)) || true
+            status "[$current/$total_count] Installing $tool..."
 
             case "$pm" in
                 brew)   brew install "$pkg" >/dev/null 2>&1 || print_warning "Failed to install $tool" ;;
@@ -1767,21 +1766,17 @@ install_optional_tools() {
             esac
         done
         status_clear
-        print_success "Package manager tools installed ($pkg_count packages)"
     fi
 
     # Install via special methods (cargo, scripts)
     if [[ ${#special_install[@]} -gt 0 ]]; then
-        local special_count=${#special_install[@]}
-        local special_current=0
-
         for entry in "${special_install[@]}"; do
-            ((special_current++)) || true
+            ((current++)) || true
             # Entry format: "SCRIPT:toolname:toolname" or "CARGO:toolname:toolname"
             # We need to extract "SCRIPT:toolname" for install_special_tool
             local tool="${entry##*:}"  # Get last segment (tool name)
             local method_pkg="${entry%:*}"  # Remove last segment (get METHOD:pkg)
-            status "[$special_current/$special_count] Installing $tool..."
+            status "[$current/$total_count] Installing $tool..."
             install_special_tool "$method_pkg" || print_warning "Failed to install $tool"
         done
         status_clear
@@ -2137,7 +2132,12 @@ print_summary() {
     echo -e "    Documentation: ${DIM}https://github.com/chiptoma/dotfiles-zsh${NC}"
     echo ""
 
-    if confirm "Start a new ZSH shell now?" "y"; then
+    # In curl-pipe mode, exec doesn't work (replaces subshell, not user's shell)
+    # Just tell them to run it themselves
+    if $CURL_PIPE_MODE; then
+        echo -e "  ${YELLOW}→${NC} Run ${WHITE}exec zsh${NC} to start using your new shell"
+        echo ""
+    elif confirm "Start a new ZSH shell now?" "y"; then
         exec zsh
     fi
 }
