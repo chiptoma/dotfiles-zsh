@@ -1,46 +1,46 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH LAZY LOADING MODULE
-# ? Defers expensive tool initialization until first use.
-# ? Lazy loads: zoxide, nvm, pyenv, rbenv (command-based tools).
+# ZSH LAZY LOADING MODULE
+# Defers expensive tool initialization until first use.
+# Lazy loads: zoxide, nvm, pyenv, rbenv (command-based tools).
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_LAZY_LOADED} )) && return 0
-typeset -g _ZSH_LAZY_LOADED=1
+(( ${+_Z_LAZY_LOADED} )) && return 0
+typeset -g _Z_LAZY_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_LAZY_ENABLED:=true}           # Enable/disable lazy loading (default: true)
-: ${ZSH_LAZY_ZOXIDE:=true}            # Lazy load zoxide (default: true)
-: ${ZSH_LAZY_NVM:=true}               # Lazy load nvm (default: true)
-: ${ZSH_LAZY_PYENV:=true}             # Lazy load pyenv (default: true)
-: ${ZSH_LAZY_RBENV:=true}             # Lazy load rbenv (default: true)
+: ${Z_LAZY_ENABLED:=true}           # Enable/disable lazy loading (default: true)
+: ${Z_LAZY_ZOXIDE:=true}            # Lazy load zoxide (default: true)
+: ${Z_LAZY_NVM:=true}               # Lazy load nvm (default: true)
+: ${Z_LAZY_PYENV:=true}             # Lazy load pyenv (default: true)
+: ${Z_LAZY_RBENV:=true}             # Lazy load rbenv (default: true)
 
 _log DEBUG "ZSH Lazy Loading Module loading"
 
 # Exit early if module is disabled
-if [[ "$ZSH_LAZY_ENABLED" != "true" ]]; then
+if [[ "$Z_LAZY_ENABLED" != "true" ]]; then
     _log INFO "ZSH Lazy Loading Module disabled, skipping"
     return 0
 fi
 
 # ----------------------------------------------------------
-# * LAZY LOAD REGISTRY
-# ? Tracks which tools have been lazily loaded
+# LAZY LOAD REGISTRY
+# Tracks which tools have been lazily loaded
 # ----------------------------------------------------------
 
 typeset -gA _LAZY_LOADED_TOOLS
 
 # ----------------------------------------------------------
-# * SECURITY VALIDATION
-# ? Validates command names before use in eval to prevent injection.
-# ! WARNING: All inputs to eval MUST pass through this validation.
+# SECURITY VALIDATION
+# Validates command names before use in eval to prevent injection.
+# WARNING: All inputs to eval MUST pass through this validation.
 # ----------------------------------------------------------
 
 # Validate command name for safe use in eval
 # Usage: _lazy_validate_cmd <cmd_name>
 # Returns: 0 if safe, 1 if contains unsafe characters
-# ? Only allows alphanumeric, underscore, and hyphen
+# Only allows alphanumeric, underscore, and hyphen
 _lazy_validate_cmd() {
     local cmd="$1"
     # Allow only safe characters: a-z, A-Z, 0-9, underscore, hyphen
@@ -52,8 +52,8 @@ _lazy_validate_cmd() {
 }
 
 # ----------------------------------------------------------
-# * CORE LAZY LOADING FUNCTION
-# ? Creates a wrapper function that initializes on first call
+# CORE LAZY LOADING FUNCTION
+# Creates a wrapper function that initializes on first call
 # ----------------------------------------------------------
 
 # Register a command for lazy loading
@@ -71,7 +71,7 @@ lazy_load() {
     shift 2
     local -a aliases=("$@")
 
-    # ! SECURITY: Validate command name before use in eval
+    # SECURITY: Validate command name before use in eval
     if ! _lazy_validate_cmd "$cmd"; then
         _log ERROR "lazy_load: Rejecting unsafe command name: $cmd"
         return 1
@@ -89,7 +89,7 @@ lazy_load() {
     # Create wrappers for aliases too
     local alias_cmd
     for alias_cmd in "${aliases[@]}"; do
-        # ! SECURITY: Validate each alias
+        # SECURITY: Validate each alias
         if ! _lazy_validate_cmd "$alias_cmd"; then
             _log WARN "lazy_load: Skipping unsafe alias: $alias_cmd"
             continue
@@ -101,12 +101,12 @@ lazy_load() {
 }
 
 # Internal: Create a wrapper function
-# ! SECURITY: cmd must be validated before calling this function
+# SECURITY: cmd must be validated before calling this function
 _lazy_create_wrapper() {
     local cmd="$1"
     local init_cmd="$2"
 
-    # ! Defense-in-depth: Re-validate even though caller should validate
+    # Defense-in-depth: Re-validate even though caller should validate
     if ! _lazy_validate_cmd "$cmd"; then
         _log ERROR "_lazy_create_wrapper: Unsafe command rejected: $cmd"
         return 1
@@ -148,8 +148,8 @@ _lazy_create_wrapper() {
 }
 
 # ----------------------------------------------------------
-# * LAZY LOAD PRECMD HOOK
-# ? Alternative: Initialize tools after first prompt
+# LAZY LOAD PRECMD HOOK
+# Alternative: Initialize tools after first prompt
 # ----------------------------------------------------------
 
 # Initialize tools via precmd hook (runs once after first prompt)
@@ -163,6 +163,11 @@ lazy_load_precmd() {
 }
 
 # Precmd hook that runs deferred initializations
+# SECURITY MODEL:
+# - _LAZY_PRECMD_INITS is populated ONLY at module load time by internal callers
+# - The array is marked readonly after initialization completes (see end of module)
+# - This prevents external code from injecting malicious commands via the array
+# - init_cmd values come from hardcoded strings in this module, not user input
 _lazy_precmd_hook() {
     # Only run once
     [[ -n "${_LAZY_PRECMD_DONE:-}" ]] && return 0
@@ -185,15 +190,15 @@ _lazy_precmd_hook() {
 typeset -ga _LAZY_PRECMD_INITS
 
 # ----------------------------------------------------------
-# * ZOXIDE LAZY LOADING
-# ? Wraps z/zi commands to defer initialization
+# ZOXIDE LAZY LOADING
+# Wraps z/zi commands to defer initialization
 # ----------------------------------------------------------
 
 _lazy_init_zoxide() {
-    if [[ "$ZSH_LAZY_ZOXIDE" != "true" ]]; then
-        # Immediate init
+    if [[ "$Z_LAZY_ZOXIDE" != "true" ]]; then
+        # Immediate init with caching
         if _has_cmd zoxide; then
-            eval "$(zoxide init zsh)"
+            _cache_eval "zoxide" "zoxide init zsh" "zoxide"
         fi
         return 0
     fi
@@ -211,17 +216,17 @@ _lazy_init_zoxide() {
         eval '
         function z {
             unfunction z zi 2>/dev/null
-            eval "$(zoxide init zsh)"
+            _cache_eval "zoxide" "zoxide init zsh" "zoxide"
             _LAZY_LOADED_TOOLS[zoxide]=1
-            _log DEBUG "Zoxide initialized (lazy)"
+            _log DEBUG "Zoxide initialized (lazy, cached)"
             z "$@"
         }
 
         function zi {
             unfunction z zi 2>/dev/null
-            eval "$(zoxide init zsh)"
+            _cache_eval "zoxide" "zoxide init zsh" "zoxide"
             _LAZY_LOADED_TOOLS[zoxide]=1
-            _log DEBUG "Zoxide initialized (lazy)"
+            _log DEBUG "Zoxide initialized (lazy, cached)"
             zi "$@"
         }
         '
@@ -231,12 +236,12 @@ _lazy_init_zoxide() {
 }
 
 # ----------------------------------------------------------
-# * NVM LAZY LOADING
-# ? Defers NVM until node/npm/nvm is first called
+# NVM LAZY LOADING
+# Defers NVM until node/npm/nvm is first called
 # ----------------------------------------------------------
 
 _lazy_init_nvm() {
-    if [[ "$ZSH_LAZY_NVM" != "true" ]]; then
+    if [[ "$Z_LAZY_NVM" != "true" ]]; then
         return 0
     fi
 
@@ -267,12 +272,12 @@ _lazy_init_nvm() {
 }
 
 # ----------------------------------------------------------
-# * PYENV LAZY LOADING
-# ? Defers pyenv until python/pyenv is first called
+# PYENV LAZY LOADING
+# Defers pyenv until python/pyenv is first called
 # ----------------------------------------------------------
 
 _lazy_init_pyenv() {
-    if [[ "$ZSH_LAZY_PYENV" != "true" ]]; then
+    if [[ "$Z_LAZY_PYENV" != "true" ]]; then
         return 0
     fi
 
@@ -284,9 +289,9 @@ _lazy_init_pyenv() {
         unfunction pyenv python python3 pip pip3 2>/dev/null
         export PYENV_ROOT="$pyenv_root"
         [[ -d "$PYENV_ROOT/bin" ]] && path=("$PYENV_ROOT/bin" $path)
-        eval "$(pyenv init -)"
+        _cache_eval "pyenv" "pyenv init -" "pyenv"
         _LAZY_LOADED_TOOLS[pyenv]=1
-        _log DEBUG "Pyenv initialized (lazy)"
+        _log DEBUG "Pyenv initialized (lazy, cached)"
     }
 
     # Create wrappers
@@ -304,12 +309,12 @@ _lazy_init_pyenv() {
 }
 
 # ----------------------------------------------------------
-# * RBENV LAZY LOADING
-# ? Defers rbenv until ruby/rbenv is first called
+# RBENV LAZY LOADING
+# Defers rbenv until ruby/rbenv is first called
 # ----------------------------------------------------------
 
 _lazy_init_rbenv() {
-    if [[ "$ZSH_LAZY_RBENV" != "true" ]]; then
+    if [[ "$Z_LAZY_RBENV" != "true" ]]; then
         return 0
     fi
 
@@ -319,9 +324,9 @@ _lazy_init_rbenv() {
 
     _rbenv_lazy_load() {
         unfunction rbenv ruby gem bundle 2>/dev/null
-        eval "$(rbenv init -)"
+        _cache_eval "rbenv" "rbenv init -" "rbenv"
         _LAZY_LOADED_TOOLS[rbenv]=1
-        _log DEBUG "Rbenv initialized (lazy)"
+        _log DEBUG "Rbenv initialized (lazy, cached)"
     }
 
     # Create wrappers
@@ -339,21 +344,21 @@ _lazy_init_rbenv() {
 }
 
 # ----------------------------------------------------------
-# * INTROSPECTION
-# ? Show lazy loading status
+# INTROSPECTION
+# Show lazy loading status
 # ----------------------------------------------------------
 
 # Show which tools have been lazily loaded
-zsh_lazy_status() {
+z_lazy_status() {
     echo "Lazy Loading Status:"
     echo "===================="
     echo ""
     echo "Configuration:"
-    echo "  ZSH_LAZY_ENABLED:   $ZSH_LAZY_ENABLED"
-    echo "  ZSH_LAZY_ZOXIDE:    $ZSH_LAZY_ZOXIDE"
-    echo "  ZSH_LAZY_NVM:       $ZSH_LAZY_NVM"
-    echo "  ZSH_LAZY_PYENV:     $ZSH_LAZY_PYENV"
-    echo "  ZSH_LAZY_RBENV:     $ZSH_LAZY_RBENV"
+    echo "  Z_LAZY_ENABLED:   $Z_LAZY_ENABLED"
+    echo "  Z_LAZY_ZOXIDE:    $Z_LAZY_ZOXIDE"
+    echo "  Z_LAZY_NVM:       $Z_LAZY_NVM"
+    echo "  Z_LAZY_PYENV:     $Z_LAZY_PYENV"
+    echo "  Z_LAZY_RBENV:     $Z_LAZY_RBENV"
     echo ""
     echo "Lazy Loaded Tools:"
     if [[ ${#_LAZY_LOADED_TOOLS[@]} -eq 0 ]]; then
@@ -367,8 +372,8 @@ zsh_lazy_status() {
 }
 
 # ----------------------------------------------------------
-# * AUTO-INITIALIZATION
-# ? Register lazy loaders for command-based tools.
+# AUTO-INITIALIZATION
+# Register lazy loaders for command-based tools.
 # ----------------------------------------------------------
 
 _lazy_init_zoxide
@@ -377,4 +382,9 @@ _lazy_init_pyenv
 _lazy_init_rbenv
 
 # ----------------------------------------------------------
+# SECURITY: Lock precmd init array after registration phase
+# This prevents external code from injecting commands via the array
+# ----------------------------------------------------------
+typeset -gr _LAZY_PRECMD_INITS
+
 _log DEBUG "ZSH Lazy Loading Module loaded successfully"

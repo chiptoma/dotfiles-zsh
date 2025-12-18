@@ -1,42 +1,42 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH ENVIRONMENT MODULE
-# ? Comprehensive environment variable management with XDG support.
-# ? Handles XDG base directories, tool-specific paths, and editor configuration.
+# ZSH ENVIRONMENT MODULE
+# Comprehensive environment variable management with XDG support.
+# Handles XDG base directories, tool-specific paths, and editor configuration.
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * MODULE CONFIGURATION
+# MODULE CONFIGURATION
 # ----------------------------------------------------------
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_ENVIRONMENT_LOADED} )) && return 0
-typeset -g _ZSH_ENVIRONMENT_LOADED=1
+(( ${+_Z_ENVIRONMENT_LOADED} )) && return 0
+typeset -g _Z_ENVIRONMENT_LOADED=1
 
 _log DEBUG "ZSH Environment Module loading"
 
 # Module hooks
-typeset -ga ZSH_PRE_ENV_INIT_HOOKS=()
-typeset -ga ZSH_POST_ENV_INIT_HOOKS=()
+typeset -ga Z_PRE_ENV_INIT_HOOKS=()
+typeset -ga Z_POST_ENV_INIT_HOOKS=()
 
 # Configuration variables with defaults
 # These can be overridden by exporting them in .zshenv before sourcing this module
-: ${ZSH_ENVIRONMENT_ENABLED:=true}      # Enable/disable environment system (default: true)
-: ${ZSH_ENVIRONMENT_XDG_STRICT:=true}   # Enforce XDG directories for all tools (default: true)
-: ${ZSH_ENVIRONMENT_SSH_MINIMAL:=true}  # Use minimal environment in SSH sessions (default: true)
-: ${ZSH_ENVIRONMENT_SSH_AGENT:=true}    # Auto-detect SSH agent socket (default: true)
-: ${ZSH_LOCALE_OVERRIDE:=""}            # Override system locale (default: empty = use system)
+: ${Z_ENVIRONMENT_ENABLED:=true}      # Enable/disable environment system (default: true)
+: ${Z_ENVIRONMENT_XDG_STRICT:=true}   # Enforce XDG directories for all tools (default: true)
+: ${Z_ENVIRONMENT_SSH_MINIMAL:=true}  # Use minimal environment in SSH sessions (default: true)
+: ${Z_ENVIRONMENT_SSH_AGENT:=true}    # Auto-detect SSH agent socket (default: true)
+: ${Z_LOCALE_OVERRIDE:=""}               # Override system locale (default: empty = use system)
 
 # Editor preferences - can be overridden in .zshenv
-: ${ZSH_GUI_EDITORS_ORDER:="surf cursor code"}
-: ${ZSH_TERMINAL_EDITORS_ORDER:="nvim vim vi"}
+: ${Z_GUI_EDITORS_ORDER:="surf cursor code"}
+: ${Z_TERMINAL_EDITORS_ORDER:="nvim vim vi"}
 
 # Exit early if module is disabled
-[[ "$ZSH_ENVIRONMENT_ENABLED" != "true" ]] && return 0
+[[ "$Z_ENVIRONMENT_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * DATA-DRIVEN ENVIRONMENT CONFIGURATION
-# ? Declarative definitions using format: 'VAR' 'value|command'
+# DATA-DRIVEN ENVIRONMENT CONFIGURATION
+# Declarative definitions using format: 'VAR' 'value|command'
 # ----------------------------------------------------------
 
 # Global associative arrays for environment definitions
@@ -106,7 +106,7 @@ ZSH_ENV_XDG_BASE=(
 )
 
 # Core Environment Variables - Always set
-# ? Use single quotes to defer $(tty) expansion until _env_setup_core() runs
+# Use single quotes to defer $(tty) expansion until _env_setup_core() runs
 ZSH_ENV_CORE=(
     'GPG_TTY'       '$(tty)'
 )
@@ -292,10 +292,10 @@ ZSH_ENV_TOOLS_GENERAL=(
     'TMUX_TMPDIR'         '$XDG_RUNTIME_DIR/tmux|tmux'
     'SCREENRC'            '$XDG_CONFIG_HOME/screen/screenrc|screen'
     'PARALLEL_HOME'       '$XDG_CONFIG_HOME/parallel|parallel'
-    # ? Config files that must exist are handled separately in _env_setup_tools()
-    # ? RIPGREP_CONFIG_PATH, BAT_CONFIG_PATH, WGETRC, INPUTRC
-    # ? FZF_DEFAULT_OPTS_FILE causes errors if file doesn't exist
-    # ? Better to set FZF_DEFAULT_OPTS directly in shell config
+    # Config files that must exist are handled separately in _env_setup_tools()
+    # RIPGREP_CONFIG_PATH, BAT_CONFIG_PATH, WGETRC, INPUTRC
+    # FZF_DEFAULT_OPTS_FILE causes errors if file doesn't exist
+    # Better to set FZF_DEFAULT_OPTS directly in shell config
 )
 
 # Terminal configuration (non-SSH only)
@@ -314,8 +314,8 @@ ZSH_ENV_TERMINAL=(
 )
 
 # ----------------------------------------------------------
-# * HELPER FUNCTIONS
-# ? Internal utilities for environment configuration.
+# HELPER FUNCTIONS
+# Internal utilities for environment configuration.
 # ----------------------------------------------------------
 
 # Find first available editor from list
@@ -354,8 +354,8 @@ _env_has_gui() {
               -n "$__CFBundleIdentifier" ]]; then
             return 0
         fi
-        # ? If we're on macOS and not in SSH, assume GUI is available
-        # ? (removed pgrep WindowServer fallback - spawns slow subprocess)
+        # If we're on macOS and not in SSH, assume GUI is available
+        # (removed pgrep WindowServer fallback - spawns slow subprocess)
         return 0
     fi
 
@@ -371,8 +371,8 @@ _env_has_gui() {
 _env_configure_editors() {
     _log "DEBUG" "Configuring editor environment..."
     local editor_cmd sudo_editor_cmd
-    local gui_editor=$(_env_find_first_available_editor "$ZSH_GUI_EDITORS_ORDER")
-    local term_editor=$(_env_find_first_available_editor "$ZSH_TERMINAL_EDITORS_ORDER")
+    local gui_editor=$(_env_find_first_available_editor "$Z_GUI_EDITORS_ORDER")
+    local term_editor=$(_env_find_first_available_editor "$Z_TERMINAL_EDITORS_ORDER")
 
     # Determine primary editor based on environment
     if _env_has_gui && [[ -n "$gui_editor" ]]; then
@@ -462,15 +462,15 @@ _env_setup_core() {
     _log "DEBUG" "Setting up core environment variables..."
 
     # Handle locale override (only if explicitly set)
-    if [[ -n "$ZSH_LOCALE_OVERRIDE" ]]; then
-        export LANG="$ZSH_LOCALE_OVERRIDE"
-        export LC_ALL="$ZSH_LOCALE_OVERRIDE"
-        _log "DEBUG" "Locale override: $ZSH_LOCALE_OVERRIDE"
+    if [[ -n "$Z_LOCALE_OVERRIDE" ]]; then
+        export LANG="$Z_LOCALE_OVERRIDE"
+        export LC_ALL="$Z_LOCALE_OVERRIDE"
+        _log "DEBUG" "Locale override: $Z_LOCALE_OVERRIDE"
     fi
 
     local var value expanded_value
     for var value in ${(kv)ZSH_ENV_CORE}; do
-        # ? Expand command substitution at runtime (e.g., $(tty))
+        # Expand command substitution at runtime (e.g., $(tty))
         expanded_value="${(e)value}"
         export "$var"="$expanded_value"
         _log "DEBUG" "$var=$expanded_value"
@@ -482,7 +482,7 @@ _env_setup_core() {
 _env_setup_tools() {
     _log "DEBUG" "Setting up tool-specific environment variables..."
 
-    if [[ "$ZSH_ENVIRONMENT_XDG_STRICT" != "true" ]]; then
+    if [[ "$Z_ENVIRONMENT_XDG_STRICT" != "true" ]]; then
         _log "INFO" "XDG strict mode disabled, skipping tool environment setup"
         return 0
     fi
@@ -492,8 +492,8 @@ _env_setup_tools() {
     local value command expanded_value
 
     # Process each tool category
-    # ? Format: 'VAR_NAME' 'value|command' where | separates value from command
-    # ? Using | instead of : allows values to contain colons (e.g., PATH-style vars)
+    # Format: 'VAR_NAME' 'value|command' where | separates value from command
+    # Using | instead of : allows values to contain colons (e.g., PATH-style vars)
     for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
         for var value_and_command in ${(kvP)category}; do
             value="${value_and_command%%|*}"
@@ -506,9 +506,9 @@ _env_setup_tools() {
             fi
 
             # Expand the value string using ZSH parameter expansion
-            # ? Safer than eval but still expands $(...) command substitution
-            # ! SECURITY: Values MUST come from hardcoded arrays, NEVER user input
-            # ! If value contains $(cmd), that command WILL execute
+            # Safer than eval but still expands $(...) command substitution
+            # SECURITY: Values MUST come from hardcoded arrays, NEVER user input
+            # If value contains $(cmd), that command WILL execute
             expanded_value="${(e)value}"
 
             export "$var"="$expanded_value"
@@ -517,12 +517,12 @@ _env_setup_tools() {
     done
 
     # Special handling for HISTFILE - only set for bash
-    if [[ -n "$BASH_VERSION" ]] && [[ "$ZSH_ENVIRONMENT_XDG_STRICT" == "true" ]]; then
+    if [[ -n "$BASH_VERSION" ]] && [[ "$Z_ENVIRONMENT_XDG_STRICT" == "true" ]]; then
         export HISTFILE="$XDG_STATE_HOME/bash/history"
     fi
 
-    # ! Special handling for MAVEN_OPTS - append XDG settings, don't replace
-    # ? User may have existing JVM options (heap size, GC settings, etc.)
+    # Special handling for MAVEN_OPTS - append XDG settings, don't replace
+    # User may have existing JVM options (heap size, GC settings, etc.)
     if (( $+commands[mvn] )); then
         local maven_xdg="-Dmaven.repo.local=$XDG_DATA_HOME/m2/repository"
         if [[ -n "$MAVEN_OPTS" ]]; then
@@ -565,7 +565,7 @@ _env_setup_tools() {
 # Setup terminal configuration
 _env_setup_terminal() {
     _log "DEBUG" "Setting up terminal environment..."
-    if _is_ssh_session && [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]]; then
+    if _is_ssh_session && [[ "$Z_ENVIRONMENT_SSH_MINIMAL" == "true" ]]; then
         _log "INFO" "Minimal SSH session, skipping terminal environment setup"
         return 0
     fi
@@ -594,14 +594,14 @@ _env_setup_terminal() {
 }
 
 # ----------------------------------------------------------
-# * MAIN INITIALIZATION
-# ? Entry point that orchestrates all environment setup.
+# MAIN INITIALIZATION
+# Entry point that orchestrates all environment setup.
 # ----------------------------------------------------------
 
 _environment_init() {
     # Execute pre-init hooks
     local hook
-    for hook in ${ZSH_PRE_ENV_INIT_HOOKS[@]}; do
+    for hook in ${Z_PRE_ENV_INIT_HOOKS[@]}; do
         if (( $+functions[$hook] )); then
             _log "DEBUG" "Running pre-init hook: $hook"
             $hook
@@ -611,11 +611,11 @@ _environment_init() {
     _log "INFO" "Initializing ZSH Environment Module..."
 
     # Detect SSH session
-    if [[ "$ZSH_ENVIRONMENT_SSH_MINIMAL" == "true" ]] && _is_ssh_session; then
-        ZSH_ENVIRONMENT_IS_SSH=true
+    if [[ "$Z_ENVIRONMENT_SSH_MINIMAL" == "true" ]] && _is_ssh_session; then
+        Z_ENVIRONMENT_IS_SSH=true
         _log "INFO" "SSH session detected, using minimal environment"
     else
-        ZSH_ENVIRONMENT_IS_SSH=false
+        Z_ENVIRONMENT_IS_SSH=false
     fi
 
     # Setup XDG base directories
@@ -628,22 +628,22 @@ _environment_init() {
     _env_setup_tools
 
     # Setup terminal configuration (non-SSH only)
-    if [[ "$ZSH_ENVIRONMENT_IS_SSH" != "true" ]]; then
+    if [[ "$Z_ENVIRONMENT_IS_SSH" != "true" ]]; then
         _env_setup_terminal
     fi
 
     # ----------------------------------------------------------
-    # * SSH AGENT DETECTION
-    # ? Auto-detect SSH agent socket from 1Password, GPG, GNOME Keyring, etc.
-    # ? Set ZSH_ENVIRONMENT_SSH_AGENT=false to disable and manage manually.
+    # SSH AGENT DETECTION
+    # Auto-detect SSH agent socket from 1Password, GPG, GNOME Keyring, etc.
+    # Set Z_ENVIRONMENT_SSH_AGENT=false to disable and manage manually.
     # ----------------------------------------------------------
 
-    if [[ "$ZSH_ENVIRONMENT_SSH_AGENT" == "true" ]]; then
-        if typeset -f zsh_detect_ssh_agent >/dev/null 2>&1; then
-            zsh_detect_ssh_agent
+    if [[ "$Z_ENVIRONMENT_SSH_AGENT" == "true" ]]; then
+        if typeset -f z_detect_ssh_agent >/dev/null 2>&1; then
+            z_detect_ssh_agent
             _log "DEBUG" "SSH agent detection completed"
         else
-            _log "DEBUG" "zsh_detect_ssh_agent not available, skipping"
+            _log "DEBUG" "z_detect_ssh_agent not available, skipping"
         fi
     fi
 
@@ -653,7 +653,7 @@ _environment_init() {
     _log "INFO" "ZSH Environment Module initialized successfully"
 
     # Execute post-init hooks
-    for hook in ${ZSH_POST_ENV_INIT_HOOKS[@]}; do
+    for hook in ${Z_POST_ENV_INIT_HOOKS[@]}; do
         if (( $+functions[$hook] )); then
             _log "DEBUG" "Running post-init hook: $hook"
             $hook
@@ -662,8 +662,8 @@ _environment_init() {
 }
 
 # ----------------------------------------------------------
-# * PUBLIC FUNCTIONS
-# ? User-facing commands for environment management.
+# PUBLIC FUNCTIONS
+# User-facing commands for environment management.
 # ----------------------------------------------------------
 
 # Show all managed environment variables
@@ -870,9 +870,9 @@ env_reload() {
 }
 
 # ----------------------------------------------------------
-# * SHELL TOOL INITIALIZATION
-# ? Tools that hook into the shell (direnv, atuin).
-# ? Keybindings are handled by keybindings.zsh module.
+# SHELL TOOL INITIALIZATION
+# Tools that hook into the shell (direnv, atuin).
+# Keybindings are handled by keybindings.zsh module.
 # ----------------------------------------------------------
 
 # direnv - Environment switcher (init directly, no PROMPT involvement)
@@ -888,24 +888,25 @@ if _has_cmd atuin; then
 fi
 
 # ----------------------------------------------------------
-# * STARSHIP PROMPT (DEFERRED)
-# ? Must run in .zshrc AFTER /etc/zshrc which overwrites PROMPT.
-# ? Registered as POST_INTERACTIVE hook, executed by .zshrc.
+# STARSHIP PROMPT (DEFERRED)
+# Must run in .zshrc AFTER /etc/zshrc which overwrites PROMPT.
+# Registered as POST_INTERACTIVE hook, executed by .zshrc.
 # ----------------------------------------------------------
 
 _env_init_starship() {
     if _has_cmd starship; then
-        export STARSHIP_CONFIG="${ZSH_CONFIG_HOME}/starship.toml"
+        # Starship config at ~/.config/starship.toml (standard location)
+        # Copied from tools/starship.toml during installation
         _cache_eval "starship-init" "starship init zsh" "starship"
         _log "DEBUG" "starship prompt initialized"
     fi
 }
 
 # Register starship for deferred execution (after /etc/zshrc)
-ZSH_POST_INTERACTIVE_HOOKS+=('_env_init_starship')
+Z_POST_INTERACTIVE_HOOKS+=('_env_init_starship')
 
 # ----------------------------------------------------------
-# * ALIASES
+# ALIASES
 # ----------------------------------------------------------
 
 alias envshow="env_show"
@@ -913,7 +914,7 @@ alias envstatus="env_status"
 alias envreload="env_reload"
 
 # ----------------------------------------------------------
-# * MODULE INITIALIZATION
+# MODULE INITIALIZATION
 # ----------------------------------------------------------
 
 _environment_init

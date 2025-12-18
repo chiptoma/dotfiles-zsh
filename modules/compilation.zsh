@@ -1,46 +1,46 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH COMPILATION MODULE
-# ? Automatically compiles ZSH scripts to bytecode (.zwc) for faster loading.
-# ? Supports incremental compilation, directory archives, and stale file cleanup.
+# ZSH COMPILATION MODULE
+# Automatically compiles ZSH scripts to bytecode (.zwc) for faster loading.
+# Supports incremental compilation, directory archives, and stale file cleanup.
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * MODULE CONFIGURATION
+# MODULE CONFIGURATION
 # ----------------------------------------------------------
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_COMPILATION_LOADED} )) && return 0
-typeset -g _ZSH_COMPILATION_LOADED=1
+(( ${+_Z_COMPILATION_LOADED} )) && return 0
+typeset -g _Z_COMPILATION_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_COMPILATION_ENABLED:=true}            # Enable/disable compilation (default: true)
-: ${ZSH_COMPILATION_CLEANUP_ON_START:=true}   # Run stale cleanup on shell start (default: true)
+: ${Z_COMPILATION_ENABLED:=true}           # Enable/disable compilation (default: true)
+: ${Z_COMPILATION_CLEANUP_ON_START:=true}   # Run stale cleanup on shell start (default: true)
 
 _log DEBUG "ZSH Compilation Module loading"
 
 # Exit early if module is disabled
-if [[ "$ZSH_COMPILATION_ENABLED" != "true" ]]; then
+if [[ "$Z_COMPILATION_ENABLED" != "true" ]]; then
     _log INFO "ZSH Compilation Module disabled, skipping..."
     return 0
 fi
 
 # ----------------------------------------------------------
-# * HELPER FUNCTIONS
-# ? Core compilation and cleanup utilities
+# HELPER FUNCTIONS
+# Core compilation and cleanup utilities
 # ----------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# * _zcompile_if_needed
-# ? Compiles a single ZSH file if source is newer than its .zwc bytecode.
+# _zcompile_if_needed
+# Compiles a single ZSH file if source is newer than its .zwc bytecode.
 #
 # @param  $1  (string)  : Path to the source file to compile.
 # @return     (int)     : 0 on success or skip, 1 on failure.
 #
-# ? Notes:
-# ? - Skips if source doesn't exist.
-# ? - Skips if .zwc exists and is newer than source.
-# ? - Creates .zwc in same directory as source (ZSH requirement).
+# Notes:
+# - Skips if source doesn't exist.
+# - Skips if .zwc exists and is newer than source.
+# - Creates .zwc in same directory as source (ZSH requirement).
 # ------------------------------------------------------------------------------
 _zcompile_if_needed() {
     local src="$1"
@@ -63,18 +63,18 @@ _zcompile_if_needed() {
 }
 
 # ------------------------------------------------------------------------------
-# * _compile_function_dir
-# ? Compiles all functions in a directory into a single .zwc archive.
+# _compile_function_dir
+# Compiles all functions in a directory into a single .zwc archive.
 #
 # @param  $1  (string)  : Path to the function directory.
 # @return     (int)     : 0 on success or skip, 1 on failure.
 #
-# ? Notes:
-# ? - Creates one .zwc file for the entire directory (more efficient).
-# ? - Only recompiles if any function is newer than the archive.
-# ? - Skips empty or non-writable directories.
+# Notes:
+# - Creates one .zwc file for the entire directory (more efficient).
+# - Only recompiles if any function is newer than the archive.
+# - Skips empty or non-writable directories.
 #
-# ! Warning: Directory must contain regular files only.
+# Warning: Directory must contain regular files only.
 # ------------------------------------------------------------------------------
 _compile_function_dir() {
     local dir="$1"
@@ -116,19 +116,19 @@ _compile_function_dir() {
 }
 
 # ------------------------------------------------------------------------------
-# * zsh_cleanup_zwc
-# ? Removes stale or all compiled .zwc files.
+# z_cleanup_zwc
+# Removes stale or all compiled .zwc files.
 #
 # @param  $1  (string)  : Mode - "stale" (default) or "all".
 # @return     (int)     : 0 on success.
 #
-# ? Notes:
-# ? - "stale" mode: Removes .zwc files where source no longer exists.
-# ? - "all" mode: Removes ALL .zwc files (nuclear option).
+# Notes:
+# - "stale" mode: Removes .zwc files where source no longer exists.
+# - "all" mode: Removes ALL .zwc files (nuclear option).
 #
-# ! Warning: "all" mode is destructive - removes all compiled bytecode.
+# Warning: "all" mode is destructive - removes all compiled bytecode.
 # ------------------------------------------------------------------------------
-zsh_cleanup_zwc() {
+z_cleanup_zwc() {
     local mode="${1:-stale}"
     local zwc_file source_file
     local count=0
@@ -174,8 +174,8 @@ zsh_cleanup_zwc() {
 }
 
 # ----------------------------------------------------------
-# * COMPILE CORE ZSH FILES
-# ? Main dotfiles: .zshrc, .zshenv, .zprofile, .zlogin, .zlogout, .p10k.zsh
+# COMPILE CORE ZSH FILES
+# Main dotfiles: .zshrc, .zshenv, .zprofile, .zlogin, .zlogout, .p10k.zsh
 # ----------------------------------------------------------
 
 _log DEBUG "Compiling core ZSH files..."
@@ -188,8 +188,8 @@ _zcompile_if_needed "${ZDOTDIR:-$HOME}/.zlogout"
 _zcompile_if_needed "${HOME}/.p10k.zsh"
 
 # ----------------------------------------------------------
-# * COMPILE CONFIGURATION MODULES
-# ? All .zsh files in modules/, lib/, and config root
+# COMPILE CONFIGURATION MODULES
+# All .zsh files in modules/, lib/, and config root
 # ----------------------------------------------------------
 
 _log DEBUG "Compiling configuration modules..."
@@ -211,8 +211,8 @@ _log DEBUG "Compiling configuration modules..."
 }
 
 # ----------------------------------------------------------
-# * COMPILE FUNCTION DIRECTORIES
-# ? Creates single .zwc archive per function directory
+# COMPILE FUNCTION DIRECTORIES
+# Creates single .zwc archive per function directory
 # ----------------------------------------------------------
 
 _log DEBUG "Compiling function directories..."
@@ -226,21 +226,21 @@ _log DEBUG "Compiling function directories..."
     _compile_function_dir "${ZSH_CONFIG_HOME}/functions"
 
 # ----------------------------------------------------------
-# * CLEANUP STALE FILES
-# ? Remove orphaned .zwc files (configurable)
+# CLEANUP STALE FILES
+# Remove orphaned .zwc files (configurable)
 # ----------------------------------------------------------
 
-if [[ "$ZSH_COMPILATION_CLEANUP_ON_START" == "true" ]]; then
+if [[ "$Z_COMPILATION_CLEANUP_ON_START" == "true" ]]; then
     _log DEBUG "Cleaning up stale .zwc files..."
-    zsh_cleanup_zwc
+    z_cleanup_zwc
 fi
 
 # ----------------------------------------------------------
-# * DEBUG REPORT
-# ? List all compiled files when debug mode enabled
+# DEBUG REPORT
+# List all compiled files when debug mode enabled
 # ----------------------------------------------------------
 
-if [[ "$ZSH_COMPILATION_DEBUG" == "true" ]]; then
+if [[ "$Z_COMPILATION_DEBUG" == "true" ]]; then
     # Wrap in anonymous function to scope local variables
     () {
         typeset -A seen_files
@@ -275,12 +275,12 @@ if [[ "$ZSH_COMPILATION_DEBUG" == "true" ]]; then
 fi
 
 # ----------------------------------------------------------
-# * ALIASES
-# ? User-facing commands for compilation management
+# ALIASES
+# User-facing commands for compilation management
 # ----------------------------------------------------------
 
-alias compclean='zsh_cleanup_zwc'          # Remove stale .zwc files
-alias compclean-all='zsh_cleanup_zwc all'  # Remove ALL .zwc files
+alias compclean='z_cleanup_zwc'          # Remove stale .zwc files
+alias compclean-all='z_cleanup_zwc all'  # Remove ALL .zwc files
 
 # ----------------------------------------------------------
 _log DEBUG "ZSH Compilation Module loaded successfully"

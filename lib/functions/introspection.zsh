@@ -1,26 +1,26 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH INTROSPECTION FUNCTIONS LIBRARY
-# ? Interactive alias browser and shell introspection utilities
-# ? Parses inline comments from aliases.zsh for descriptions
+# ZSH INTROSPECTION FUNCTIONS LIBRARY
+# Interactive alias browser and shell introspection utilities
+# Parses inline comments from aliases.zsh for descriptions
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_INTROSPECTION_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_INTROSPECTION_LOADED=1
+(( ${+_Z_FUNCTIONS_INTROSPECTION_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_INTROSPECTION_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_INTROSPECTION_ENABLED:=true}
+: ${Z_FUNCTIONS_INTROSPECTION_ENABLED:=true}
 
 # Exit early if disabled
-[[ "$ZSH_FUNCTIONS_INTROSPECTION_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_INTROSPECTION_ENABLED" != "true" ]] && return 0
 
 # Path to aliases file (parsed for descriptions)
 typeset -g _ALS_SOURCE_FILE="${ZSH_CONFIG_HOME}/modules/aliases.zsh"
 
 # ----------------------------------------------------------
-# * DESCRIPTION CACHE
-# ? Built by parsing inline comments from aliases.zsh
+# DESCRIPTION CACHE
+# Built by parsing inline comments from aliases.zsh
 # ----------------------------------------------------------
 
 typeset -gA _ALIAS_DESC_CACHE
@@ -58,8 +58,8 @@ _als_get_desc() {
 }
 
 # ----------------------------------------------------------
-# * CATEGORY DEFINITIONS
-# ? Patterns to group aliases by category
+# CATEGORY DEFINITIONS
+# Patterns to group aliases by category
 # ----------------------------------------------------------
 
 typeset -gA _ALIAS_CATEGORIES
@@ -76,7 +76,7 @@ _ALIAS_CATEGORIES=(
 )
 
 # ----------------------------------------------------------
-# * HELPER FUNCTIONS
+# HELPER FUNCTIONS
 # ----------------------------------------------------------
 
 # Generate all aliases list with category headers
@@ -85,7 +85,7 @@ _ALIAS_CATEGORIES=(
 _als_all_list() {
     local cat_key cat_data cat_name cat_pattern
 
-    # ? Performance: Cache alias output once instead of calling per category
+    # Performance: Cache alias output once instead of calling per category
     local all_aliases="$(alias)"
 
     for cat_key in ${(ok)_ALIAS_CATEGORIES}; do
@@ -120,13 +120,14 @@ _als_all_list() {
 }
 
 # ----------------------------------------------------------
-# * PUBLIC FUNCTIONS
+# PUBLIC FUNCTIONS
 # ----------------------------------------------------------
 
 # Interactive alias browser with fzf TUI
-zsh_alias_browser() {
+z_alias_browser() {
     if ! _has_cmd fzf; then
-        echo "Error: fzf is required. Install: brew install fzf" >&2
+        _ui_error "fzf is required"
+        _ui_dim "Install: brew install fzf"
         return 1
     fi
 
@@ -139,12 +140,12 @@ zsh_alias_browser() {
 
     # Create temp files with error handling
     desc_file=$(mktemp "$temp_dir/als-desc.XXXXXX" 2>/dev/null) || {
-        echo "Error: Failed to create temp file in $temp_dir" >&2
+        _ui_error "Failed to create temp file in $temp_dir"
         return 1
     }
     cmd_file=$(mktemp "$temp_dir/als-cmd.XXXXXX" 2>/dev/null) || {
         rm -f "$desc_file" 2>/dev/null
-        echo "Error: Failed to create temp file in $temp_dir" >&2
+        _ui_error "Failed to create temp file in $temp_dir"
         return 1
     }
 

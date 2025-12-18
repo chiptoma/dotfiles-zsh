@@ -1,33 +1,33 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH FILE FUNCTIONS LIBRARY
-# ? File management and information utilities.
+# ZSH FILE FUNCTIONS LIBRARY
+# File management and information utilities.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_FILE_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_FILE_LOADED=1
+(( ${+_Z_FUNCTIONS_FILE_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_FILE_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_FILE_ENABLED:=true}  # Enable/disable File functions (default: true)
+: ${Z_FUNCTIONS_FILE_ENABLED:=true}  # Enable/disable File functions (default: true)
 
 # Exit early if File functions are disabled
-[[ "$ZSH_FUNCTIONS_FILE_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_FILE_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * FILE INFORMATION
+# FILE INFORMATION
 # ----------------------------------------------------------
 
 # Show file/directory size in human-readable format
-# Usage: zsh_sizeof <path>
-zsh_sizeof() {
+# Usage: z_sizeof <path>
+z_sizeof() {
     if [[ -z "$1" ]]; then
         echo "Usage: sizeof <path>"
         return 1
     fi
 
     if [[ ! -e "$1" ]]; then
-        echo "Error: '$1' does not exist" >&2
+        _ui_error "'$1' does not exist"
         return 1
     fi
 
@@ -41,19 +41,19 @@ zsh_sizeof() {
 }
 
 # ----------------------------------------------------------
-# * FILE MANAGEMENT
+# FILE MANAGEMENT
 # ----------------------------------------------------------
 
 # Create a backup of a file
-# Usage: zsh_backup <file>
-zsh_backup() {
+# Usage: z_backup <file>
+z_backup() {
     if [[ -z "$1" ]]; then
         echo "Usage: backup <file>"
         return 1
     fi
 
     if [[ ! -f "$1" ]]; then
-        echo "Error: '$1' is not a file" >&2
+        _ui_error "'$1' is not a file"
         return 1
     fi
 
@@ -62,12 +62,12 @@ zsh_backup() {
 }
 
 # ----------------------------------------------------------
-# * DEVELOPMENT HELPERS
+# DEVELOPMENT HELPERS
 # ----------------------------------------------------------
 
 # Find and list all TODO/FIXME comments in current directory
-# Usage: zsh_todos [pattern]
-zsh_todos() {
+# Usage: z_todos [pattern]
+z_todos() {
     local pattern="${1:-TODO|FIXME|XXX|HACK}"
 
     if _has_cmd rg; then
@@ -78,22 +78,22 @@ zsh_todos() {
 }
 
 # ----------------------------------------------------------
-# * FILE MANAGER
+# FILE MANAGER
 # ----------------------------------------------------------
 
 # Yazi file manager with cd-on-exit
 # Changes directory to the last visited path when exiting yazi
-# Usage: zsh_yazi [path]
-zsh_yazi() {
+# Usage: z_yazi [path]
+z_yazi() {
     if ! _has_cmd yazi; then
-        echo "Error: yazi command not found" >&2
-        echo "Install with: brew install yazi" >&2
+        _ui_error "yazi command not found"
+        _ui_dim "Install with: brew install yazi"
         return 1
     fi
 
     local tmp
     tmp="$(mktemp -t "yazi-cwd.XXXXXX")" || {
-        echo "Error: Failed to create temp file" >&2
+        _ui_error "Failed to create temp file"
         return 1
     }
 
@@ -113,27 +113,27 @@ zsh_yazi() {
 }
 
 # ----------------------------------------------------------
-# * DIRECTORY NAVIGATION
+# DIRECTORY NAVIGATION
 # ----------------------------------------------------------
 
 # Go up N directories
-# Usage: zsh_up [n]
+# Usage: z_up [n]
 # Examples:
-#   zsh_up      # go up 1 directory
-#   zsh_up 3    # go up 3 directories
-zsh_up() {
+#   z_up      # go up 1 directory
+#   z_up 3    # go up 3 directories
+z_up() {
     local count="${1:-1}"
     local -r max_depth="${ZSH_UP_MAX_DEPTH:-50}"  # Configurable safety limit
 
     # Validate input is a positive integer
     if [[ ! "$count" =~ ^[0-9]+$ ]] || [[ "$count" -eq 0 ]]; then
-        echo "Usage: zsh_up [n] - go up n directories (default: 1, max: $max_depth)"
+        echo "Usage: z_up [n] - go up n directories (default: 1, max: $max_depth)"
         return 1
     fi
 
     # Enforce maximum depth
     if (( count > max_depth )); then
-        echo "Error: Maximum depth is $max_depth directories" >&2
+        _ui_error "Maximum depth is $max_depth directories"
         return 1
     fi
 
@@ -143,27 +143,27 @@ zsh_up() {
     done
 
     cd "$path" || {
-        echo "Error: Cannot go up $count directories" >&2
+        _ui_error "Cannot go up $count directories"
         return 1
     }
 }
 
 # Create directory and change into it
-# Usage: zsh_mkcd <directory>
-zsh_mkcd() {
+# Usage: z_mkcd <directory>
+z_mkcd() {
     if [[ -z "$1" ]]; then
-        echo "Usage: zsh_mkcd <directory>"
+        echo "Usage: z_mkcd <directory>"
         return 1
     fi
 
     mkdir -p "$1" && cd "$1" || {
-        echo "Error: Cannot create or enter directory '$1'" >&2
+        _ui_error "Cannot create or enter directory '$1'"
         return 1
     }
 }
 
 # ----------------------------------------------------------
-# * ARCHIVE EXTRACTION
+# ARCHIVE EXTRACTION
 # ----------------------------------------------------------
 
 # Check archive for path traversal attempts (../ or absolute paths)
@@ -199,11 +199,11 @@ _check_archive_safety() {
 }
 
 # Universal archive extractor
-# Usage: zsh_extract <file> [destination]
+# Usage: z_extract <file> [destination]
 # Supports: tar, gz, bz2, xz, zip, rar, 7z, Z, deb, rpm, zst
-zsh_extract() {
+z_extract() {
     if [[ -z "$1" ]]; then
-        echo "Usage: zsh_extract <file> [destination]"
+        echo "Usage: z_extract <file> [destination]"
         return 1
     fi
 
@@ -211,22 +211,22 @@ zsh_extract() {
     local dest="${2:-.}"
 
     if [[ ! -f "$file" ]]; then
-        echo "Error: '$file' is not a valid file" >&2
+        _ui_error "'$file' is not a valid file"
         return 1
     fi
 
     # Create destination directory if specified and doesn't exist
     if [[ "$dest" != "." && ! -d "$dest" ]]; then
         mkdir -p "$dest" || {
-            echo "Error: Cannot create destination directory '$dest'" >&2
+            _ui_error "Cannot create destination directory '$dest'"
             return 1
         }
     fi
 
     # Security check: detect path traversal attempts
     if ! _check_archive_safety "$file"; then
-        echo "Error: Extraction aborted for security reasons" >&2
-        echo "Use dedicated tools with --strip-components or similar options if intentional" >&2
+        _ui_error "Extraction aborted for security reasons"
+        _ui_dim "Use dedicated tools with --strip-components or similar options if intentional"
         return 1
     fi
 
@@ -264,7 +264,7 @@ zsh_extract() {
             elif _has_cmd 7z; then
                 7z x "$file" -o"$dest"
             else
-                echo "Error: unrar or 7z required for .rar files" >&2
+                _ui_error "unrar or 7z required for .rar files"
                 return 1
             fi
             ;;
@@ -281,7 +281,7 @@ zsh_extract() {
             if _has_cmd rpm2cpio && _has_cmd cpio; then
                 rpm2cpio "$file" | cpio -idmv
             else
-                echo "Error: rpm2cpio and cpio required for .rpm files" >&2
+                _ui_error "rpm2cpio and cpio required for .rpm files"
                 return 1
             fi
             ;;
@@ -289,8 +289,8 @@ zsh_extract() {
             _require_cmd unzstd && unzstd "$file"
             ;;
         *)
-            echo "Error: Unknown archive format for '$file'" >&2
-            echo "Supported: tar, gz, bz2, xz, zst, zip, rar, 7z, Z, deb, rpm"
+            _ui_error "Unknown archive format for '$file'"
+            _ui_dim "Supported: tar, gz, bz2, xz, zst, zip, rar, 7z, Z, deb, rpm"
             return 1
             ;;
     esac

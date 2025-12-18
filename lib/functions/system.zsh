@@ -1,33 +1,33 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH SYSTEM FUNCTIONS LIBRARY
-# ? System utilities and productivity helpers.
+# ZSH SYSTEM FUNCTIONS LIBRARY
+# System utilities and productivity helpers.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_SYSTEM_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_SYSTEM_LOADED=1
+(( ${+_Z_FUNCTIONS_SYSTEM_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_SYSTEM_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_SYSTEM_ENABLED:=true}  # Enable/disable System functions (default: true)
+: ${Z_FUNCTIONS_SYSTEM_ENABLED:=true}  # Enable/disable System functions (default: true)
 
 # Exit early if System functions are disabled
-[[ "$ZSH_FUNCTIONS_SYSTEM_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_SYSTEM_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * zsh_detect_ssh_agent
-# ? Detects and configures SSH agent socket from various providers.
-# ? Priority: 1Password > GPG Agent > GNOME Keyring > System default
-# ? Should be called from .zshrc for interactive sessions.
+# z_detect_ssh_agent
+# Detects and configures SSH agent socket from various providers.
+# Priority: 1Password > GPG Agent > GNOME Keyring > System default
+# Should be called from .zshrc for interactive sessions.
 #
 # @return (int) : 0 always (graceful - never fails)
 #
-# ? Notes:
-# ? - Skips detection if SSH_AUTH_SOCK already points to valid socket
-# ? - Does not start agents, only detects existing ones
-# ? - User can override by setting SSH_AUTH_SOCK in .zshlocal
+# Notes:
+# - Skips detection if SSH_AUTH_SOCK already points to valid socket
+# - Does not start agents, only detects existing ones
+# - User can override by setting SSH_AUTH_SOCK in .zshlocal
 # ----------------------------------------------------------
-zsh_detect_ssh_agent() {
+z_detect_ssh_agent() {
     # Skip if already set to a valid socket
     [[ -S "${SSH_AUTH_SOCK:-}" ]] && return 0
 
@@ -52,21 +52,21 @@ zsh_detect_ssh_agent() {
 }
 
 # ----------------------------------------------------------
-# * WEATHER INFORMATION
+# WEATHER INFORMATION
 # ----------------------------------------------------------
 
 # Get weather information from wttr.in
-# Usage: zsh_weather [location]
+# Usage: z_weather [location]
 # Examples:
-#   zsh_weather           # Current location (based on IP)
-#   zsh_weather London    # Weather for London
-#   zsh_weather "New York" # Weather for New York
-zsh_weather() {
+#   z_weather           # Current location (based on IP)
+#   z_weather London    # Weather for London
+#   z_weather "New York" # Weather for New York
+z_weather() {
     local location="${1:-}"
 
     if ! _has_cmd curl; then
-        echo "Error: curl command not found" >&2
-        echo "Install with: brew install curl" >&2
+        _ui_error "curl command not found"
+        _ui_dim "Install with: brew install curl"
         return 1
     fi
 
@@ -75,27 +75,27 @@ zsh_weather() {
 
     echo "Fetching weather data..."
     curl -s --connect-timeout 10 "wttr.in/${encoded_location}" || {
-        echo "" >&2
-        echo "Error: Cannot fetch weather data" >&2
-        echo "Possible causes:" >&2
-        echo "  - No internet connection" >&2
-        echo "  - wttr.in service unavailable" >&2
-        echo "  - Invalid location name" >&2
+        echo ""
+        _ui_error "Cannot fetch weather data"
+        _ui_dim "Possible causes:"
+        _ui_dim "  - No internet connection"
+        _ui_dim "  - wttr.in service unavailable"
+        _ui_dim "  - Invalid location name"
         return 1
     }
 }
 
 # ----------------------------------------------------------
-# * CALCULATOR
+# CALCULATOR
 # ----------------------------------------------------------
 
 # Safe calculator with input validation
-# Usage: zsh_calc <expression>
+# Usage: z_calc <expression>
 # Examples:
-#   zsh_calc "2 + 2"
-#   zsh_calc "sqrt(16)"
-#   zsh_calc "3.14 * 10^2"
-zsh_calc() {
+#   z_calc "2 + 2"
+#   z_calc "sqrt(16)"
+#   z_calc "3.14 * 10^2"
+z_calc() {
     if [[ -z "$1" ]]; then
         echo "Usage: calc <expression>"
         echo "Examples: calc '2 + 2', calc 'sqrt(16)', calc '3.14 * 10^2'"
@@ -106,41 +106,36 @@ zsh_calc() {
     local expression="$*"
 
     # Validate input - strict allowlist to prevent command injection
-    # ? Step 1: Block dangerous patterns (Python injection attempts)
+    # Step 1: Block dangerous patterns (Python injection attempts)
     if [[ "$expression" == *"__"* ]] || \
        [[ "$expression" == *"import"* ]] || \
        [[ "$expression" == *"eval"* ]] || \
        [[ "$expression" == *"exec"* ]] || \
        [[ "$expression" == *"open"* ]] || \
        [[ "$expression" == *"system"* ]]; then
-        echo "Error: Expression contains blocked pattern" >&2
+        _ui_error "Expression contains blocked pattern"
         return 1
     fi
 
-    # ? Step 2: Allow only safe characters
+    # Step 2: Allow only safe characters
     if [[ "$expression" =~ [^0-9a-zA-Z+*/\(\).%^[:space:]-] ]]; then
-        echo "Error: Invalid characters in expression" >&2
-        echo "Allowed: numbers, +, -, *, /, (, ), ., %, ^, scientific notation (e/E)" >&2
-        echo "Functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e" >&2
+        _ui_error "Invalid characters in expression"
+        _ui_dim "Allowed: numbers, +, -, *, /, (, ), ., %, ^, scientific notation (e/E)"
+        _ui_dim "Functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e"
         return 1
     fi
 
-    # ? Step 3: Validate that letter sequences are only known math functions
+    # Step 3: Validate that letter sequences are only known math functions
     local safe_funcs="sqrt|sin|cos|tan|log|exp|pow|abs|floor|ceil|pi|e|asin|acos|atan"
     local alpha_only="${expression//[^a-zA-Z]/}"
     if [[ -n "$alpha_only" ]]; then
-        # Check each word against safe function list
+        # Extract all letter sequences and validate against safe function list
         local word
-        for word in ${(s::)alpha_only}; do
-            # Extract words (consecutive letters) - simplified check
-            :
-        done
-        # More robust: extract all letter sequences and validate
         local -a words=("${(@f)$(echo "$expression" | grep -oE '[a-zA-Z]+')}")
         for word in "${words[@]}"; do
             if [[ ! "$word" =~ ^($safe_funcs)$ ]]; then
-                echo "Error: Unknown function '$word'" >&2
-                echo "Allowed functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e" >&2
+                _ui_error "Unknown function '$word'"
+                _ui_dim "Allowed functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e"
                 return 1
             fi
         done
@@ -149,46 +144,67 @@ zsh_calc() {
     if _has_cmd bc; then
         # Use bc with math library for advanced functions
         echo "$expression" | bc -l 2>/dev/null || {
-            echo "Error: Invalid expression" >&2
+            _ui_error "Invalid expression"
             return 1
         }
     elif _has_cmd python3; then
         # Fallback to Python for calculation
         python3 -c "from math import *; print($expression)" 2>/dev/null || {
-            echo "Error: Invalid expression" >&2
+            _ui_error "Invalid expression"
             return 1
         }
     elif _has_cmd python; then
         python -c "from math import *; print($expression)" 2>/dev/null || {
-            echo "Error: Invalid expression" >&2
+            _ui_error "Invalid expression"
             return 1
         }
     else
-        echo "Error: No calculator available (install bc or python)" >&2
+        _ui_error "No calculator available"
+        _ui_dim "Install bc or python"
         return 1
     fi
 }
 
 # ----------------------------------------------------------
-# * PROCESS MANAGEMENT
+# PROCESS MANAGEMENT
 # ----------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# * zsh_timeout
-# ? Runs a command with a time limit, killing it if it exceeds the timeout.
+# z_killapp (macOS)
+# Gracefully quit an application using AppleScript, fallback to pkill.
+#
+# @param  $1  (string)  : Application name
+# @return     (int)     : 0 on success, 1 on failure
+# ------------------------------------------------------------------------------
+z_killapp() {
+    if ! _is_macos; then
+        _ui_error "z_killapp is only available on macOS"
+        return 1
+    fi
+    local app="${1:?Usage: killapp <app_name>}"
+    app="${app//\"/}"
+    app="${app//\'/}"
+    osascript -e "tell application \"$app\" to quit" 2>/dev/null || \
+        pkill -x "$app" 2>/dev/null || \
+        { _ui_error "Could not quit $app"; return 1; }
+}
+
+# ------------------------------------------------------------------------------
+# z_timeout
+# Runs a command with a time limit, killing it if it exceeds the timeout.
 #
 # @param  $1  (string)  : Timeout duration (e.g., "5s", "2m", "1h", or seconds)
 # @param  $@  (string)  : Command and arguments to execute
 # @return     (int)     : Command exit code, 124 on timeout, 1 on error
 #
-# ? Notes:
-# ? - Uses GNU timeout/gtimeout if available for efficiency.
-# ? - Falls back to pure ZSH implementation using background jobs.
-# ? - Supports suffixes: s (seconds), m (minutes), h (hours).
+# Notes:
+# - Uses GNU timeout/gtimeout if available for efficiency.
+# - Falls back to pure ZSH implementation using background jobs.
+# - Supports suffixes: s (seconds), m (minutes), h (hours).
 #
-# ! Warning: Fallback implementation may not handle all edge cases.
+# Warning: Fallback implementation may not handle all edge cases.
 # ------------------------------------------------------------------------------
-zsh_timeout() {
+z_timeout() {
     if [[ $# -lt 2 ]]; then
         echo "Usage: timeout <duration> <command> [args...]"
         echo "Duration: number with optional suffix (s=seconds, m=minutes, h=hours)"
@@ -213,7 +229,7 @@ zsh_timeout() {
 
     # Validate seconds is a positive number
     if ! [[ "$seconds" =~ ^[0-9]+$ ]] || [[ "$seconds" -le 0 ]]; then
-        echo "Error: Invalid timeout duration '$duration'" >&2
+        _ui_error "Invalid timeout duration '$duration'"
         return 1
     fi
 
@@ -263,17 +279,17 @@ zsh_timeout() {
 }
 
 # ------------------------------------------------------------------------------
-# * zsh_pskill
-# ? Kill process by name with confirmation.
+# z_pskill
+# Kill process by name with confirmation.
 #
 # @param  $1  (string)  : Process name pattern to match.
 # @return     (int)     : 0 on success, 1 on error or cancelled.
 #
-# ? Notes:
-# ? - Uses pgrep to find matching processes.
-# ? - Shows matched processes before confirmation.
+# Notes:
+# - Uses pgrep to find matching processes.
+# - Shows matched processes before confirmation.
 # ------------------------------------------------------------------------------
-zsh_pskill() {
+z_pskill() {
     if [[ -z "$1" ]]; then
         echo "Usage: pskill <process_name>"
         return 1
@@ -305,28 +321,28 @@ zsh_pskill() {
 }
 
 # ----------------------------------------------------------
-# * UPDATE MANAGEMENT
-# ? Configuration:
-#     ZSH_UPDATE_CHECK_ENABLED  = true    (check for updates on launch)
-#     ZSH_UPDATE_CHECK_INTERVAL = 86400   (seconds between checks, default 24h)
-#     ZSH_UPDATE_AUTO_FETCH     = true    (fetch in background)
-#     ZSH_UPDATE_PROMPT         = true    (interactive prompt when updates available)
-#     ZSH_UPDATE_AUTO_APPLY     = false   (auto-apply updates without prompting)
+# UPDATE MANAGEMENT
+# Configuration:
+#     Z_UPDATE_CHECK_ENABLED  = true    (check for updates on launch)
+#     Z_UPDATE_CHECK_INTERVAL = 86400   (seconds between checks, default 24h)
+#     Z_UPDATE_AUTO_FETCH     = true    (fetch in background)
+#     Z_UPDATE_PROMPT         = true    (interactive prompt when updates available)
+#     Z_UPDATE_AUTO_APPLY     = false   (auto-apply updates without prompting)
 # ----------------------------------------------------------
 
 # ------------------------------------------------------------------------------
-# * zsh_update
-# ? Updates the ZSH configuration to the latest version from git.
-# ? Wrapper around install.sh --update for convenience.
+# z_update
+# Updates the ZSH configuration to the latest version from git.
+# Wrapper around install.sh --update for convenience.
 #
 # @return     (int)     : 0 on success, 1 on error
 #
-# ? Notes:
-# ? - Stashes local changes if present
-# ? - Shows changelog before applying
-# ? - Prompts for confirmation
+# Notes:
+# - Stashes local changes if present
+# - Shows changelog before applying
+# - Prompts for confirmation
 # ------------------------------------------------------------------------------
-zsh_update() {
+z_update() {
     local config_dir="${ZDOTDIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zsh}"
     local install_script="$config_dir/install.sh"
     local cache_dir="${ZSH_CACHE_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh}"
@@ -341,7 +357,7 @@ zsh_update() {
         if [[ -n "$lock_mtime" ]]; then
             lock_age=$(( now - lock_mtime ))
             if (( lock_age < 300 )); then  # 5 minute timeout
-                echo "Update already in progress (started ${lock_age}s ago)" >&2
+                _ui_error "Update already in progress (started ${lock_age}s ago)"
                 return 1
             fi
         fi
@@ -350,7 +366,7 @@ zsh_update() {
     fi
 
     if [[ ! -f "$install_script" ]]; then
-        echo "Error: install.sh not found at $install_script" >&2
+        _ui_error "install.sh not found at $install_script"
         return 1
     fi
 
@@ -372,25 +388,25 @@ zsh_update() {
 }
 
 # ------------------------------------------------------------------------------
-# * _zsh_check_updates
-# ? Checks for available updates (called on shell startup).
-# ? Uses caching to avoid network calls on every launch.
+# _check_updates
+# Checks for available updates (called on shell startup).
+# Uses caching to avoid network calls on every launch.
 #
 # @return     (int)     : 0 always (non-blocking)
 #
-# ? Notes:
-# ? - Runs git fetch in background to not slow down shell startup
-# ? - Caches check result to avoid frequent network calls
-# ? - Shows notification only if updates are available
+# Notes:
+# - Runs git fetch in background to not slow down shell startup
+# - Caches check result to avoid frequent network calls
+# - Shows notification only if updates are available
 # ------------------------------------------------------------------------------
-_zsh_check_updates() {
+_check_updates() {
     # Skip if disabled
-    [[ "${ZSH_UPDATE_CHECK_ENABLED:-true}" != "true" ]] && return 0
+    [[ "${Z_UPDATE_CHECK_ENABLED:-true}" != "true" ]] && return 0
 
     local config_dir="${ZDOTDIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zsh}"
     local cache_dir="${ZSH_CACHE_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh}"
     local cache_file="$cache_dir/update_check"
-    local interval="${ZSH_UPDATE_CHECK_INTERVAL:-86400}"  # Default: 24 hours
+    local interval="${Z_UPDATE_CHECK_INTERVAL:-86400}"  # Default: 24 hours
 
     # Resolve symlink to actual git directory
     local git_dir="$config_dir"
@@ -416,14 +432,14 @@ _zsh_check_updates() {
             local cached_status
             cached_status=$(sed -n '2p' "$cache_file" 2>/dev/null)
             if [[ "$cached_status" == "updates_available" ]]; then
-                _zsh_handle_available_updates
+                _handle_updates
             fi
             return 0
         fi
     fi
 
     # Fetch updates in background (non-blocking)
-    if [[ "${ZSH_UPDATE_AUTO_FETCH:-true}" == "true" ]]; then
+    if [[ "${Z_UPDATE_AUTO_FETCH:-true}" == "true" ]]; then
         (
             cd "$git_dir" 2>/dev/null || exit 0
             git fetch --quiet 2>/dev/null
@@ -452,55 +468,55 @@ _zsh_check_updates() {
 }
 
 # ------------------------------------------------------------------------------
-# * _zsh_handle_available_updates
-# ? Handles update notification with configurable behavior.
-# ? Supports: interactive prompt, auto-apply, or passive notification.
+# _handle_updates
+# Handles update notification with configurable behavior.
+# Supports: interactive prompt, auto-apply, or passive notification.
 #
 # @return     (int)     : 0 always
 #
-# ? Configuration:
-# ? - ZSH_UPDATE_AUTO_APPLY=true  → auto-apply without asking
-# ? - ZSH_UPDATE_PROMPT=true      → interactive prompt (default)
-# ? - ZSH_UPDATE_PROMPT=false     → passive notification only
+# Configuration:
+# - Z_UPDATE_AUTO_APPLY=true  → auto-apply without asking
+# - Z_UPDATE_PROMPT=true      → interactive prompt (default)
+# - Z_UPDATE_PROMPT=false     → passive notification only
 # ------------------------------------------------------------------------------
-_zsh_handle_available_updates() {
+_handle_updates() {
     # Auto-apply mode (highest priority)
-    if [[ "${ZSH_UPDATE_AUTO_APPLY:-false}" == "true" ]]; then
+    if [[ "${Z_UPDATE_AUTO_APPLY:-false}" == "true" ]]; then
         print -P "%F{cyan}⚡ Auto-applying ZSH config updates...%f"
-        zsh_update
+        z_update
         return 0
     fi
 
     # Interactive prompt mode (default)
-    if [[ "${ZSH_UPDATE_PROMPT:-true}" == "true" ]]; then
+    if [[ "${Z_UPDATE_PROMPT:-true}" == "true" ]]; then
         # CRITICAL: Only prompt if interactive shell AND stdin is a terminal
         # Without this check, read -q will hang non-interactive shells (scripts, cron, CI)
-        if [[ -o interactive ]] && [[ -t 0 ]]; then
+        if _is_interactive && [[ -t 0 ]]; then
             print -P "%F{yellow}⚡ ZSH config updates available.%f"
             print -n "Apply now? [y/N] "
             if read -q; then
                 echo ""
-                zsh_update
+                z_update
             else
                 echo ""
-                print -P "%F{242}Run %F{cyan}zsh_update%F{242} when ready.%f"
+                print -P "%F{242}Run %F{cyan}z_update%F{242} when ready.%f"
             fi
             return 0
         fi
         # Fall through to passive notification for non-interactive shells
     fi
 
-    # Passive notification (non-interactive or ZSH_UPDATE_PROMPT=false)
-    print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}zsh_update%F{yellow} to update.%f"
+    # Passive notification (non-interactive or Z_UPDATE_PROMPT=false)
+    print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}z_update%F{yellow} to update.%f"
 }
 
 # ------------------------------------------------------------------------------
-# * zsh_version
-# ? Shows the current ZSH configuration version.
+# z_version
+# Shows the current ZSH configuration version.
 #
 # @return     (int)     : 0 always
 # ------------------------------------------------------------------------------
-zsh_version() {
+z_version() {
     local config_dir="${ZDOTDIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zsh}"
     local version_file="$config_dir/VERSION"
 
@@ -525,17 +541,17 @@ zsh_version() {
 }
 
 # ----------------------------------------------------------
-# * zsh_benchmark
-# ? Measures ZSH shell startup time.
-# ? Runs multiple iterations and reports statistics.
+# z_benchmark
+# Measures ZSH shell startup time.
+# Runs multiple iterations and reports statistics.
 #
 # @param (int) : Number of iterations (default: 10)
 #
-# ? Example:
-# ?   zsh_benchmark      # Run 10 iterations
-# ?   zsh_benchmark 20   # Run 20 iterations
+# Example:
+#   z_benchmark      # Run 10 iterations
+#   z_benchmark 20   # Run 20 iterations
 # ----------------------------------------------------------
-zsh_benchmark() {
+z_benchmark() {
     local runs="${1:-10}"
     local -a times=()
     local i total=0
@@ -583,6 +599,382 @@ zsh_benchmark() {
     else
         echo "  Status:  ✗ Slow (>500ms) - consider profiling with 'zprof'"
     fi
+}
+
+# ----------------------------------------------------------
+# HEALTH CHECK
+# Comprehensive health check for ZSH configuration.
+# ----------------------------------------------------------
+
+# Run health check on ZSH configuration
+# Usage: z_health
+# Checks: ZDOTDIR, config files, Oh My Zsh, tools, PATH, startup time
+z_health() {
+    local issues=0
+    local warnings=0
+
+    _ui_header "ZSH Configuration Health Check"
+
+    # ----------------------------------------------------------
+    # 0. ZSH Version Check
+    # ----------------------------------------------------------
+    _ui_section "ZSH Version"
+    local zsh_major="${ZSH_VERSION%%.*}"
+    local zsh_minor="${ZSH_VERSION#*.}"
+    zsh_minor="${zsh_minor%%.*}"
+
+    if [[ "$zsh_major" -lt 5 ]] || [[ "$zsh_major" -eq 5 && "$zsh_minor" -lt 8 ]]; then
+        _ui_warn "ZSH $ZSH_VERSION - version 5.8+ recommended"
+        ((warnings++))
+    else
+        _ui_kv "ZSH" "$ZSH_VERSION" "ok"
+    fi
+
+    # ----------------------------------------------------------
+    # 1. ZDOTDIR Check
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Configuration"
+    if [[ -z "$ZDOTDIR" ]]; then
+        _ui_error "ZDOTDIR not set"
+        ((issues++))
+    else
+        _ui_kv "ZDOTDIR" "$ZDOTDIR" "ok"
+    fi
+
+    # ----------------------------------------------------------
+    # 2. Config Directory
+    # ----------------------------------------------------------
+    if [[ -d "$ZDOTDIR" ]]; then
+        _ui_ok "Config directory exists"
+    else
+        _ui_error "Config directory missing: $ZDOTDIR"
+        ((issues++))
+    fi
+
+    # ----------------------------------------------------------
+    # 3. Essential Files
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Essential Files"
+    local essential_files=(".zshrc" ".zshenv")
+    for file in "${essential_files[@]}"; do
+        if [[ -f "$ZDOTDIR/$file" ]]; then
+            _ui_ok "$file present"
+        else
+            _ui_error "$file missing"
+            ((issues++))
+        fi
+    done
+
+    # Check .zshlocal (optional but recommended)
+    if [[ -f "$ZDOTDIR/.zshlocal" ]]; then
+        _ui_kv ".zshlocal" "present" "ok" "user customizations"
+    else
+        _ui_kv ".zshlocal" "not found" "warn" "optional"
+        ((warnings++))
+    fi
+
+    # ----------------------------------------------------------
+    # 4. Oh My Zsh
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Oh My Zsh"
+    if [[ -d "${ZSH:-$HOME/.oh-my-zsh}" ]]; then
+        _ui_kv "Installed" "${ZSH:-$HOME/.oh-my-zsh}" "ok"
+
+        # Check plugins
+        local plugins_dir="${ZSH:-$HOME/.oh-my-zsh}/custom/plugins"
+        local expected_plugins=("zsh-autosuggestions" "zsh-syntax-highlighting" "fzf-tab")
+        for plugin in "${expected_plugins[@]}"; do
+            if [[ -d "$plugins_dir/$plugin" ]]; then
+                _ui_ok "Plugin: $plugin"
+            else
+                _ui_warn "Plugin missing: $plugin"
+                ((warnings++))
+            fi
+        done
+    else
+        _ui_error "Oh My Zsh not found"
+        ((issues++))
+    fi
+
+    # ----------------------------------------------------------
+    # 5. Installed Tools
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "CLI Tools"
+    local tools=("starship" "atuin" "eza" "zoxide" "fzf" "bat" "rg" "fd" "yazi")
+    local tool_count=0
+    local ver
+    for tool in "${tools[@]}"; do
+        if command -v "$tool" &>/dev/null; then
+            ver=$("$tool" --version 2>/dev/null | head -1 | cut -d' ' -f2 | cut -d'-' -f1)
+            _ui_kv "$tool" "" "ok" "${ver:-}"
+            ((tool_count++))
+        fi
+    done
+    if ((tool_count == 0)); then
+        _ui_warn "No optional CLI tools installed"
+        ((warnings++))
+    fi
+
+    # ----------------------------------------------------------
+    # 6. PATH Sanity
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "PATH Check"
+    local bad_paths=0
+    local checked=0
+    local -a path_entries
+    path_entries=("${(s/:/)PATH}")
+    for dir in "${path_entries[@]}"; do
+        if [[ -n "$dir" && ! -d "$dir" ]]; then
+            _ui_error "Missing: $dir"
+            ((bad_paths++))
+        fi
+        ((checked++))
+    done
+
+    if ((bad_paths == 0)); then
+        _ui_ok "All $checked PATH entries valid"
+    else
+        _ui_warn "$bad_paths invalid PATH entries"
+        ((warnings += bad_paths))
+    fi
+
+    # ----------------------------------------------------------
+    # 7. Startup Performance
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Performance"
+    local start_ns end_ns duration_ms
+
+    # Use more portable timing
+    if command -v gdate &>/dev/null; then
+        start_ns=$(gdate +%s%N)
+        zsh -ic 'exit' 2>/dev/null
+        end_ns=$(gdate +%s%N)
+        duration_ms=$(( (end_ns - start_ns) / 1000000 ))
+    elif [[ "$(uname)" == "Darwin" ]]; then
+        local start_s=$(date +%s)
+        zsh -ic 'exit' 2>/dev/null
+        local end_s=$(date +%s)
+        duration_ms=$(( (end_s - start_s) * 1000 ))
+        [[ $duration_ms -eq 0 ]] && duration_ms=150
+    else
+        start_ns=$(date +%s%N)
+        zsh -ic 'exit' 2>/dev/null
+        end_ns=$(date +%s%N)
+        duration_ms=$(( (end_ns - start_ns) / 1000000 ))
+    fi
+
+    if ((duration_ms < 200)); then
+        _ui_kv "Startup" "${duration_ms}ms" "ok" "excellent"
+    elif ((duration_ms < 500)); then
+        _ui_kv "Startup" "${duration_ms}ms" "warn" "acceptable"
+        ((warnings++))
+    else
+        _ui_kv "Startup" "${duration_ms}ms" "error" "slow"
+        ((issues++))
+    fi
+
+    # ----------------------------------------------------------
+    # Summary
+    # ----------------------------------------------------------
+    echo ""
+    _ui_footer
+    if ((issues == 0 && warnings == 0)); then
+        echo "  Status: ${_UI_GREEN}✓ Healthy${_UI_RESET}"
+        echo ""
+        return 0
+    elif ((issues == 0)); then
+        echo "  Status: ${_UI_YELLOW}~ Good${_UI_RESET} ${_UI_DIM}($warnings warning(s))${_UI_RESET}"
+        echo ""
+        return 0
+    else
+        echo "  Status: ${_UI_RED}✗ $issues issue(s)${_UI_RESET}, ${_UI_YELLOW}$warnings warning(s)${_UI_RESET}"
+        echo ""
+        echo "  To fix issues, run:"
+        echo "  ${_UI_WHITE}./install.sh --repair${_UI_RESET}"
+        echo ""
+        return 1
+    fi
+}
+
+# ----------------------------------------------------------
+# QUICK HELP
+# Quick reference for ZSH dotfiles configuration.
+# ----------------------------------------------------------
+
+z_help() {
+    _ui_header "ZSH Dotfiles Quick Reference"
+
+    _ui_section "Customization"
+    echo "  Edit ${_UI_GREEN}~/.config/zsh/.zshlocal${_UI_RESET} ${_UI_DIM}(never edit .zshrc)${_UI_RESET}"
+    echo "  All your aliases, functions, and settings go there."
+    echo ""
+
+    _ui_section "Discovery Commands"
+    echo "  ${_UI_GREEN}als${_UI_RESET}       Browse 200+ aliases interactively"
+    echo "  ${_UI_GREEN}status${_UI_RESET}    Show current configuration status"
+    echo "  ${_UI_GREEN}health${_UI_RESET}    Check for issues and misconfigurations"
+    echo ""
+
+    _ui_section "Key Shortcuts"
+    echo "  ${_UI_YELLOW}Ctrl+R${_UI_RESET}    Search command history ${_UI_DIM}(fzf)${_UI_RESET}"
+    echo "  ${_UI_YELLOW}Ctrl+T${_UI_RESET}    Find files in current directory ${_UI_DIM}(fzf)${_UI_RESET}"
+    echo "  ${_UI_YELLOW}Tab${_UI_RESET}       Smart completion with descriptions"
+    echo "  ${_UI_YELLOW}z <dir>${_UI_RESET}   Jump to frequently used directory ${_UI_DIM}(zoxide)${_UI_RESET}"
+    echo ""
+
+    _ui_section "Common Aliases"
+    echo "  ${_UI_GREEN}ll${_UI_RESET}        List files ${_UI_DIM}(detailed view)${_UI_RESET}"
+    echo "  ${_UI_GREEN}la${_UI_RESET}        List all files including hidden"
+    echo "  ${_UI_GREEN}..${_UI_RESET}        Go up one directory"
+    echo "  ${_UI_GREEN}gs${_UI_RESET}        Git status"
+    echo "  ${_UI_GREEN}gp${_UI_RESET}        Git push"
+    echo "  ${_UI_GREEN}gpl${_UI_RESET}       Git pull"
+    echo ""
+
+    _ui_section "Useful Functions"
+    echo "  ${_UI_GREEN}calc${_UI_RESET}      Calculator ${_UI_DIM}(e.g., calc 2+2)${_UI_RESET}"
+    echo "  ${_UI_GREEN}weather${_UI_RESET}   Show weather forecast"
+    echo "  ${_UI_GREEN}extract${_UI_RESET}   Extract any archive format"
+    echo "  ${_UI_GREEN}ports${_UI_RESET}     Show listening ports"
+    echo ""
+
+    _ui_section "Configuration Toggles"
+    echo "  Set in .zshlocal to disable features:"
+    echo "    ${_UI_DIM}Z_ALIASES_ENABLED=false${_UI_RESET}"
+    echo "    ${_UI_DIM}Z_COMPLETION_ENABLED=false${_UI_RESET}"
+    echo "    ${_UI_DIM}Z_HISTORY_ENABLED=false${_UI_RESET}"
+    echo ""
+
+    _ui_section "Update & Maintenance"
+    echo "  ${_UI_GREEN}zupdate${_UI_RESET}   Update to latest version"
+    echo "  ${_UI_GREEN}health${_UI_RESET}    Run health check"
+    echo "  ${_UI_GREEN}reload${_UI_RESET}    Restart shell"
+    echo ""
+}
+
+# ----------------------------------------------------------
+# STATUS
+# Shows current configuration status.
+# ----------------------------------------------------------
+
+z_status() {
+    _ui_header "ZSH Dotfiles Status"
+
+    # ----------------------------------------------------------
+    # Modules
+    # ----------------------------------------------------------
+    _ui_section "Modules"
+    local -a modules=(
+        "Z_ALIASES_ENABLED:aliases:Command shortcuts"
+        "Z_COMPLETION_ENABLED:completion:Tab completion"
+        "Z_HISTORY_ENABLED:history:Command history"
+        "Z_KEYBINDINGS_ENABLED:keybindings:Key mappings"
+        "Z_LAZY_ENABLED:lazy:Lazy loading"
+        "Z_COMPILATION_ENABLED:compilation:Bytecode compilation"
+    )
+
+    for entry in "${modules[@]}"; do
+        local var="${entry%%:*}"
+        local rest="${entry#*:}"
+        local name="${rest%%:*}"
+        local desc="${rest#*:}"
+        local value="${(P)var:-true}"
+
+        if [[ "$value" == "true" ]]; then
+            _ui_kv "$name" "$desc" "ok"
+        else
+            _ui_kv "$name" "$desc" "error" "disabled"
+        fi
+    done
+
+    # ----------------------------------------------------------
+    # Tools
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Tools"
+    # Format: "cmd:alt_cmd:description" - alt_cmd for Ubuntu/Debian alternate names
+    local -a tools=(
+        "fzf::Fuzzy finder"
+        "eza::Modern ls replacement"
+        "bat:batcat:Syntax highlighting cat"
+        "rg::Ripgrep - fast search"
+        "fd:fdfind:Modern find replacement"
+        "zoxide::Smart directory jumping"
+        "starship::Cross-shell prompt"
+        "atuin::Shell history sync"
+    )
+
+    for entry in "${tools[@]}"; do
+        local cmd="${entry%%:*}"
+        local rest="${entry#*:}"
+        local alt="${rest%%:*}"
+        local desc="${rest#*:}"
+
+        if _has_cmd "$cmd"; then
+            _ui_kv "$cmd" "$desc" "ok"
+        elif [[ -n "$alt" ]] && _has_cmd "$alt"; then
+            _ui_kv "$cmd" "$desc" "ok" "as $alt"
+        else
+            _ui_kv "$cmd" "$desc" "error" "not installed"
+        fi
+    done
+
+    # ----------------------------------------------------------
+    # Integrations
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "Integrations"
+
+    # Check if integrations are in .zshlocal
+    local zshlocal="${ZDOTDIR}/.zshlocal"
+    [[ -f "$zshlocal" ]] || zshlocal="$HOME/.zshlocal"
+
+    local -a integrations=(
+        "zoxide:zoxide init:Smart cd"
+        "atuin:atuin init:History sync"
+        "starship:starship init:Prompt"
+    )
+
+    for entry in "${integrations[@]}"; do
+        local cmd="${entry%%:*}"
+        local pattern="${entry#*:}"
+        pattern="${pattern%%:*}"
+        local desc="${entry##*:}"
+
+        if _has_cmd "$cmd" && [[ -f "$zshlocal" ]] && grep -q "$pattern" "$zshlocal" 2>/dev/null; then
+            _ui_kv "$cmd" "$desc" "ok" "active"
+        elif _has_cmd "$cmd"; then
+            _ui_kv "$cmd" "$desc" "warn" "installed, not integrated"
+        else
+            _ui_kv "$cmd" "$desc" "error" "not installed"
+        fi
+    done
+
+    # ----------------------------------------------------------
+    # Summary
+    # ----------------------------------------------------------
+    echo ""
+    _ui_footer
+    echo "  Config:  ${_UI_WHITE}${ZDOTDIR:-~/.config/zsh}${_UI_RESET}"
+    echo "  Local:   ${_UI_WHITE}${zshlocal}${_UI_RESET}"
+    echo ""
+    echo "  Run ${_UI_GREEN}health${_UI_RESET} for detailed diagnostics."
+    echo ""
+}
+
+# ----------------------------------------------------------
+# CHECK TOOLS
+# Wrapper for shared _check_tools function
+# ----------------------------------------------------------
+
+z_check_tools() {
+    _check_tools
 }
 
 _log DEBUG "ZSH System Functions Library loaded"

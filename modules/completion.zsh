@@ -1,35 +1,35 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH COMPLETION MODULE
-# ? Configures and optimizes ZSH tab completion system.
-# ? Handles compinit, zstyle settings, and completion caching.
+# ZSH COMPLETION MODULE
+# Configures and optimizes ZSH tab completion system.
+# Handles compinit, zstyle settings, and completion caching.
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * MODULE CONFIGURATION
+# MODULE CONFIGURATION
 # ----------------------------------------------------------
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_COMPLETION_LOADED} )) && return 0
-typeset -g _ZSH_COMPLETION_LOADED=1
+(( ${+_Z_COMPLETION_LOADED} )) && return 0
+typeset -g _Z_COMPLETION_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_COMPLETION_ENABLED:=true}       # Enable/disable completion system
-: ${ZSH_COMPLETION_TTL:=86400}          # TTL for compdump in seconds (24h)
-: ${ZSH_COMPLETION_AUDIT_TTL:=604800}   # TTL for compaudit security check (7 days)
-: ${ZSH_COMPLETION_MENU_SELECT:=true}   # Enable menu selection
+: ${Z_COMPLETION_ENABLED:=true}       # Enable/disable completion system
+: ${Z_COMPLETION_TTL:=86400}          # TTL for compdump in seconds (24h)
+: ${Z_COMPLETION_AUDIT_TTL:=604800}   # TTL for compaudit security check (7 days)
+: ${Z_COMPLETION_MENU_SELECT:=true}   # Enable menu selection
 
 _log DEBUG "ZSH Completion Module loading"
 
 # Exit early if module is disabled
-if [[ "$ZSH_COMPLETION_ENABLED" != "true" ]]; then
+if [[ "$Z_COMPLETION_ENABLED" != "true" ]]; then
     _log INFO "ZSH Completion Module disabled, skipping..."
     return 0
 fi
 
 # ----------------------------------------------------------
-# * SHELL OPTIONS
-# ? Completion-related shell behavior settings
+# SHELL OPTIONS
+# Completion-related shell behavior settings
 # ----------------------------------------------------------
 
 setopt ALWAYS_TO_END       # Move cursor to end after completion
@@ -40,16 +40,16 @@ setopt NO_LIST_BEEP        # Don't beep on ambiguous completion
 setopt COMPLETE_ALIASES    # Complete aliases
 
 # ----------------------------------------------------------
-# * FPATH CONFIGURATION
-# ? Must be set BEFORE compinit to register custom completions
+# FPATH CONFIGURATION
+# Must be set BEFORE compinit to register custom completions
 # ----------------------------------------------------------
 
 # Completion cache directory
-ZSH_COMPLETION_CACHE_DIR="${ZSH_CACHE_HOME}/completion"
-_ensure_dir "$ZSH_COMPLETION_CACHE_DIR"
+Z_COMPLETION_CACHE_DIR="${ZSH_CACHE_HOME}/completion"
+_ensure_dir "$Z_COMPLETION_CACHE_DIR"
 
 # Compdump path (also set before OMZ in .zshrc for compatibility)
-export ZSH_COMPDUMP="${ZSH_COMPLETION_CACHE_DIR}/zcompdump-${ZSH_VERSION}"
+export ZSH_COMPDUMP="${Z_COMPLETION_CACHE_DIR}/zcompdump-${ZSH_VERSION}"
 
 # Create completions directory if it doesn't exist
 _ensure_dir "${ZSH_CONFIG_HOME}/completions"
@@ -79,8 +79,8 @@ _ensure_dir "${ZSH_CONFIG_HOME}/completions"
 }
 
 # ----------------------------------------------------------
-# * COMPINIT INITIALIZATION
-# ? Load and configure the completion system with caching
+# COMPINIT INITIALIZATION
+# Load and configure the completion system with caching
 # ----------------------------------------------------------
 
 _log DEBUG "Initializing completion system..."
@@ -92,12 +92,12 @@ zmodload -F zsh/stat b:zstat 2>/dev/null
 autoload -Uz compinit
 
 # Initialize with TTL-based cache optimization
-# ? Uses separate TTLs for compdump freshness vs security audit (compaudit)
-# ? Compdump refreshes daily, compaudit runs weekly for ~20-30ms savings
+# Uses separate TTLs for compdump freshness vs security audit (compaudit)
+# Compdump refreshes daily, compaudit runs weekly for ~20-30ms savings
 () {
     local dump_age=0
     local audit_age=0
-    local audit_marker="${ZSH_COMPLETION_CACHE_DIR}/.last_compaudit"
+    local audit_marker="${Z_COMPLETION_CACHE_DIR}/.last_compaudit"
 
     if [[ -f "${ZSH_COMPDUMP}" ]]; then
         # Use zstat if available, fall back to external stat
@@ -121,14 +121,14 @@ autoload -Uz compinit
         fi
     else
         # No marker = never audited, force audit
-        audit_age=$((ZSH_COMPLETION_AUDIT_TTL + 1))
+        audit_age=$((Z_COMPLETION_AUDIT_TTL + 1))
     fi
 
-    if [[ -f "${ZSH_COMPDUMP}" && $dump_age -le $ZSH_COMPLETION_TTL ]]; then
+    if [[ -f "${ZSH_COMPDUMP}" && $dump_age -le $Z_COMPLETION_TTL ]]; then
         # Compdump is fresh - skip compaudit entirely with -C
         compinit -C -d "${ZSH_COMPDUMP}"
         _log DEBUG "compinit: using cached compdump (age: ${dump_age}s)"
-    elif [[ $audit_age -le $ZSH_COMPLETION_AUDIT_TTL ]]; then
+    elif [[ $audit_age -le $Z_COMPLETION_AUDIT_TTL ]]; then
         # Compdump stale but audit is recent - regenerate without audit
         compinit -C -d "${ZSH_COMPDUMP}"
         _log DEBUG "compinit: regenerating compdump, skipping audit (audit age: ${audit_age}s)"
@@ -149,12 +149,12 @@ if [[ -f "${ZSH_COMPDUMP}" && ( ! -f "${ZSH_COMPDUMP}.zwc" || "${ZSH_COMPDUMP}" 
 fi
 
 # ----------------------------------------------------------
-# * BASIC COMPLETION SETTINGS
-# ? Core zstyle configurations for completion behavior
+# BASIC COMPLETION SETTINGS
+# Core zstyle configurations for completion behavior
 # ----------------------------------------------------------
 
 # Enable menu selection (if configured)
-if [[ "$ZSH_COMPLETION_MENU_SELECT" == "true" ]]; then
+if [[ "$Z_COMPLETION_MENU_SELECT" == "true" ]]; then
     zstyle ':completion:*' menu select
 fi
 
@@ -192,8 +192,8 @@ zstyle ':completion:*:*:*:users' ignored-patterns \
 zstyle ':completion:*:functions' ignored-patterns '(_*|pre(cmd|exec))'
 
 # ----------------------------------------------------------
-# * COMPLETION ENHANCEMENTS
-# ? Advanced matching, fuzzy completion, and smart behaviors
+# COMPLETION ENHANCEMENTS
+# Advanced matching, fuzzy completion, and smart behaviors
 # ----------------------------------------------------------
 
 # Case-insensitive completion with partial-word matching
@@ -247,13 +247,13 @@ zstyle ':completion:*:*:mpv:*' file-patterns '*.(mp4|mkv|avi|mov|m4v|webm|mp3|fl
 zstyle ':completion:*:*:vlc:*' file-patterns '*.(mp4|mkv|avi|mov|m4v|webm|mp3|flac|ogg|m4a|wav):media-files' '*(-/):directories'
 
 # ----------------------------------------------------------
-# * PERFORMANCE OPTIMIZATIONS
-# ? Caching and speed improvements for completion
+# PERFORMANCE OPTIMIZATIONS
+# Caching and speed improvements for completion
 # ----------------------------------------------------------
 
 # Use cache for expensive completions
 zstyle ':completion:*'              use-cache          on
-zstyle ':completion:*'              cache-path         "${ZSH_COMPLETION_CACHE_DIR}/zcompcache"
+zstyle ':completion:*'              cache-path         "${Z_COMPLETION_CACHE_DIR}/zcompcache"
 
 # Accept exact matches even if ambiguous
 zstyle ':completion:*'              accept-exact       '*(N)'
@@ -267,8 +267,8 @@ zstyle ':completion:*'              old-menu           false
 zstyle ':completion:*'              rehash             true
 
 # ----------------------------------------------------------
-# * TOOL-SPECIFIC COMPLETIONS
-# ? External tool completions not covered by OMZ plugins
+# TOOL-SPECIFIC COMPLETIONS
+# External tool completions not covered by OMZ plugins
 # ----------------------------------------------------------
 
 # Helm (not in OMZ) - cached for faster startup

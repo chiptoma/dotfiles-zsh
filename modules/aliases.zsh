@@ -1,38 +1,38 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH ALIASES MODULE
-# ? Centralized alias definitions with modern tool replacements
-# ? Organized by category: Safety > Navigation > Files > Tools > Development
-# ? Inline comments after aliases are parsed by `als` for descriptions
+# ZSH ALIASES MODULE
+# Centralized alias definitions with modern tool replacements
+# Organized by category: Safety > Navigation > Files > Tools > Development
+# Inline comments after aliases are parsed by `als` for descriptions
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * MODULE CONFIGURATION
+# MODULE CONFIGURATION
 # ----------------------------------------------------------
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_ALIASES_LOADED} )) && return 0
-typeset -g _ZSH_ALIASES_LOADED=1
+(( ${+_Z_ALIASES_LOADED} )) && return 0
+typeset -g _Z_ALIASES_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_ALIASES_ENABLED:=true}        # Enable/disable aliases (default: true)
-: ${ZSH_ALIASES_MODERN_TOOLS:=true}   # Use modern tool replacements (default: true)
-: ${ZSH_ALIASES_SAFETY_PROMPTS:=true} # Add safety prompts to destructive commands (default: true)
+: ${Z_ALIASES_ENABLED:=true}        # Enable/disable aliases (default: true)
+: ${Z_ALIASES_MODERN_TOOLS:=true}   # Use modern tool replacements (default: true)
+: ${Z_ALIASES_SAFETY_PROMPTS:=true} # Add safety prompts to destructive commands (default: true)
 
 _log DEBUG "ZSH Aliases Module loading"
 
 # Exit early if aliases are disabled
-if [[ "$ZSH_ALIASES_ENABLED" != "true" ]]; then
+if [[ "$Z_ALIASES_ENABLED" != "true" ]]; then
     _log INFO "ZSH Aliases Module disabled, skipping"
     return 0
 fi
 
 # ----------------------------------------------------------
-# * SAFETY ALIASES
-# ? Interactive shell only - prevent accidental data loss
+# SAFETY ALIASES
+# Interactive shell only - prevent accidental data loss
 # ----------------------------------------------------------
 
-if [[ "$ZSH_ALIASES_SAFETY_PROMPTS" == "true" ]] && [[ $- == *i* ]]; then
+if [[ "$Z_ALIASES_SAFETY_PROMPTS" == "true" ]] && _is_interactive; then
     alias cp='cp -i'          # Copy with confirmation prompt
     alias mv='mv -i'          # Move with confirmation prompt
     alias rm='rm -i'          # Remove with confirmation prompt
@@ -47,8 +47,8 @@ if [[ "$ZSH_ALIASES_SAFETY_PROMPTS" == "true" ]] && [[ $- == *i* ]]; then
 fi
 
 # ----------------------------------------------------------
-# * NAVIGATION
-# ? Directory traversal and jumping
+# NAVIGATION
+# Directory traversal and jumping
 # ----------------------------------------------------------
 
 alias ..='cd ..'            # Go up 1 directory
@@ -62,9 +62,9 @@ alias dld='cd ~/Downloads'              # Jump to Downloads
 alias dsk='cd ~/Desktop'                # Jump to Desktop
 alias doc='cd ~/Documents'              # Jump to Documents
 
-alias mkcd='zsh_mkcd'       # Create directory and cd into it
-alias take='zsh_mkcd'       # Create directory and cd into it
-alias up='zsh_up'           # Navigate up N directories
+alias mkcd='z_mkcd'       # Create directory and cd into it
+alias take='z_mkcd'       # Create directory and cd into it
+alias up='z_up'           # Navigate up N directories
 
 alias d='dirs -v | head -10'  # Show directory stack
 alias p='pushd'               # Push directory to stack
@@ -75,8 +75,8 @@ if _has_cmd zoxide; then
 fi
 
 # ----------------------------------------------------------
-# * FILE OPERATIONS
-# ? File and directory manipulation
+# FILE OPERATIONS
+# File and directory manipulation
 # ----------------------------------------------------------
 
 alias md='mkdir -p'  # Create nested directories
@@ -89,47 +89,52 @@ alias c='clear'    # Clear terminal screen
 
 alias j='jobs -l'  # List background jobs with PIDs
 
-alias sizeof='zsh_sizeof'    # Show size of file/directory
-alias backup='zsh_backup'    # Create timestamped backup
-alias todos='zsh_todos'      # Find TODO/FIXME comments
-alias extract='zsh_extract'  # Universal archive extractor
-alias gitsize='zsh_gitsize'  # Show git-tracked file sizes
+alias sizeof='z_sizeof'    # Show size of file/directory
+alias backup='z_backup'    # Create timestamped backup
+alias todos='z_todos'      # Find TODO/FIXME comments
+alias extract='z_extract'  # Universal archive extractor
+alias gitsize='z_gitsize'  # Show git-tracked file sizes
 
 if ! type which >/dev/null 2>&1; then
     alias which='type -a'  # Show command locations
 fi
 
 # ----------------------------------------------------------
-# * DIRECTORY LISTING
-# ? Basic ls aliases (overridden by OMZ eza plugin if installed)
+# DIRECTORY LISTING
+# Basic ls aliases - only set as fallback when eza not available.
+# OMZ eza plugin handles ls/ll/la when eza is installed.
 # ----------------------------------------------------------
 
-# Platform-aware ls color
-if [[ "$OSTYPE" == darwin* ]]; then
-    alias ls='ls -G'        # macOS: BSD ls color flag
-else
-    alias ls='ls --color=auto'  # Linux: GNU ls color flag
+# Only define native ls aliases if eza is NOT available
+# (OMZ eza plugin sets these when eza exists)
+if ! _has_cmd eza; then
+    # Platform-aware ls color
+    if [[ "$OSTYPE" == darwin* ]]; then
+        alias ls='ls -G'        # macOS: BSD ls color flag
+    else
+        alias ls='ls --color=auto'  # Linux: GNU ls color flag
+    fi
+
+    alias l='ls -lah'   # List all, human-readable
+    alias ll='ls -lh'   # Long format, human-readable
+    alias la='ls -lAh'  # Long + hidden (except . ..)
 fi
 
-alias l='ls -lah'   # List all, human-readable
-alias ll='ls -lh'   # Long format, human-readable
-alias la='ls -lAh'  # Long + hidden (except . ..)
-
 # ----------------------------------------------------------
-# * FILE MANAGER
-# ? Yazi with cd-on-exit (function in lib/functions/file.zsh)
+# FILE MANAGER
+# Yazi with cd-on-exit (function in lib/functions/file.zsh)
 # ----------------------------------------------------------
 
 if _has_cmd yazi; then
-    alias y='zsh_yazi'  # Yazi file manager
+    alias y='z_yazi'  # Yazi file manager
 fi
 
 # ----------------------------------------------------------
-# * MODERN TOOL REPLACEMENTS
-# ? Rust-powered CLI alternatives
+# MODERN TOOL REPLACEMENTS
+# Rust-powered CLI alternatives
 # ----------------------------------------------------------
 
-if [[ "$ZSH_ALIASES_MODERN_TOOLS" == "true" ]]; then
+if [[ "$Z_ALIASES_MODERN_TOOLS" == "true" ]]; then
 
     # ─── REPLACEMENTS ───
     if _has_cmd eza; then
@@ -138,7 +143,7 @@ if [[ "$ZSH_ALIASES_MODERN_TOOLS" == "true" ]]; then
         alias ltd='eza --tree --level=3 --icons'      # Tree view (3 levels)
         alias ltda='eza --tree --level=3 -la --icons' # Tree view all (3 levels)
     elif _has_cmd tree; then
-        # ? Fallback to standard tree if eza not installed
+        # Fallback to standard tree if eza not installed
         alias lt='tree -L 2'                          # Tree view (2 levels)
         alias lta='tree -L 2 -a'                      # Tree view all (2 levels)
         alias ltd='tree -L 3'                         # Tree view (3 levels)
@@ -149,12 +154,24 @@ if [[ "$ZSH_ALIASES_MODERN_TOOLS" == "true" ]]; then
         alias cat='bat'                   # Better cat with syntax highlighting
         alias catp='bat --style=plain'    # Cat plain (no decorations)
         alias catn='bat --style=numbers'  # Cat with line numbers
+    elif _has_cmd batcat; then
+        # Ubuntu/Debian install bat as batcat
+        alias bat='batcat'
+        alias cat='batcat'
+        alias catp='batcat --style=plain'
+        alias catn='batcat --style=numbers'
     fi
 
     if _has_cmd fd; then
         alias find='fd'             # Modern find (fd)
         alias f='fd'                # Quick file search
         alias fde='fd --extension'  # Find by extension
+    elif _has_cmd fdfind; then
+        # Ubuntu/Debian install fd as fdfind
+        alias fd='fdfind'
+        alias find='fdfind'
+        alias f='fdfind'
+        alias fde='fdfind --extension'
     fi
 
     if _has_cmd dust; then
@@ -217,7 +234,6 @@ if [[ "$ZSH_ALIASES_MODERN_TOOLS" == "true" ]]; then
 
     if _has_cmd tldr; then
         alias manual='tldr'        # Quick command reference (tldr)
-        alias help='tldr'          # Quick command reference (tldr)
         alias tldru='tldr --update'  # Update tldr cache
     fi
 
@@ -230,7 +246,7 @@ if [[ "$ZSH_ALIASES_MODERN_TOOLS" == "true" ]]; then
 fi
 
 # ----------------------------------------------------------
-# * AI
+# AI
 # ----------------------------------------------------------
 
 if _has_cmd fabric-ai; then
@@ -238,7 +254,7 @@ if _has_cmd fabric-ai; then
 fi
 
 # ----------------------------------------------------------
-# * HOMEBREW (macOS)
+# HOMEBREW (macOS)
 # ----------------------------------------------------------
 
 if _has_cmd brew; then
@@ -251,7 +267,7 @@ if _has_cmd brew; then
 fi
 
 # ----------------------------------------------------------
-# * DEVELOPMENT - PYTHON
+# DEVELOPMENT - PYTHON
 # ----------------------------------------------------------
 
 if _has_cmd python3; then
@@ -269,10 +285,10 @@ elif ! _has_cmd pip && _has_cmd python3; then
     alias pip='python3 -m pip'  # Python package manager
 fi
 
-alias activate='zsh_activate_venv'  # Activate nearest virtualenv
+alias activate='z_activate_venv'  # Activate nearest virtualenv
 
 # ----------------------------------------------------------
-# * DEVELOPMENT - NODE.JS
+# DEVELOPMENT - NODE.JS
 # ----------------------------------------------------------
 
 if _has_cmd npm; then
@@ -315,9 +331,9 @@ if _has_cmd pnpm; then
 fi
 
 # ----------------------------------------------------------
-# * GIT (Intuitive First-Letter System)
-# ? Pattern: g + first letter of each word
-# ? Modifiers: a=all, s=staged, f=force, m=message
+# GIT (Intuitive First-Letter System)
+# Pattern: g + first letter of each word
+# Modifiers: a=all, s=staged, f=force, m=message
 # ----------------------------------------------------------
 
 if _has_cmd git; then
@@ -406,7 +422,7 @@ if _has_cmd git; then
     alias gt='git tag'                          # Git tag
     alias grm='git rm'                          # Git remove file
     alias gmv='git mv'                          # Git move/rename
-    alias gcleanup='zsh_git_cleanup'            # Delete merged branches
+    alias gcleanup='z_git_cleanup'            # Delete merged branches
 
     if _has_cmd lazygit; then
         alias lg='lazygit'  # Lazygit TUI
@@ -414,7 +430,7 @@ if _has_cmd git; then
 fi
 
 # ----------------------------------------------------------
-# * DOCKER
+# DOCKER
 # ----------------------------------------------------------
 
 if _has_cmd docker; then
@@ -424,10 +440,10 @@ if _has_cmd docker; then
     alias dimg='docker images'            # Docker list images
     alias dvol='docker volume ls'         # Docker list volumes
     alias dnet='docker network ls'        # Docker list networks
-    alias dstop='zsh_docker_stop_all'  # Docker stop all containers
+    alias dstop='z_docker_stop_all'  # Docker stop all containers
     alias dclean='read -k 1 "REPLY?Prune all stopped containers/images? [y/N] " && [[ $REPLY =~ ^[Yy]$ ]] && docker system prune -af'  # Docker prune everything
-    alias drmi='zsh_docker_rmi_dangling'  # Docker remove dangling images
-    alias drmv='zsh_docker_rmv_dangling'  # Docker remove dangling volumes
+    alias drmi='z_docker_rmi_dangling'  # Docker remove dangling images
+    alias drmv='z_docker_rmv_dangling'  # Docker remove dangling volumes
 
     if _has_cmd lazydocker; then
         alias lzd='lazydocker'      # Lazydocker TUI
@@ -439,8 +455,8 @@ if _has_cmd docker; then
 fi
 
 # ----------------------------------------------------------
-# * ANSIBLE
-# ? Infrastructure automation
+# ANSIBLE
+# Infrastructure automation
 # ----------------------------------------------------------
 
 if _has_cmd ansible; then
@@ -454,8 +470,8 @@ if _has_cmd ansible; then
 fi
 
 # ----------------------------------------------------------
-# * CLIPBOARD UTILITIES
-# ? OMZ copypath/copyfile plugins with shorter aliases
+# CLIPBOARD UTILITIES
+# OMZ copypath/copyfile plugins with shorter aliases
 # ----------------------------------------------------------
 
 if (( $+functions[copypath] )); then
@@ -466,7 +482,7 @@ if (( $+functions[copyfile] )); then
 fi
 
 # ----------------------------------------------------------
-# * SYSTEM & NETWORK
+# SYSTEM & NETWORK
 # ----------------------------------------------------------
 
 if _is_macos || _is_bsd; then
@@ -475,16 +491,16 @@ else
     alias psg='ps auxf | grep -v grep | grep -i'  # Search processes
 fi
 
-alias pskill='zsh_pskill'    # Kill process by name
+alias pskill='z_pskill'    # Kill process by name
 alias ka='killall'           # Kill all by name
-alias timeout='zsh_timeout'  # Run command with time limit
+alias timeout='z_timeout'  # Run command with time limit
 
-alias ports='zsh_show_ports'    # Show listening ports
-alias ip='zsh_publicip'         # Show public IP
-alias localip='zsh_localip'     # Show local IP
-alias speedtest='zsh_speedtest'  # Test internet speed
-alias portcheck='zsh_portcheck'  # Check if port is open
-alias waitport='zsh_waitport'    # Wait for port to open
+alias ports='z_show_ports'    # Show listening ports
+alias ip='z_publicip'         # Show public IP
+alias localip='z_localip'     # Show local IP
+alias speedtest='z_speedtest'  # Test internet speed
+alias portcheck='z_portcheck'  # Check if port is open
+alias waitport='z_waitport'    # Wait for port to open
 alias p8='ping -c 5 8.8.8.8'    # Quick connectivity test
 
 if (( $+aliases[top] )) && [[ "${aliases[top]}" == *btm* ]]; then
@@ -499,8 +515,8 @@ elif _has_cmd top; then
 fi
 
 # ----------------------------------------------------------
-# * MACOS SPECIFIC
-# ? Platform-specific aliases for macOS only
+# MACOS SPECIFIC
+# Platform-specific aliases for macOS only
 # ----------------------------------------------------------
 
 if _is_macos; then
@@ -515,7 +531,7 @@ if _is_macos; then
     alias flushdns='sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder'  # Flush DNS cache
     alias lock='pmset displaysleepnow'   # Lock screen
     alias afk='open -a ScreenSaverEngine'  # Start screensaver
-    alias killapp='zsh_killapp'          # Kill app by name
+    alias killapp='z_killapp'          # Kill app by name
 
     # Clipboard
     alias pbp='pbpaste'   # Paste from clipboard
@@ -524,26 +540,26 @@ if _is_macos; then
     # WiFi & Disk
     alias wifi-scan='airport -s'   # Scan WiFi networks
     alias wifi-info='airport -I'   # WiFi connection info
-    alias wifi-name='zsh_wifi_name'       # Current WiFi name
-    alias wifi-pass='zsh_wifi_password'   # WiFi password
+    alias wifi-name='z_wifi_name'       # Current WiFi name
+    alias wifi-pass='z_wifi_password'   # WiFi password
     alias eject='diskutil eject'   # Eject disk
 
     # Utilities
-    alias check-tools='zsh_macos_check_tools'  # Check recommended tools
+    alias check-tools='z_check_tools'  # Check recommended tools
 fi
 
 # ----------------------------------------------------------
-# * BSD SPECIFIC
-# ? Platform-specific aliases for BSD variants (FreeBSD, OpenBSD, etc.)
+# BSD SPECIFIC
+# Platform-specific aliases for BSD variants (FreeBSD, OpenBSD, etc.)
 # ----------------------------------------------------------
 
 if _is_bsd && ! _is_macos; then
-    alias check-tools='zsh_bsd_check_tools'  # Check recommended tools
+    alias check-tools='z_check_tools'  # Check recommended tools
 fi
 
 # ----------------------------------------------------------
-# * LINUX SPECIFIC
-# ? Platform-specific aliases for Linux only
+# LINUX SPECIFIC
+# Platform-specific aliases for Linux only
 # ----------------------------------------------------------
 
 if _is_linux; then
@@ -594,7 +610,7 @@ if _is_linux; then
     fi
 
     # Utilities
-    alias check-tools='zsh_linux_check_tools'  # Check recommended tools
+    alias check-tools='z_check_tools'  # Check recommended tools
 
     # WSL (Windows Subsystem for Linux)
     if _is_wsl; then
@@ -604,7 +620,7 @@ if _is_linux; then
 fi
 
 # ----------------------------------------------------------
-# * PRODUCTIVITY
+# PRODUCTIVITY
 # ----------------------------------------------------------
 
 alias zshrc='${EDITOR:-vi} "${ZDOTDIR}/.zshrc"'           # Edit .zshrc
@@ -619,17 +635,21 @@ alias reload='exec zsh'                          # Restart shell
 alias src='source "${ZDOTDIR}/.zshrc"'           # Reload .zshrc
 
 # ─── ZSH CONFIG UPDATE ───
-alias zupdate='zsh_update'     # Update ZSH config to latest
-alias zversion='zsh_version'   # Show ZSH config version
+alias zupdate='z_update'     # Update ZSH config to latest
+alias zversion='z_version'   # Show ZSH config version
 alias zcheck='${ZDOTDIR}/install.sh --check'  # Verify installation
+alias zhealth='z_health'      # ZSH configuration health check
+alias zhelp='z_help'          # Quick reference guide
+alias zstatus='z_status'      # Show current configuration status
+alias zbench='z_benchmark'   # Benchmark ZSH startup time
 
 alias now='date +"%Y-%m-%d %H:%M:%S"'  # Current datetime
 alias nowdate='date +"%Y-%m-%d"'       # Current date
 alias nowtime='date +"%H:%M:%S"'       # Current time
 alias week='date +%V'                  # Current week number
 
-alias calc='noglob zsh_calc'  # Calculator (noglob prevents * expansion)
-alias weather='zsh_weather'  # Weather forecast
+alias calc='noglob z_calc'  # Calculator (noglob prevents * expansion)
+alias weather='z_weather'  # Weather forecast
 
 # ─── UTILITIES ───
 alias uuid='uuidgen | tr "[:upper:]" "[:lower:]"'  # Generate lowercase UUID
@@ -641,8 +661,8 @@ alias hosts='sudo ${EDITOR:-vi} /etc/hosts'  # Edit hosts file
 alias sshconfig='${EDITOR:-vi} ~/.ssh/config'  # Edit SSH config
 
 # ----------------------------------------------------------
-# * SUFFIX ALIASES
-# ? Auto-open files by extension
+# SUFFIX ALIASES
+# Auto-open files by extension
 # ----------------------------------------------------------
 
 if [[ -n "${EDITOR}" ]] || _has_cmd vim || _has_cmd vi; then
@@ -665,8 +685,8 @@ if ! _has_cmd extract; then
 fi
 
 # ----------------------------------------------------------
-# * GLOBAL ALIASES
-# ? Expand anywhere in command line
+# GLOBAL ALIASES
+# Expand anywhere in command line
 # ----------------------------------------------------------
 
 alias -g G='| grep'   # Pipe to grep
@@ -689,18 +709,18 @@ if _has_cmd jq; then
 fi
 
 # ----------------------------------------------------------
-# * LAZY LOADING STATUS
+# LAZY LOADING STATUS
 # ----------------------------------------------------------
 
-alias lazy='zsh_lazy_status'   # Show lazy loading status
+alias lazy='z_lazy_status'   # Show lazy loading status
 
 # ----------------------------------------------------------
-# * INTROSPECTION
-# ? Interactive alias browser with fzf TUI (includes search)
+# INTROSPECTION
+# Interactive alias browser with fzf TUI (includes search)
 # ----------------------------------------------------------
 
-alias als='zsh_alias_browser'      # Interactive alias browser
-alias aliases='zsh_alias_browser'  # Interactive alias browser
+alias als='z_alias_browser'      # Interactive alias browser
+alias aliases='z_alias_browser'  # Interactive alias browser
 
 # ----------------------------------------------------------
 _log DEBUG "ZSH Aliases Module loaded successfully"

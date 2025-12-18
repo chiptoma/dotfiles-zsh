@@ -1,16 +1,16 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH UTILS LIBRARY
-# ? Common utility functions used by all modules.
-# ? All functions use _ prefix (internal helpers).
+# ZSH UTILS LIBRARY
+# Common utility functions used by all modules.
+# All functions use _ prefix (internal helpers).
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_UTILS_LOADED} )) && return 0
-typeset -g _ZSH_UTILS_LOADED=1
+(( ${+_Z_UTILS_LOADED} )) && return 0
+typeset -g _Z_UTILS_LOADED=1
 
 # ----------------------------------------------------------
-# * COMMAND CHECKS
+# COMMAND CHECKS
 # ----------------------------------------------------------
 
 # Check if a command exists
@@ -32,8 +32,8 @@ _require_cmd() {
 }
 
 # ----------------------------------------------------------
-# * ENVIRONMENT DETECTION
-# ? Non-platform-specific environment checks
+# ENVIRONMENT DETECTION
+# Non-platform-specific environment checks
 # ----------------------------------------------------------
 
 # Check if in an SSH session
@@ -62,7 +62,7 @@ _is_login_shell() {
 }
 
 # ----------------------------------------------------------
-# * FILE SYSTEM HELPERS
+# FILE SYSTEM HELPERS
 # ----------------------------------------------------------
 
 # Ensure a directory exists, create if not
@@ -71,20 +71,25 @@ _is_login_shell() {
 #   directory: Path to directory
 #   permissions: Optional chmod permissions (e.g., 700)
 # Returns: 0 on success, 1 on failure
+# Uses mkdir -m for atomic permission setting (avoids race condition)
 _ensure_dir() {
     local dir="$1"
     local perms="${2:-}"
 
     if [[ ! -d "$dir" ]]; then
-        if ! mkdir -p "$dir" 2>/dev/null; then
-            _log ERROR "Failed to create directory: $dir"
-            return 1
-        fi
-        _log DEBUG "Created directory: $dir"
-
         if [[ -n "$perms" ]]; then
-            chmod "$perms" "$dir" 2>/dev/null
-            _log DEBUG "Set permissions $perms on: $dir"
+            # Atomic: create with permissions in single operation
+            if ! mkdir -p -m "$perms" "$dir" 2>/dev/null; then
+                _log ERROR "Failed to create directory: $dir"
+                return 1
+            fi
+            _log DEBUG "Created directory with perms $perms: $dir"
+        else
+            if ! mkdir -p "$dir" 2>/dev/null; then
+                _log ERROR "Failed to create directory: $dir"
+                return 1
+            fi
+            _log DEBUG "Created directory: $dir"
         fi
     fi
     return 0
@@ -115,7 +120,7 @@ _ensure_file() {
 }
 
 # ----------------------------------------------------------
-# * STRING UTILITIES
+# STRING UTILITIES
 # ----------------------------------------------------------
 
 # Check if a string is empty
@@ -129,7 +134,26 @@ _is_not_empty() {
 }
 
 # ----------------------------------------------------------
-# * CACHING HELPERS
+# COMMAND VALIDATION
+# Validates command names before use in eval to prevent injection.
+# ----------------------------------------------------------
+
+# Validate command name for safe use in eval
+# Usage: _validate_safe_cmd <cmd_name>
+# Returns: 0 if safe, 1 if contains unsafe characters
+# Only allows alphanumeric, underscore, and hyphen
+_validate_safe_cmd() {
+    local cmd="$1"
+    # Allow only safe characters: a-z, A-Z, 0-9, underscore, hyphen
+    if [[ "$cmd" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        return 0
+    fi
+    _log ERROR "Unsafe characters in command: $cmd"
+    return 1
+}
+
+# ----------------------------------------------------------
+# CACHING HELPERS
 # ----------------------------------------------------------
 
 # Cache and source the output of a command
@@ -140,17 +164,24 @@ _is_not_empty() {
 #   binary: Binary to check for updates (defaults to name)
 # Example: _cache_eval "direnv" "direnv hook zsh" "direnv"
 #
-# ! SECURITY WARNING - READ BEFORE MODIFYING:
-# ! This function uses eval to execute the command string.
-# ! Only call with TRUSTED, HARDCODED command strings.
-# ! NEVER pass user input or external data as the command parameter.
-# ! Current trusted callers: direnv, atuin, starship, helm completion
+# SECURITY WARNING - READ BEFORE MODIFYING:
+# This function uses eval to execute the command string.
+# Only call with TRUSTED, HARDCODED command strings.
+# NEVER pass user input or external data as the command parameter.
+# Current trusted callers: direnv, atuin, starship, helm completion
 _cache_eval() {
     local name="$1"
     local cmd="$2"
     local binary="${3:-$1}"
     local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
     local cache_file="${cache_dir}/${name}.zsh"
+
+    # Allowlist of known-safe command prefixes (warn if not in list)
+    local -a _CACHE_EVAL_ALLOWLIST=(direnv atuin starship helm zoxide pyenv rbenv brew nvm)
+    local cmd_name="${cmd%% *}"
+    if (( ! ${_CACHE_EVAL_ALLOWLIST[(Ie)$cmd_name]} )); then
+        _log WARN "_cache_eval: Command '$cmd_name' not in allowlist (proceeding anyway)"
+    fi
 
     # Ensure cache directory exists
     _ensure_dir "$cache_dir"
@@ -173,11 +204,11 @@ _cache_eval() {
 }
 
 # ----------------------------------------------------------
-# * SAFE SOURCING
+# SAFE SOURCING
 # ----------------------------------------------------------
 
 # Configuration for file ownership verification (disabled by default)
-: ${ZSH_VERIFY_FILE_OWNERSHIP:=false}
+: ${Z_VERIFY_FILE_OWNERSHIP:=false}
 
 # Safely source a file with optional ownership verification
 # Usage: _safe_source <file>
@@ -186,7 +217,7 @@ _safe_source() {
     local file="$1"
     [[ -r "$file" ]] || return 1
 
-    if [[ "$ZSH_VERIFY_FILE_OWNERSHIP" == "true" ]]; then
+    if [[ "$Z_VERIFY_FILE_OWNERSHIP" == "true" ]]; then
         local owner
         # Platform-appropriate stat (detect via $OSTYPE since platform libs load after utils)
         if [[ "$OSTYPE" == darwin* ]] || [[ "$OSTYPE" == freebsd* ]] || [[ "$OSTYPE" == openbsd* ]]; then
@@ -204,7 +235,7 @@ _safe_source() {
 }
 
 # ----------------------------------------------------------
-# * DEPENDENCY CHECKS
+# DEPENDENCY CHECKS
 # ----------------------------------------------------------
 
 # Check if Oh-My-Zsh is installed
@@ -219,27 +250,27 @@ _require_omz() {
 }
 
 # ----------------------------------------------------------
-# * HOOK SYSTEM
-# ? Allows modules to register callbacks for deferred execution.
-# ? POST_INTERACTIVE hooks run at end of .zshrc (after /etc/zshrc).
+# HOOK SYSTEM
+# Allows modules to register callbacks for deferred execution.
+# POST_INTERACTIVE hooks run at end of .zshrc (after /etc/zshrc).
 # ----------------------------------------------------------
 
 # Global hook arrays - modules register functions to these
-typeset -ga ZSH_POST_INTERACTIVE_HOOKS=()
+typeset -ga Z_POST_INTERACTIVE_HOOKS=()
 
 # Run all registered post-interactive hooks
 # Usage: _run_post_interactive_hooks
 # Called at end of .zshrc after all modules loaded
 _run_post_interactive_hooks() {
-    if (( ${#ZSH_POST_INTERACTIVE_HOOKS[@]} == 0 )); then
+    if (( ${#Z_POST_INTERACTIVE_HOOKS[@]} == 0 )); then
         _log DEBUG "No post-interactive hooks registered"
         return 0
     fi
 
-    _log DEBUG "Running ${#ZSH_POST_INTERACTIVE_HOOKS[@]} post-interactive hook(s)..."
+    _log DEBUG "Running ${#Z_POST_INTERACTIVE_HOOKS[@]} post-interactive hook(s)..."
 
     local hook_func
-    for hook_func in "${ZSH_POST_INTERACTIVE_HOOKS[@]}"; do
+    for hook_func in "${Z_POST_INTERACTIVE_HOOKS[@]}"; do
         if (( $+functions[$hook_func] )); then
             _log DEBUG "  → $hook_func"
             "$hook_func"
@@ -250,7 +281,7 @@ _run_post_interactive_hooks() {
 }
 
 # ----------------------------------------------------------
-# * LOGGING INTEGRATION
+# LOGGING INTEGRATION
 # ----------------------------------------------------------
 
 # Ensure _log function exists (fallback if logging module not loaded)

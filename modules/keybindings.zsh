@@ -1,29 +1,29 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH KEYBINDINGS MODULE
-# ? Final keybinding configuration - loads LAST to override plugin defaults
-# ? Must be sourced after all plugins (OMZ, fzf, etc.) to take effect
+# ZSH KEYBINDINGS MODULE
+# Final keybinding configuration - loads LAST to override plugin defaults
+# Must be sourced after all plugins (OMZ, fzf, etc.) to take effect
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_KEYBINDINGS_LOADED} )) && return 0
-typeset -g _ZSH_KEYBINDINGS_LOADED=1
+(( ${+_Z_KEYBINDINGS_LOADED} )) && return 0
+typeset -g _Z_KEYBINDINGS_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_KEYBINDINGS_ENABLED:=true}    # Enable/disable keybindings (default: true)
+: ${Z_KEYBINDINGS_ENABLED:=true}    # Enable/disable keybindings (default: true)
 
 _log DEBUG "ZSH Keybindings Module loading"
 
 # Exit early if keybindings are disabled
-if [[ "$ZSH_KEYBINDINGS_ENABLED" != "true" ]]; then
+if [[ "$Z_KEYBINDINGS_ENABLED" != "true" ]]; then
     _log INFO "ZSH Keybindings Module disabled, skipping"
     return 0
 fi
 
 # ----------------------------------------------------------
-# * ATUIN HISTORY SEARCH
-# ? All atuin keybindings are centralized here
-# ? environment.zsh loads widgets only (--disable-up-arrow)
+# ATUIN HISTORY SEARCH
+# All atuin keybindings are centralized here
+# environment.zsh loads widgets only (--disable-up-arrow)
 # ----------------------------------------------------------
 
 if _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
@@ -48,8 +48,8 @@ if _has_cmd atuin && (( $+widgets[atuin-up-search] )); then
 fi
 
 # ----------------------------------------------------------
-# * NAVIGATION HELPERS
-# ? Common navigation keybindings
+# NAVIGATION HELPERS
+# Common navigation keybindings
 # ----------------------------------------------------------
 
 # Alt+Up/Down for directory history (if dirhistory plugin loaded)
@@ -61,7 +61,7 @@ if (( $+widgets[dirhistory_zle_dirhistory_up] )); then
 fi
 
 # ----------------------------------------------------------
-# * EDITING HELPERS
+# EDITING HELPERS
 # ----------------------------------------------------------
 
 # Ctrl+Backspace to delete word (if not already bound)

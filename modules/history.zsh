@@ -1,36 +1,36 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH HISTORY MODULE
-# ? Advanced history management with security filtering and search.
-# ? Provides backup, cleanup, stats, and interactive search via fzf.
+# ZSH HISTORY MODULE
+# Advanced history management with security filtering and search.
+# Provides backup, cleanup, stats, and interactive search via fzf.
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * MODULE CONFIGURATION
+# MODULE CONFIGURATION
 # ----------------------------------------------------------
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_HISTORY_LOADED} )) && return 0
-typeset -g _ZSH_HISTORY_LOADED=1
+(( ${+_Z_HISTORY_LOADED} )) && return 0
+typeset -g _Z_HISTORY_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_HISTORY_ENABLED:=true}          # Enable/disable history system
-: ${ZSH_HISTORY_SIZE:=100000}           # Commands to keep in memory
-: ${ZSH_HISTORY_SAVE_SIZE:=100000}      # Commands to save to file
-: ${ZSH_HISTORY_SECURITY_FILTER:=true}  # Filter sensitive commands
-: ${ZSH_HISTORY_LARGE_FILE_THRESHOLD:=500000}  # Lines before showing "large file" warning
+: ${Z_HISTORY_ENABLED:=true}          # Enable/disable history system
+: ${Z_HISTORY_SIZE:=100000}           # Commands to keep in memory
+: ${Z_HISTORY_SAVE_SIZE:=100000}      # Commands to save to file
+: ${Z_HISTORY_SECURITY_FILTER:=true}  # Filter sensitive commands
+: ${Z_HISTORY_LARGE_FILE_THRESHOLD:=500000}  # Lines before showing "large file" warning
 
 _log DEBUG "ZSH History Module loading"
 
 # Exit early if history is disabled
-if [[ "$ZSH_HISTORY_ENABLED" != "true" ]]; then
+if [[ "$Z_HISTORY_ENABLED" != "true" ]]; then
     _log INFO "ZSH History Module disabled, skipping..."
     return 0
 fi
 
 # ----------------------------------------------------------
-# * SHELL OPTIONS
-# ? History-related shell behavior settings
+# SHELL OPTIONS
+# History-related shell behavior settings
 # ----------------------------------------------------------
 
 setopt APPEND_HISTORY          # Append history to file instead of overwriting
@@ -44,19 +44,19 @@ setopt HIST_FIND_NO_DUPS       # Don't display duplicates when searching
 setopt HIST_SAVE_NO_DUPS       # Don't write duplicate entries to history file
 
 # ----------------------------------------------------------
-# * HISTORY STORAGE
-# ? Configure history file location and size
+# HISTORY STORAGE
+# Configure history file location and size
 # ----------------------------------------------------------
 
-export ZSH_HISTORY_DIR="${ZSH_STATE_HOME}/history"
-export HISTFILE="${ZSH_HISTORY_DIR}/plain"
-export HISTSIZE="$ZSH_HISTORY_SIZE"
-export SAVEHIST="$ZSH_HISTORY_SAVE_SIZE"
+export Z_HISTORY_DIR="${ZSH_STATE_HOME}/history"
+export HISTFILE="${Z_HISTORY_DIR}/plain"
+export HISTSIZE="$Z_HISTORY_SIZE"
+export SAVEHIST="$Z_HISTORY_SAVE_SIZE"
 
 _log DEBUG "Configuring history storage..."
 
 # Ensure the history directory exists with correct permissions
-_ensure_dir "$ZSH_HISTORY_DIR" 700
+_ensure_dir "$Z_HISTORY_DIR" 700
 
 # Ensure the history file exists with correct permissions
 if [[ -f "$HISTFILE" ]]; then
@@ -66,11 +66,11 @@ else
 fi
 
 # ----------------------------------------------------------
-# * SECURITY FILTER PATTERNS
-# ? Commands matching these patterns are excluded from history
+# SECURITY FILTER PATTERNS
+# Commands matching these patterns are excluded from history
 # ----------------------------------------------------------
 
-typeset -gra ZSH_HISTORY_IGNORE_PATTERNS=(
+typeset -gra Z_HISTORY_IGNORE_PATTERNS=(
   # Secrets with assignment context (more specific to avoid false positives)
   '*=*api_key*'
   '*=*apikey*'
@@ -127,11 +127,32 @@ typeset -gra ZSH_HISTORY_IGNORE_PATTERNS=(
   'wget *--http-user*'
   'wget *--password*'
 
+  # URLs with embedded credentials (user:pass@host)
+  'curl *://*:*@*'
+  'wget *://*:*@*'
+
   # Git with embedded credentials
   'git clone *://*:*@*'
   'git push *://*:*@*'
   'git pull *://*:*@*'
   'gh auth login*'
+
+  # Database CLI with inline passwords
+  'mysql *-p*'
+  'psql *password=*'
+  'PGPASSWORD=*'
+
+  # Platform CLI secrets
+  'heroku config:set *'
+  'heroku config:add *'
+  'netlify env:set *'
+  'vercel env add *'
+
+  # Env var prefix patterns (VAR=val command)
+  '*_TOKEN=* *'
+  '*_KEY=* *'
+  '*_SECRET=* *'
+  '*_PASSWORD=* *'
 
   # Files containing secrets
   '*secrets.yaml*'
@@ -140,8 +161,8 @@ typeset -gra ZSH_HISTORY_IGNORE_PATTERNS=(
 )
 
 # ----------------------------------------------------------
-# * HELPER FUNCTIONS
-# ? Internal utilities for history management
+# HELPER FUNCTIONS
+# Internal utilities for history management
 # ----------------------------------------------------------
 
 _should_ignore_history_cmd() {
@@ -149,7 +170,7 @@ _should_ignore_history_cmd() {
   [[ -z "$cmd" ]] && return 1
 
   local pattern
-  for pattern in "${ZSH_HISTORY_IGNORE_PATTERNS[@]}"; do
+  for pattern in "${Z_HISTORY_IGNORE_PATTERNS[@]}"; do
     if [[ "$cmd" == ${~pattern} ]]; then
       return 0  # Matches pattern - should be ignored
     fi
@@ -195,8 +216,8 @@ _history_search_interactive_widget() {
 }
 
 # ----------------------------------------------------------
-# * PUBLIC FUNCTIONS
-# ? User-facing history management commands
+# PUBLIC FUNCTIONS
+# User-facing history management commands
 # ----------------------------------------------------------
 
 history_backup() {
@@ -303,7 +324,7 @@ history_clean() {
         return 1
     fi
 
-    # ? Preserve existing traps before setting cleanup trap
+    # Preserve existing traps before setting cleanup trap
     local _old_trap_exit _old_trap_int _old_trap_term
     _old_trap_exit=$(trap -p EXIT 2>/dev/null)
     _old_trap_int=$(trap -p INT 2>/dev/null)
@@ -326,7 +347,7 @@ history_clean() {
     original_lines=$(wc -l < "$HISTFILE")
 
     # Warn about large history files (may take a moment)
-    if (( original_lines > ZSH_HISTORY_LARGE_FILE_THRESHOLD )); then
+    if (( original_lines > Z_HISTORY_LARGE_FILE_THRESHOLD )); then
         print -P "%F{yellow}Warning:%f Large history file ($original_lines lines). This may take a moment..."
     fi
 
@@ -336,10 +357,10 @@ history_clean() {
         return 1
     fi
 
-    # 3. Build a single regex for awk from ZSH_HISTORY_IGNORE_PATTERNS
+    # 3. Build a single regex for awk from Z_HISTORY_IGNORE_PATTERNS
     local awk_patterns=()
     local pattern
-    for pattern in "${ZSH_HISTORY_IGNORE_PATTERNS[@]}"; do
+    for pattern in "${Z_HISTORY_IGNORE_PATTERNS[@]}"; do
         # Convert zsh glob patterns to awk-compatible extended regex
         # This is a basic conversion; it changes '*' to '.*'
         awk_patterns+=( "${pattern//\*/.*}" )
@@ -554,8 +575,8 @@ history_search_interactive() {
 }
 
 # ----------------------------------------------------------
-# * ZSH HOOKS
-# ? Hook into ZSH history system for security filtering
+# ZSH HOOKS
+# Hook into ZSH history system for security filtering
 # ----------------------------------------------------------
 
 function zshaddhistory() {
@@ -564,7 +585,7 @@ function zshaddhistory() {
   cmd="${cmd%%[[:space:]]#}"
 
   # Only filter if security filter is enabled
-  if [[ "$ZSH_HISTORY_SECURITY_FILTER" == "true" ]]; then
+  if [[ "$Z_HISTORY_SECURITY_FILTER" == "true" ]]; then
     _should_ignore_history_cmd "$cmd" && return 1
   fi
 
@@ -585,15 +606,15 @@ if _has_cmd fzf; then
     # FZF-powered alias
     alias h="history_search_interactive"
 else
-    # ? fzf not installed - provide useful fallback with clear message
+    # fzf not installed - provide useful fallback with clear message
     _log WARN "fzf not installed - history search limited. Install: brew install fzf"
     alias h="history -100"                # Fallback: show last 100 commands
-    # ? Alternative aliases still work: hl (pager), hs (grep)
+    # Alternative aliases still work: hl (pager), hs (grep)
 fi
 
 # ----------------------------------------------------------
-# * ALIASES
-# ? Convenient shortcuts for history operations
+# ALIASES
+# Convenient shortcuts for history operations
 # ----------------------------------------------------------
 
 # History search and display (non-fzf)

@@ -1,51 +1,24 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH LINUX PLATFORM LIBRARY
-# ? Linux-specific detection, paths, and helpers.
-# ? Only loaded when running on Linux systems.
+# ZSH LINUX PLATFORM LIBRARY
+# Linux-specific environment, paths, and helpers.
+# Only loaded when running on Linux (detect.zsh handles detection).
 # ==============================================================================
 
-# ----------------------------------------------------------
-# * PLATFORM DETECTION
-# ? Must be defined early - used by guard below
-# ----------------------------------------------------------
-
-_is_linux() {
-    [[ "$OSTYPE" == linux* ]]
-}
-
-_is_wsl() {
-    [[ -f /proc/version ]] && grep -qi microsoft /proc/version 2>/dev/null
-}
-
-# ----------------------------------------------------------
-# * CROSS-PLATFORM STUBS
-# ? Define macOS functions that return false on Linux.
-# ----------------------------------------------------------
-
-_is_macos() { return 1 }
-_is_bsd() { return 1 }
-_is_apple_silicon() { return 1 }
-
-# Skip if not Linux
-_is_linux || return 0
-
 # Idempotent guard
-(( ${+_ZSH_PLATFORM_LINUX_LOADED} )) && return 0
-typeset -g _ZSH_PLATFORM_LINUX_LOADED=1
+(( ${+_Z_PLATFORM_LINUX_LOADED} )) && return 0
+typeset -g _Z_PLATFORM_LINUX_LOADED=1
 
 _log DEBUG "ZSH Linux Platform Library loading"
 
 # ----------------------------------------------------------
-# * LINUX DETECTION HELPERS
+# LINUX DISTRO DETECTION
 # ----------------------------------------------------------
 
 _get_linux_distro() {
     if [[ -f /etc/os-release ]]; then
-        # ? Safe parsing: extract ID= line without executing file
         local id_line
         id_line=$(grep -E '^ID=' /etc/os-release 2>/dev/null | head -1)
-        # ? Remove 'ID=' prefix and any quotes
         local id="${id_line#ID=}"
         id="${id//\"/}"
         echo "${id:-unknown}"
@@ -63,8 +36,8 @@ _get_linux_distro() {
 }
 
 _get_linux_family() {
-    local distro
-    distro=$(_get_linux_distro)
+    # Use cached distro if available
+    local distro="${_CACHED_LINUX_DISTRO:-$(_get_linux_distro)}"
 
     case "$distro" in
         ubuntu|debian|linuxmint|pop|elementary|zorin|kali) echo "debian" ;;
@@ -78,13 +51,23 @@ _get_linux_family() {
 }
 
 # ----------------------------------------------------------
-# * LINUX ENVIRONMENT
+# LINUX ENVIRONMENT
+# Internal caches used by _get_package_manager()
 # ----------------------------------------------------------
 
-export LINUX_DISTRO="${LINUX_DISTRO:-$(_get_linux_distro)}"
-export LINUX_FAMILY="${LINUX_FAMILY:-$(_get_linux_family)}"
+typeset -g _CACHED_LINUX_DISTRO="${_CACHED_LINUX_DISTRO:-$(_get_linux_distro)}"
+typeset -g _CACHED_LINUX_FAMILY="${_CACHED_LINUX_FAMILY:-$(_get_linux_family)}"
 
-# Detect display server
+# ----------------------------------------------------------
+# LINUX EXPORTS
+# Exported for user scripts and diagnostics (zsh_status)
+# ----------------------------------------------------------
+
+export LINUX_DISTRO="$_CACHED_LINUX_DISTRO"
+export LINUX_FAMILY="$_CACHED_LINUX_FAMILY"
+export LINUX_ARCH="${LINUX_ARCH:-$_CACHED_UNAME_M}"
+
+# Detect display server (Wayland/X11/none)
 if [[ -n "$WAYLAND_DISPLAY" ]]; then
     export DISPLAY_SERVER="wayland"
 elif [[ -n "$DISPLAY" ]]; then
@@ -109,7 +92,7 @@ if [[ -z "$DBUS_SESSION_BUS_ADDRESS" && -S "$XDG_RUNTIME_DIR/bus" ]]; then
 fi
 
 # ----------------------------------------------------------
-# * LINUX-SPECIFIC PATHS
+# LINUX-SPECIFIC PATHS
 # ----------------------------------------------------------
 
 # Snap packages
@@ -141,34 +124,49 @@ fi
 [[ -d /usr/games ]] && path=($path /usr/games)
 
 # ----------------------------------------------------------
-# * PACKAGE MANAGER DETECTION
+# PACKAGE MANAGER DETECTION
 # ----------------------------------------------------------
 
+# Cache for package manager (set on first call)
+typeset -g _CACHED_LINUX_PKG_MANAGER=""
+
 _get_package_manager() {
-    case "$LINUX_FAMILY" in
-        debian) _has_cmd apt && echo "apt" || echo "apt-get" ;;
+    # Return cached value if available
+    if [[ -n "$_CACHED_LINUX_PKG_MANAGER" ]]; then
+        echo "$_CACHED_LINUX_PKG_MANAGER"
+        return 0
+    fi
+
+    local pm=""
+    case "$_CACHED_LINUX_FAMILY" in
+        debian) _has_cmd apt && pm="apt" || pm="apt-get" ;;
         rhel)
-            if _has_cmd dnf; then echo "dnf"
-            elif _has_cmd yum; then echo "yum"
-            else echo "none"; fi ;;
-        arch) _has_cmd pacman && echo "pacman" || echo "none" ;;
-        alpine) _has_cmd apk && echo "apk" || echo "none" ;;
-        suse) _has_cmd zypper && echo "zypper" || echo "none" ;;
-        nix) _has_cmd nix-env && echo "nix" || echo "none" ;;
+            if _has_cmd dnf; then pm="dnf"
+            elif _has_cmd yum; then pm="yum"
+            else pm="none"; fi ;;
+        arch) _has_cmd pacman && pm="pacman" || pm="none" ;;
+        alpine) _has_cmd apk && pm="apk" || pm="none" ;;
+        suse) _has_cmd zypper && pm="zypper" || pm="none" ;;
+        nix) _has_cmd nix-env && pm="nix" || pm="none" ;;
         *)
-            if _has_cmd apt; then echo "apt"
-            elif _has_cmd dnf; then echo "dnf"
-            elif _has_cmd pacman; then echo "pacman"
-            elif _has_cmd apk; then echo "apk"
-            elif _has_cmd zypper; then echo "zypper"
-            elif _has_cmd brew; then echo "brew"
-            else echo "none"; fi ;;
+            if _has_cmd apt; then pm="apt"
+            elif _has_cmd dnf; then pm="dnf"
+            elif _has_cmd pacman; then pm="pacman"
+            elif _has_cmd apk; then pm="apk"
+            elif _has_cmd zypper; then pm="zypper"
+            elif _has_cmd brew; then pm="brew"
+            else pm="none"; fi ;;
     esac
+
+    # Cache the result
+    _CACHED_LINUX_PKG_MANAGER="$pm"
+    echo "$pm"
 }
 
 _get_install_cmd() {
     local tool="$1"
-    case "$(_get_package_manager)" in
+    local pm="$(_get_package_manager)"
+    case "$pm" in
         apt|apt-get) echo "sudo apt install $tool" ;;
         dnf) echo "sudo dnf install $tool" ;;
         yum) echo "sudo yum install $tool" ;;
@@ -181,8 +179,7 @@ _get_install_cmd() {
 }
 
 # ----------------------------------------------------------
-# * CLIPBOARD COMMAND
-# ? Used by modules/history.zsh
+# CLIPBOARD COMMAND
 # ----------------------------------------------------------
 
 _get_clipboard_cmd() {
@@ -200,39 +197,7 @@ _get_clipboard_cmd() {
 }
 
 # ----------------------------------------------------------
-# * UTILITY FUNCTIONS
-# ? Used via aliases in modules/aliases.zsh
-# ----------------------------------------------------------
-
-zsh_linux_check_tools() {
-    local -a missing=()
-    local -a tools=(
-        "fzf:Fuzzy finder"
-        "ripgrep:Fast grep (rg)"
-        "fd:Modern find"
-        "bat:Better cat"
-        "eza:Modern ls"
-        "zoxide:Smart cd"
-        "starship:Prompt"
-    )
-
-    echo "Checking tools..."
-    for entry in "${tools[@]}"; do
-        local cmd="${entry%%:*}" desc="${entry#*:}"
-        [[ "$cmd" == "ripgrep" ]] && cmd="rg"
-        if _has_cmd "$cmd"; then
-            echo "  ✓ ${entry%%:*} - $desc"
-        else
-            echo "  ✗ ${entry%%:*} - $desc"
-            missing+=("${entry%%:*}")
-        fi
-    done
-
-    (( ${#missing[@]} )) && echo "\nInstall: $(_get_install_cmd "${missing[*]}")"
-}
-
-# ----------------------------------------------------------
-# * WSL-SPECIFIC CONFIGURATION
+# WSL-SPECIFIC CONFIGURATION
 # ----------------------------------------------------------
 
 if _is_wsl; then
@@ -240,8 +205,11 @@ if _is_wsl; then
     export BROWSER="wslview"
     export WINHOME="/mnt/c/Users/${USER}"
 
-    if [[ -z "$WSL_INTEROP" && -e /run/WSL/* ]]; then
-        export WSL_INTEROP="$(ls /run/WSL/* 2>/dev/null | head -1)"
+    # Fix: Check directory exists first, then get socket (glob fails with multiple files)
+    if [[ -z "$WSL_INTEROP" && -d /run/WSL ]]; then
+        local wsl_socket
+        wsl_socket=$(ls /run/WSL/* 2>/dev/null | head -1)
+        [[ -n "$wsl_socket" ]] && export WSL_INTEROP="$wsl_socket"
     fi
 fi
 

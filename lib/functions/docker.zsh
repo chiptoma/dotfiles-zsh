@@ -1,32 +1,33 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH DOCKER FUNCTIONS LIBRARY
-# ? Docker container and image management utilities.
+# ZSH DOCKER FUNCTIONS LIBRARY
+# Docker container and image management utilities.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_DOCKER_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_DOCKER_LOADED=1
+(( ${+_Z_FUNCTIONS_DOCKER_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_DOCKER_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_DOCKER_ENABLED:=true}  # Enable/disable Docker functions (default: true)
+: ${Z_FUNCTIONS_DOCKER_ENABLED:=true}  # Enable/disable Docker functions (default: true)
 
 # Exit early if Docker functions are disabled
-[[ "$ZSH_FUNCTIONS_DOCKER_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_DOCKER_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * DOCKER CONTAINER MANAGEMENT
+# DOCKER CONTAINER MANAGEMENT
 # ----------------------------------------------------------
 
 # Stop all running Docker containers
-# Usage: zsh_docker_stop_all
-zsh_docker_stop_all() {
+# Usage: z_docker_stop_all
+z_docker_stop_all() {
     if ! _has_cmd docker; then
-        echo "Error: docker command not found" >&2
+        _ui_error "docker command not found"
+        _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
         return 1
     fi
 
-    # ? Filter empty entries: ${(f)...} on empty string creates ("") not ()
+    # Filter empty entries: ${(f)...} on empty string creates ("") not ()
     local -a containers=("${(@f)$(docker ps -q)}")
     containers=("${(@)containers:#}")  # Remove empty elements
     if (( ${#containers} )); then
@@ -43,18 +44,19 @@ zsh_docker_stop_all() {
 }
 
 # ----------------------------------------------------------
-# * DOCKER IMAGE MANAGEMENT
+# DOCKER IMAGE MANAGEMENT
 # ----------------------------------------------------------
 
 # Remove dangling Docker images
-# Usage: zsh_docker_rmi_dangling
-zsh_docker_rmi_dangling() {
+# Usage: z_docker_rmi_dangling
+z_docker_rmi_dangling() {
     if ! _has_cmd docker; then
-        echo "Error: docker command not found" >&2
+        _ui_error "docker command not found"
+        _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
         return 1
     fi
 
-    # ? Filter empty entries: ${(f)...} on empty string creates ("") not ()
+    # Filter empty entries: ${(f)...} on empty string creates ("") not ()
     local -a images=("${(@f)$(docker images -q -f dangling=true)}")
     images=("${(@)images:#}")  # Remove empty elements
     if (( ${#images} )); then
@@ -71,18 +73,19 @@ zsh_docker_rmi_dangling() {
 }
 
 # ----------------------------------------------------------
-# * DOCKER VOLUME MANAGEMENT
+# DOCKER VOLUME MANAGEMENT
 # ----------------------------------------------------------
 
 # Remove dangling Docker volumes
-# Usage: zsh_docker_rmv_dangling
-zsh_docker_rmv_dangling() {
+# Usage: z_docker_rmv_dangling
+z_docker_rmv_dangling() {
     if ! _has_cmd docker; then
-        echo "Error: docker command not found" >&2
+        _ui_error "docker command not found"
+        _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
         return 1
     fi
 
-    # ? Filter empty entries: ${(f)...} on empty string creates ("") not ()
+    # Filter empty entries: ${(f)...} on empty string creates ("") not ()
     local -a volumes=("${(@f)$(docker volume ls -q -f dangling=true)}")
     volumes=("${(@)volumes:#}")  # Remove empty elements
     if (( ${#volumes} )); then

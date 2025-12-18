@@ -1,33 +1,34 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH NETWORK FUNCTIONS LIBRARY
-# ? Network diagnostics and information utilities.
+# ZSH NETWORK FUNCTIONS LIBRARY
+# Network diagnostics and information utilities.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_NETWORK_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_NETWORK_LOADED=1
+(( ${+_Z_FUNCTIONS_NETWORK_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_NETWORK_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_NETWORK_ENABLED:=true}  # Enable/disable Network functions (default: true)
+: ${Z_FUNCTIONS_NETWORK_ENABLED:=true}  # Enable/disable Network functions (default: true)
 
 # Exit early if Network functions are disabled
-[[ "$ZSH_FUNCTIONS_NETWORK_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_NETWORK_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * PORT INFORMATION
+# PORT INFORMATION
 # ----------------------------------------------------------
 
 # Show listening network ports
-# Usage: zsh_show_ports
-zsh_show_ports() {
+# Usage: z_show_ports
+z_show_ports() {
     if _is_macos; then
         # macOS: use lsof
         if _has_cmd lsof; then
             echo "Listening ports (macOS):"
             sudo lsof -i -P -n | grep LISTEN
         else
-            echo "Error: lsof not found. Install with: brew install lsof" >&2
+            _ui_error "lsof not found"
+            _ui_dim "Install with: brew install lsof"
             return 1
         fi
     elif _is_linux; then
@@ -42,18 +43,19 @@ zsh_show_ports() {
             echo "Listening ports (lsof):"
             sudo lsof -i -P -n | grep LISTEN
         else
-            echo "Error: No port listening tool found. Install ss, netstat, or lsof" >&2
+            _ui_error "No port listening tool found"
+            _ui_dim "Install ss, netstat, or lsof"
             return 1
         fi
     else
-        echo "Error: Unsupported platform" >&2
+        _ui_error "Unsupported platform"
         return 1
     fi
 }
 
 # Check if a network port is in use
-# Usage: zsh_portcheck <port>
-zsh_portcheck() {
+# Usage: z_portcheck <port>
+z_portcheck() {
     if [[ -z "$1" ]]; then
         echo "Usage: portcheck <port>" >&2
         return 1
@@ -63,7 +65,7 @@ zsh_portcheck() {
 
     # Validate port is a number in valid range (1-65535)
     if ! [[ "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
-        echo "Error: Invalid port number '$port' (must be 1-65535)" >&2
+        _ui_error "Invalid port number '$port' (must be 1-65535)"
         return 1
     fi
 
@@ -74,18 +76,18 @@ zsh_portcheck() {
     elif _has_cmd netstat; then
         netstat -tuln | grep ":$port " || echo "Port $port is free"
     else
-        echo "Error: No port checking tool available" >&2
+        _ui_error "No port checking tool available"
         return 1
     fi
 }
 
 # ----------------------------------------------------------
-# * IP ADDRESS INFORMATION
+# IP ADDRESS INFORMATION
 # ----------------------------------------------------------
 
 # Get public IP address with fallback services
-# Usage: zsh_publicip
-zsh_publicip() {
+# Usage: z_publicip
+z_publicip() {
     echo "Fetching public IP address..."
 
     # Try multiple services for redundancy (ipinfo.io is fastest and most reliable)
@@ -105,13 +107,14 @@ zsh_publicip() {
         return 0
     }
 
-    echo "Error: Cannot determine public IP (no internet connection or all services unavailable)" >&2
+    _ui_error "Cannot determine public IP"
+    _ui_dim "No internet connection or all services unavailable"
     return 1
 }
 
 # Get local IP address with platform-appropriate method
-# Usage: zsh_localip
-zsh_localip() {
+# Usage: z_localip
+z_localip() {
     local ip  # Declare once to avoid variable shadowing
 
     if _is_macos; then
@@ -131,7 +134,7 @@ zsh_localip() {
             return 0
         fi
 
-        echo "Error: Cannot determine local IP address" >&2
+        _ui_error "Cannot determine local IP address"
         return 1
 
     elif _is_linux; then
@@ -170,23 +173,56 @@ zsh_localip() {
             fi
         fi
 
-        echo "Error: Cannot determine local IP address" >&2
+        _ui_error "Cannot determine local IP address"
         return 1
     else
-        echo "Error: Unsupported platform" >&2
+        _ui_error "Unsupported platform"
         return 1
     fi
 }
 
 # ----------------------------------------------------------
-# * SPEED TEST
+# WIFI INFORMATION (macOS)
+# ----------------------------------------------------------
+
+# Get current WiFi network name
+# Usage: z_wifi_name
+z_wifi_name() {
+    if ! _is_macos; then
+        _ui_error "z_wifi_name is only available on macOS"
+        return 1
+    fi
+    networksetup -getairportnetwork en0 2>/dev/null | awk -F': ' '{print $2}'
+}
+
+# Get WiFi password from Keychain
+# Usage: z_wifi_password [network_name]
+# If no network specified, uses current WiFi network
+z_wifi_password() {
+    if ! _is_macos; then
+        _ui_error "z_wifi_password is only available on macOS"
+        return 1
+    fi
+    local network="${1:-$(z_wifi_name)}"
+    [[ -z "$network" ]] && { _ui_error "Not connected to Wi-Fi"; return 1; }
+    local password
+    password=$(security find-generic-password -ga "$network" 2>&1 | grep "password:" | cut -d'"' -f2)
+    if [[ -z "$password" ]]; then
+        _ui_error "Password not found for: $network"
+        return 1
+    fi
+    echo "$password"
+}
+
+# ----------------------------------------------------------
+# SPEED TEST
 # ----------------------------------------------------------
 
 # Run network speed test with priority for official Ookla speedtest
-# Usage: zsh_speedtest [args]
+# Usage: z_speedtest [args]
 # Description: Prioritizes official Ookla speedtest CLI for accuracy
 #              Falls back to speedtest-cli (Python) if official not available
-zsh_speedtest() {
+z_speedtest() {
     # Priority 1: Official Ookla speedtest (most accurate, from speedtest.net)
     # Install: https://www.speedtest.net/apps/cli
     # macOS: brew install speedtest-cli (installs official Ookla version)
@@ -210,30 +246,30 @@ zsh_speedtest() {
         return $?
     fi
 
-    # ! Removed unsafe fallback that downloaded and executed code from internet
-    # ! Security risk: no checksum verification, potential for MITM attacks
+    # Removed unsafe fallback that downloaded and executed code from internet
+    # Security risk: no checksum verification, potential for MITM attacks
 
     # No speedtest tool available
-    echo "Error: No speedtest tool found" >&2
+    _ui_error "No speedtest tool found"
     echo ""
-    echo "Install options (in order of accuracy):"
-    echo "  1. Official Ookla Speedtest CLI (recommended):"
-    echo "     - macOS: brew install speedtest-cli"
-    echo "     - Linux: https://packagecloud.io/ookla/speedtest-cli/install"
-    echo "     - Web: https://www.speedtest.net/apps/cli"
+    _ui_dim "Install options (in order of accuracy):"
+    _ui_dim "  1. Official Ookla Speedtest CLI (recommended):"
+    _ui_dim "     - macOS: brew install speedtest-cli"
+    _ui_dim "     - Linux: https://packagecloud.io/ookla/speedtest-cli/install"
+    _ui_dim "     - Web: https://www.speedtest.net/apps/cli"
     echo ""
-    echo "  2. Python speedtest-cli (alternative):"
-    echo "     - pip3 install speedtest-cli"
+    _ui_dim "  2. Python speedtest-cli (alternative):"
+    _ui_dim "     - pip3 install speedtest-cli"
     return 1
 }
 
 # ----------------------------------------------------------
-# * NETWORK CONNECTIVITY
+# NETWORK CONNECTIVITY
 # ----------------------------------------------------------
 
 # Wait for a remote port to become available
-# Usage: zsh_waitport <host> <port> [timeout]
-zsh_waitport() {
+# Usage: z_waitport <host> <port> [timeout]
+z_waitport() {
     if [[ -z "$1" || -z "$2" ]]; then
         echo "Usage: waitport <host> <port> [timeout_seconds]"
         return 1
@@ -243,15 +279,15 @@ zsh_waitport() {
     local port="$2"
     local timeout="${3:-30}"
 
-    # ? Validate hostname format (alphanumeric, dots, hyphens, or IPv4/IPv6)
+    # Validate hostname format (alphanumeric, dots, hyphens, or IPv4/IPv6)
     if [[ ! "$host" =~ ^[a-zA-Z0-9._:-]+$ ]]; then
-        echo "Error: Invalid hostname format '$host'" >&2
+        _ui_error "Invalid hostname format '$host'"
         return 1
     fi
 
     # Validate port is a number in valid range (1-65535)
     if ! [[ "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
-        echo "Error: Invalid port number '$port' (must be 1-65535)" >&2
+        _ui_error "Invalid port number '$port' (must be 1-65535)"
         return 1
     fi
 
@@ -259,7 +295,7 @@ zsh_waitport() {
 
     # Validate timeout is a positive integer
     if ! [[ "$timeout" =~ ^[0-9]+$ ]] || [[ "$timeout" -le 0 ]]; then
-        echo "Error: Invalid timeout '$timeout' (must be positive integer)" >&2
+        _ui_error "Invalid timeout '$timeout' (must be positive integer)"
         return 1
     fi
 
@@ -277,7 +313,7 @@ zsh_waitport() {
                 return 0
             }
         else
-            echo "Error: nc or bash required for port checking" >&2
+            _ui_error "nc or bash required for port checking"
             return 1
         fi
 

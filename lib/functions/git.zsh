@@ -1,36 +1,36 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH GIT FUNCTIONS LIBRARY
-# ? Git workflow and repository management utilities.
+# ZSH GIT FUNCTIONS LIBRARY
+# Git workflow and repository management utilities.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_GIT_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_GIT_LOADED=1
+(( ${+_Z_FUNCTIONS_GIT_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_GIT_LOADED=1
 
 # Configuration variables with defaults
-: ${ZSH_FUNCTIONS_GIT_ENABLED:=true}  # Enable/disable Git functions (default: true)
+: ${Z_FUNCTIONS_GIT_ENABLED:=true}  # Enable/disable Git functions (default: true)
 
 # Exit early if Git functions are disabled
-[[ "$ZSH_FUNCTIONS_GIT_ENABLED" != "true" ]] && return 0
+[[ "$Z_FUNCTIONS_GIT_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
-# * GIT BRANCH MANAGEMENT
+# GIT BRANCH MANAGEMENT
 # ----------------------------------------------------------
 
 # Clean up merged git branches safely
-# Usage: zsh_git_cleanup
+# Usage: z_git_cleanup
 # Description: Removes local branches that have been merged into current branch
 #              Protects main, master, and develop branches
-zsh_git_cleanup() {
+z_git_cleanup() {
     if ! _has_cmd git; then
-        echo "Error: git command not found" >&2
+        _ui_error "git command not found"
         return 1
     fi
 
     # Check if we're in a git repository
     if ! git rev-parse --git-dir >/dev/null 2>&1; then
-        echo "Error: Not a git repository" >&2
+        _ui_error "Not a git repository"
         return 1
     fi
 
@@ -71,26 +71,26 @@ zsh_git_cleanup() {
 }
 
 # ----------------------------------------------------------
-# * GIT REPOSITORY INFORMATION
+# GIT REPOSITORY INFORMATION
 # ----------------------------------------------------------
 
 # Get the size of a git repository (including .git)
-# Usage: zsh_gitsize [path]
-zsh_gitsize() {
+# Usage: z_gitsize [path]
+z_gitsize() {
     local repo="${1:-.}"
 
     if ! _has_cmd git; then
-        echo "Error: git command not found" >&2
+        _ui_error "git command not found"
         return 1
     fi
 
     if [[ ! -d "$repo/.git" ]]; then
-        echo "Error: Not a git repository" >&2
+        _ui_error "Not a git repository"
         return 1
     fi
 
-    # Use zsh_sizeof from file.zsh
-    zsh_sizeof "$repo"
+    # Use z_sizeof from file.zsh
+    z_sizeof "$repo"
 }
 
 _log DEBUG "ZSH Git Functions Library loaded"

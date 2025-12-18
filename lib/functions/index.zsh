@@ -1,18 +1,18 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH FUNCTIONS BARREL
-# ? Auto-discovers and sources all function libraries in this directory.
-# ? Provides single-import convenience for .zshenv and other entry points.
+# ZSH FUNCTIONS BARREL
+# Auto-discovers and sources all function libraries in this directory.
+# Provides single-import convenience for .zshenv and other entry points.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_ZSH_FUNCTIONS_INDEX_LOADED} )) && return 0
-typeset -g _ZSH_FUNCTIONS_INDEX_LOADED=1
+(( ${+_Z_FUNCTIONS_INDEX_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_INDEX_LOADED=1
 
 # ----------------------------------------------------------
-# * AUTO-DISCOVERY LOADER
-# ? Sources all .zsh files in this directory except index.zsh itself.
-# ? Files are loaded in alphabetical order for predictable behavior.
+# AUTO-DISCOVERY LOADER
+# Sources all .zsh files in this directory except index.zsh itself.
+# Files are loaded in alphabetical order for predictable behavior.
 # ----------------------------------------------------------
 
 {
