@@ -1,8 +1,12 @@
 # ZSH Configuration
 
-[![Quality](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml)
-[![Installer](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml)
-[![Platforms](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml)
+[![Release](https://img.shields.io/github/v/release/chiptoma/dotfiles-zsh?style=flat-square&color=blue)](https://github.com/chiptoma/dotfiles-zsh/releases/latest)
+[![License](https://img.shields.io/github/license/chiptoma/dotfiles-zsh?style=flat-square)](LICENSE)
+[![Quality](https://img.shields.io/github/actions/workflow/status/chiptoma/dotfiles-zsh/test-quality.yml?style=flat-square&label=quality)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml)
+[![Platforms](https://img.shields.io/github/actions/workflow/status/chiptoma/dotfiles-zsh/test-platforms.yml?style=flat-square&label=platforms)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml)
+[![macOS](https://img.shields.io/badge/macOS-Intel%20%7C%20Apple%20Silicon-000?style=flat-square&logo=apple)](https://github.com/chiptoma/dotfiles-zsh)
+[![Linux](https://img.shields.io/badge/Linux-Ubuntu%20%7C%20Debian-E95420?style=flat-square&logo=linux&logoColor=white)](https://github.com/chiptoma/dotfiles-zsh)
+[![ZSH](https://img.shields.io/badge/ZSH-5.8%2B-green?style=flat-square)](https://www.zsh.org/)
 
 A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support.
 
