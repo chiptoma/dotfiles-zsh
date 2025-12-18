@@ -1,7 +1,7 @@
 # ==============================================================================
-# * QUALITY GATES
-# ? Fast static analysis: lint, syntax, security, unit tests.
-# ? Platform/tool tests are in separate workflow files.
+# QUALITY GATES
+# Fast static analysis: lint, syntax, security, unit tests.
+# Platform/tool tests are in separate workflow files.
 # ==============================================================================
 
 name: Quality Gates

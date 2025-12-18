@@ -1,0 +1,15 @@
+# Development files
+.git
+.github
+.claude
+.DS_Store
+
+# User customizations (should not be copied to test containers)
+.zshlocal
+
+# Build artifacts
+*.zwc
+
+# Documentation
+*.md
+!README.md

@@ -1,6 +1,6 @@
 # ==============================================================================
-# * DEPENDABOT CONFIGURATION
-# ? Keeps GitHub Actions up to date automatically.
+# DEPENDABOT CONFIGURATION
+# Keeps GitHub Actions up to date automatically.
 # ==============================================================================
 
 version: 2

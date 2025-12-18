@@ -1,6 +1,6 @@
 # ==============================================================================
-# * PLATFORM TESTS
-# ? Tests installation across all supported platforms and distributions.
+# PLATFORM TESTS
+# Tests installation across all supported platforms and distributions.
 # ==============================================================================
 
 name: Platform Tests

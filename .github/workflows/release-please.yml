@@ -1,7 +1,7 @@
 # ==============================================================================
-# * RELEASE PLEASE
-# ? Automates releases based on conventional commits.
-# ? Creates release PRs and GitHub releases automatically.
+# RELEASE PLEASE
+# Automates releases based on conventional commits.
+# Creates release PRs and GitHub releases automatically.
 # ==============================================================================
 
 name: Release Please

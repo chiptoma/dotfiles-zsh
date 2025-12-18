@@ -1,6 +1,6 @@
 # ==============================================================================
-# * INSTALLER FUNCTIONALITY TESTS
-# ? Tests CLI flags, error scenarios, backup/restore, permissions, and resilience.
+# INSTALLER FUNCTIONALITY TESTS
+# Tests CLI flags, error scenarios, backup/restore, permissions, and resilience.
 # ==============================================================================
 
 name: Installer Tests

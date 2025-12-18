@@ -1,6 +1,6 @@
 # ==============================================================================
-# * TOOL INSTALLATION TESTS
-# ? Tests ALL optional tool installations and installation profiles.
+# TOOL INSTALLATION TESTS
+# Tests ALL optional tool installations and installation profiles.
 # ==============================================================================
 
 name: Tool Installation Tests
@@ -313,4 +313,3 @@ jobs:
               echo "✓ fd detected"
             fi
           '
-

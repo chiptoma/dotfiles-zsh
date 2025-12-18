@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
-# * DEVCONTAINER SETUP
-# ? Initializes the ZSH configuration in a devcontainer environment.
+# DEVCONTAINER SETUP
+# Initializes the ZSH configuration in a devcontainer environment.
 # ==============================================================================
 
 set -e
