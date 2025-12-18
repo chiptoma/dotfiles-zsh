@@ -10,7 +10,7 @@ The keybindings module ensures consistent key behavior by loading **after** all 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_KEYBINDINGS_ENABLED` | `true` | Enable/disable keybindings module |
+| `Z_KEYBINDINGS_ENABLED` | `true` | Enable/disable keybindings module |
 
 ## Key Bindings
 

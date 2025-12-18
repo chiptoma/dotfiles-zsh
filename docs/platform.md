@@ -1,6 +1,6 @@
 # Platform Module
 
-Cross-platform detection and OS-specific configuration for macOS and Linux.
+Cross-platform detection and OS-specific configuration for macOS, Linux, and BSD.
 
 ## Overview
 
@@ -8,6 +8,7 @@ The platform module automatically detects your operating system and loads the ap
 
 - **macOS** - Homebrew paths, Apple Silicon detection, macOS-specific utilities
 - **Linux** - Distribution detection, package manager helpers, Snap/Flatpak paths
+- **BSD** - FreeBSD/OpenBSD/NetBSD detection, package manager helpers
 
 Only one platform file loads based on `$OSTYPE`.
 
@@ -41,16 +42,16 @@ fi
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `MACOS_VERSION` | `sonoma` | macOS version codename |
+| `MACOS_VERSION` | `sonoma` | Human-readable macOS version |
 | `MACOS_ARCH` | `arm64` | CPU architecture |
-| `MACOS_CHIP` | `apple_silicon` | Chip type |
+| `MACOS_CHIP` | `apple_silicon` | Chip type (`apple_silicon` or `intel`) |
 | `BROWSER` | `open` | Default browser command |
-
-### Version Detection
+| `HOMEBREW_PREFIX` | `/opt/homebrew` | Homebrew installation path |
 
 ```bash
-echo $MACOS_VERSION
-# Output: sequoia, sonoma, ventura, monterey, big_sur, catalina_or_older
+# Use in your scripts
+echo "Running macOS $MACOS_VERSION on $MACOS_CHIP"
+# Output: Running macOS sonoma on apple_silicon
 ```
 
 ### Paths Added (macOS)
@@ -79,7 +80,7 @@ echo $MACOS_VERSION
 
 ### macOS Functions
 
-#### `zsh_killapp <app>`
+#### `z_killapp <app>`
 
 Quit an application gracefully.
 
@@ -90,7 +91,7 @@ killapp "Google Chrome"  # Quit Chrome
 
 Tries AppleScript first, falls back to `pkill`.
 
-#### `zsh_wifi_name`
+#### `z_wifi_name`
 
 Get current Wi-Fi network name.
 
@@ -99,7 +100,7 @@ wifi
 # Output: MyNetwork
 ```
 
-#### `zsh_wifi_password [network]`
+#### `z_wifi_password [network]`
 
 Show Wi-Fi password (requires admin access).
 
@@ -108,7 +109,7 @@ wifipass              # Password for current network
 wifipass "OtherNet"   # Password for specific network
 ```
 
-#### `zsh_macos_check_tools`
+#### `z_macos_check_tools`
 
 Check recommended development tools.
 
@@ -138,20 +139,23 @@ Sets `SSH_AUTH_SOCK` appropriately.
 
 | Variable | Example | Description |
 |----------|---------|-------------|
-| `LINUX_DISTRO` | `ubuntu` | Distribution ID |
-| `LINUX_FAMILY` | `debian` | Distribution family |
-| `DISPLAY_SERVER` | `wayland` | Display server type |
+| `LINUX_DISTRO` | `ubuntu` | Distribution ID from `/etc/os-release` |
+| `LINUX_FAMILY` | `debian` | Distribution family (debian, rhel, arch, etc.) |
+| `LINUX_ARCH` | `x86_64` | CPU architecture |
+| `DISPLAY_SERVER` | `wayland` | Display server (`wayland`, `x11`, or `none`) |
 | `XDG_RUNTIME_DIR` | `/run/user/1000` | Runtime directory |
-
-### Distribution Detection
+| `DBUS_SESSION_BUS_ADDRESS` | `unix:path=...` | D-Bus socket path |
+| `BROWSER` | `wslview` | Browser command (WSL) |
 
 ```bash
-echo $LINUX_DISTRO
-# Output: ubuntu, debian, fedora, arch, alpine, etc.
-
-echo $LINUX_FAMILY
-# Output: debian, rhel, arch, suse, alpine, nix, unknown
+# Use in your scripts
+echo "Running $LINUX_DISTRO ($LINUX_FAMILY) on $DISPLAY_SERVER"
+# Output: Running ubuntu (debian) on wayland
 ```
+
+### Distribution Family Detection
+
+The platform module internally detects your Linux distribution family for package manager selection.
 
 **Family mappings:**
 
@@ -198,7 +202,7 @@ _get_install_cmd fzf
 
 ### Linux Functions
 
-#### `zsh_linux_check_tools`
+#### `z_linux_check_tools`
 
 Check recommended development tools.
 
@@ -236,6 +240,38 @@ When running in WSL:
 export BROWSER="wslview"
 export WINHOME="/mnt/c/Users/$USER"
 ```
+
+## BSD Configuration
+
+### Environment Variables
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `BSD_VARIANT` | `freebsd` | BSD variant (`freebsd`, `openbsd`, `netbsd`) |
+| `BSD_VERSION` | `14.0` | BSD version string |
+| `BSD_ARCH` | `amd64` | CPU architecture |
+
+```bash
+# Use in your scripts
+echo "Running $BSD_VARIANT $BSD_VERSION on $BSD_ARCH"
+# Output: Running freebsd 14.0 on amd64
+```
+
+### Package Manager Detection
+
+```bash
+_get_install_cmd fzf
+# Output: pkg install fzf        (FreeBSD)
+# Output: pkg_add fzf            (OpenBSD)
+# Output: pkgin install fzf      (NetBSD)
+```
+
+### Clipboard Detection (BSD)
+
+| Environment | Command |
+|-------------|---------|
+| X11 (xclip) | `xclip -selection clipboard` |
+| X11 (xsel) | `xsel --clipboard --input` |
 
 ## Cross-Platform Stubs
 
@@ -280,7 +316,9 @@ fi
 
 | Platform | File |
 |----------|------|
-| macOS | [lib/platform/macos.zsh](../lib/platform/macos.zsh) |
-| Linux | [lib/platform/linux.zsh](../lib/platform/linux.zsh) |
+| Detection | [lib/utils/platform/detect.zsh](../lib/utils/platform/detect.zsh) |
+| macOS | [lib/utils/platform/macos.zsh](../lib/utils/platform/macos.zsh) |
+| Linux | [lib/utils/platform/linux.zsh](../lib/utils/platform/linux.zsh) |
+| BSD | [lib/utils/platform/bsd.zsh](../lib/utils/platform/bsd.zsh) |
 
 Only one file is loaded based on `$OSTYPE`.

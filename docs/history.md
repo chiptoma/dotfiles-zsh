@@ -60,10 +60,10 @@ Press `h` or `Ctrl-R` for an elegant fzf-powered search experience:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_HISTORY_ENABLED` | `true` | Enable/disable history module |
-| `ZSH_HISTORY_SIZE` | `100000` | Commands kept in memory |
-| `ZSH_HISTORY_SAVE_SIZE` | `100000` | Commands saved to file |
-| `ZSH_HISTORY_SECURITY_FILTER` | `true` | Filter sensitive commands |
+| `Z_HISTORY_ENABLED` | `true` | Enable/disable history module |
+| `Z_HISTORY_SIZE` | `100000` | Commands kept in memory |
+| `Z_HISTORY_SAVE_SIZE` | `100000` | Commands saved to file |
+| `Z_HISTORY_SECURITY_FILTER` | `true` | Filter sensitive commands |
 
 ## Protected Patterns
 

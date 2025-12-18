@@ -37,13 +37,13 @@ After lazy loading:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_LAZY_ENABLED` | `true` | Enable/disable lazy loading |
-| `ZSH_LAZY_STARSHIP` | `true` | Lazy load starship prompt |
-| `ZSH_LAZY_ATUIN` | `true` | Lazy load atuin history |
-| `ZSH_LAZY_ZOXIDE` | `true` | Lazy load zoxide |
-| `ZSH_LAZY_NVM` | `true` | Lazy load nvm |
-| `ZSH_LAZY_PYENV` | `true` | Lazy load pyenv |
-| `ZSH_LAZY_RBENV` | `true` | Lazy load rbenv |
+| `Z_LAZY_ENABLED` | `true` | Enable/disable lazy loading |
+| `Z_LAZY_STARSHIP` | `true` | Lazy load starship prompt |
+| `Z_LAZY_ATUIN` | `true` | Lazy load atuin history |
+| `Z_LAZY_ZOXIDE` | `true` | Lazy load zoxide |
+| `Z_LAZY_NVM` | `true` | Lazy load nvm |
+| `Z_LAZY_PYENV` | `true` | Lazy load pyenv |
+| `Z_LAZY_RBENV` | `true` | Lazy load rbenv |
 
 ## Disable for Specific Tools
 
@@ -51,28 +51,28 @@ If you need immediate initialization for a specific tool:
 
 ```bash
 # In .zshlocal
-export ZSH_LAZY_NVM=false     # Initialize nvm immediately
-export ZSH_LAZY_STARSHIP=false  # Initialize starship immediately
+export Z_LAZY_NVM=false     # Initialize nvm immediately
+export Z_LAZY_STARSHIP=false  # Initialize starship immediately
 ```
 
 ## Check Status
 
-Use `zsh_lazy_status` to see which tools are configured and initialized:
+Use `z_lazy_status` to see which tools are configured and initialized:
 
 ```bash
-$ zsh_lazy_status
+$ z_lazy_status
 
 Lazy Loading Status:
 ====================
 
 Configuration:
-  ZSH_LAZY_ENABLED:   true
-  ZSH_LAZY_STARSHIP:  true
-  ZSH_LAZY_ATUIN:     true
-  ZSH_LAZY_ZOXIDE:    true
-  ZSH_LAZY_NVM:       true
-  ZSH_LAZY_PYENV:     true
-  ZSH_LAZY_RBENV:     true
+  Z_LAZY_ENABLED:   true
+  Z_LAZY_STARSHIP:  true
+  Z_LAZY_ATUIN:     true
+  Z_LAZY_ZOXIDE:    true
+  Z_LAZY_NVM:       true
+  Z_LAZY_PYENV:     true
+  Z_LAZY_RBENV:     true
 
 Initialized Tools:
   ✓ starship
@@ -146,7 +146,7 @@ command -v nvm       # May not exist until sourced
 ### Debug initialization
 
 ```bash
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 exec zsh
 # Now trigger the tool - you'll see "Lazy initializing: <tool>"
 ```
@@ -155,12 +155,12 @@ exec zsh
 
 ```bash
 # Disable lazy loading entirely
-export ZSH_LAZY_ENABLED=false
+export Z_LAZY_ENABLED=false
 exec zsh
 ```
 
 ### Check if tool was lazily loaded
 
 ```bash
-zsh_lazy_status | grep "Initialized"
+z_lazy_status | grep "Initialized"
 ```

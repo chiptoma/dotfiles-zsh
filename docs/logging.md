@@ -20,13 +20,13 @@ _log ERROR "Something failed"
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_LOG_LEVEL` | `WARN` | Minimum level to display |
-| `ZSH_LOG_COLOR` | `auto` | Color output: `auto`, `true`, `false` |
-| `ZSH_LOG_TIMESTAMP_ENABLE` | `true` | Show timestamps |
-| `ZSH_LOG_TIMESTAMP_FORMAT` | `+%Y-%m-%d %H:%M:%S` | Timestamp format |
-| `ZSH_LOG_SHOW_CALLER` | `true` | Show file:function:line |
-| `ZSH_LOG_SHOW_PID` | `false` | Show process ID |
-| `ZSH_LOG_SHOW_SHELL` | `false` | Show shell context (interactive/login) |
+| `Z_LOG_LEVEL` | `WARN` | Minimum level to display |
+| `Z_LOG_COLOR` | `auto` | Color output: `auto`, `true`, `false` |
+| `Z_LOG_TIMESTAMP_ENABLE` | `true` | Show timestamps |
+| `Z_LOG_TIMESTAMP_FORMAT` | `+%Y-%m-%d %H:%M:%S` | Timestamp format |
+| `Z_LOG_SHOW_CALLER` | `true` | Show file:function:line |
+| `Z_LOG_SHOW_PID` | `false` | Show process ID |
+| `Z_LOG_SHOW_SHELL` | `false` | Show shell context (interactive/login) |
 
 ## Log Levels
 
@@ -56,7 +56,7 @@ _log ERROR "Failed to initialize prompt"
 In `.zshlocal` or before starting shell:
 
 ```bash
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 ```
 
 Then restart:
@@ -106,8 +106,8 @@ Components:
 ### Minimal Format
 
 ```bash
-export ZSH_LOG_TIMESTAMP_ENABLE=false
-export ZSH_LOG_SHOW_CALLER=false
+export Z_LOG_TIMESTAMP_ENABLE=false
+export Z_LOG_SHOW_CALLER=false
 ```
 
 Output: `[INFO]: Modern tool aliases configured`
@@ -115,8 +115,8 @@ Output: `[INFO]: Modern tool aliases configured`
 ### With PID and Shell Context
 
 ```bash
-export ZSH_LOG_SHOW_PID=true
-export ZSH_LOG_SHOW_SHELL=true
+export Z_LOG_SHOW_PID=true
+export Z_LOG_SHOW_SHELL=true
 ```
 
 Output: `[INFO] [lazy.zsh:init:15] [pid:12345] [sh:il]: Starship loaded`
@@ -163,9 +163,9 @@ Colors are automatically detected:
 
 | Condition | Colors |
 |-----------|--------|
-| `ZSH_LOG_COLOR=true` | Always on |
-| `ZSH_LOG_COLOR=false` | Always off |
-| `ZSH_LOG_COLOR=auto` | On if terminal, respects `NO_COLOR` |
+| `Z_LOG_COLOR=true` | Always on |
+| `Z_LOG_COLOR=false` | Always off |
+| `Z_LOG_COLOR=auto` | On if terminal, respects `NO_COLOR` |
 
 Level colors:
 - DEBUG: Grey (`\e[90m`)
@@ -199,18 +199,18 @@ The logging module uses:
 
 **No log output at all:**
 
-Check `ZSH_LOG_LEVEL`:
+Check `Z_LOG_LEVEL`:
 
 ```bash
-echo $ZSH_LOG_LEVEL
+echo $Z_LOG_LEVEL
 # Should be DEBUG, INFO, WARN, or ERROR (not NONE)
 ```
 
 **Missing colors:**
 
 ```bash
-echo $ZSH_LOG_COLOR
-# Try: export ZSH_LOG_COLOR=true
+echo $Z_LOG_COLOR
+# Try: export Z_LOG_COLOR=true
 ```
 
 **Caller info shows "unknown":**
@@ -258,3 +258,19 @@ my_function() {
 3. **Use WARN** for recoverable issues (missing optional tool)
 4. **Use ERROR** for failures that affect functionality
 5. **Default to WARN** in production for clean shell startup
+
+## UI Output Functions
+
+The logging module also provides UI helper functions for user-facing output:
+
+| Function | Description | Visual |
+|----------|-------------|--------|
+| `_ui_ok` | Success message | ✓ (green checkmark) |
+| `_ui_warn` | Warning message | ⚠ (yellow warning) |
+| `_ui_error` | Error message | ✗ (red X) |
+| `_ui_info` | Informational | (no emoji) |
+| `_ui_header` | Section header | Decorated title |
+| `_ui_section` | Subsection | Bullet point |
+| `_ui_kv` | Key-value pair | Aligned output |
+
+These functions use emoji indicators for visual feedback in interactive shells. The emoji usage is intentional for quick visual scanning of health checks and status output.

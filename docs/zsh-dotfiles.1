@@ -1,0 +1,213 @@
+.TH ZSH-DOTFILES 1 "December 2024" "v0.1.2" "User Commands"
+.SH NAME
+zsh-dotfiles \- Modern ZSH configuration framework
+.SH SYNOPSIS
+.B install.sh
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+A comprehensive ZSH configuration framework with Oh My Zsh integration,
+modern CLI tools, and cross-platform support for macOS and Linux.
+.PP
+The installer sets up a complete ZSH environment with sensible defaults,
+useful aliases, and optional modern CLI tools.
+.SH OPTIONS
+.SS "Installation Options"
+.TP
+.B \-\-help, \-h
+Display help message and exit.
+.TP
+.B \-\-version, \-v
+Show version number and exit.
+.TP
+.B \-\-yes, \-y
+Non-interactive mode. Accept all defaults without prompting.
+.TP
+.B \-\-quiet, \-q
+Minimal output. Implies \-\-yes.
+.TP
+.B \-\-dry\-run, \-n
+Show what would be done without making any changes.
+.TP
+.B \-\-verbose
+Show detailed debug output for troubleshooting.
+.SS "Installation Profiles"
+.TP
+.B \-\-minimal
+Install core ZSH configuration and Oh My Zsh only, without optional tools.
+.TP
+.B \-\-full
+Install all optional tools automatically.
+.TP
+.B \-\-skip\-tools
+Skip the optional tools installation step entirely.
+.TP
+.BI \-\-tools " TOOLS"
+Install specific tools only. TOOLS is a comma-separated list.
+.br
+Available: fzf, eza, bat, ripgrep, fd, zoxide, yazi, starship, atuin
+.SS "Maintenance"
+.TP
+.B \-\-check, \-c
+Verify existing installation integrity.
+.TP
+.B \-\-update
+Update to the latest version using git pull.
+.TP
+.B \-\-repair, \-\-fix
+Automatically repair common installation issues.
+.TP
+.B \-\-uninstall, \-u
+Remove the ZSH configuration.
+.SS "Advanced"
+.TP
+.BI \-\-user " USERNAME"
+Run installation as the specified user. Useful for Docker testing.
+.SH TOOLS
+The following optional tools can be installed:
+.TP
+.B starship
+Cross-shell prompt with git status, command duration, and more.
+Category: enhanced
+.TP
+.B atuin
+Shell history sync and search with fuzzy finding.
+Category: enhanced
+.TP
+.B eza
+Modern ls replacement with colors, icons, and git integration.
+Category: enhanced
+.TP
+.B zoxide
+Smarter cd command that learns your frequently used directories.
+Category: core
+.TP
+.B fzf
+General-purpose fuzzy finder for files, history, and more.
+Category: core
+.TP
+.B bat
+Cat clone with syntax highlighting and git integration.
+Category: core
+.TP
+.B ripgrep (rg)
+Ultra-fast grep alternative with smart defaults.
+Category: core
+.TP
+.B fd
+Fast and user-friendly find alternative.
+Category: enhanced
+.TP
+.B yazi
+Terminal file manager with image preview support.
+Category: extra
+.SH FILES
+.TP
+.I ~/.config/zsh/
+Main ZSH configuration directory (ZDOTDIR).
+.TP
+.I ~/.config/zsh/.zshrc
+Primary ZSH configuration file.
+.TP
+.I ~/.config/zsh/.zshenv
+Environment variables (sourced for all shells).
+.TP
+.I ~/.config/zsh/.zshlocal
+User customizations. Not overwritten by updates.
+.TP
+.I ~/.local/share/zsh/
+Data directory for history and caches.
+.TP
+.I ~/.local/share/oh-my-zsh/
+Oh My Zsh installation directory.
+.TP
+.I ~/.zshenv
+Bootstrap file that sets ZDOTDIR.
+.SH COMMANDS
+After installation, these commands are available:
+.TP
+.B health
+Run comprehensive health check on ZSH configuration.
+Shows status of ZDOTDIR, config files, Oh My Zsh, tools, PATH, and startup time.
+.TP
+.B z_status
+Display detailed ZSH configuration information.
+.TP
+.B reload
+Reload shell configuration (exec zsh).
+.TP
+.B als
+Browse all aliases interactively with fzf.
+.TP
+.B zupdate
+Update ZSH configuration to latest version.
+.TP
+.B zversion
+Show current ZSH configuration version.
+.TP
+.B zcheck
+Verify installation integrity (same as install.sh --check).
+.SH ENVIRONMENT
+.TP
+.B ZDOTDIR
+ZSH configuration directory. Set automatically to ~/.config/zsh.
+.TP
+.B ZSH
+Oh My Zsh installation path.
+.TP
+.B Z_LOG_LEVEL
+Logging verbosity. Values: DEBUG, INFO, WARN, ERROR.
+.TP
+.B NO_COLOR
+If set, disables colored output (per no-color.org standard).
+.TP
+.B XDG_CONFIG_HOME
+Override config directory (default: ~/.config).
+.TP
+.B XDG_DATA_HOME
+Override data directory (default: ~/.local/share).
+.TP
+.B XDG_CACHE_HOME
+Override cache directory (default: ~/.cache).
+.SH EXAMPLES
+.TP
+Interactive installation:
+.B install.sh
+.TP
+Automated installation with defaults:
+.B install.sh --yes
+.TP
+Minimal install (ZSH + Oh My Zsh only):
+.B install.sh --minimal --yes
+.TP
+Full install with all tools:
+.B install.sh --full --yes
+.TP
+Install specific tools only:
+.B install.sh --tools fzf,eza,bat
+.TP
+Repair broken installation:
+.B install.sh --repair
+.TP
+Check installation health:
+.B install.sh --check
+.TP
+Curl-pipe installation:
+.B curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error occurred. Rollback may have been attempted.
+.SH AUTHOR
+Written by the dotfiles-zsh contributors.
+.SH REPORTING BUGS
+Report bugs at: https://github.com/chiptoma/dotfiles-zsh/issues
+.SH COPYRIGHT
+MIT License. See LICENSE file for details.
+.SH SEE ALSO
+.BR zsh (1),
+.BR starship (1),
+.BR fzf (1),
+.BR bat (1)

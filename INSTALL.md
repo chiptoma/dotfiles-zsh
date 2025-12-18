@@ -3,9 +3,12 @@
 ## Quick Start
 
 ```bash
-# Clone and run the installer
+# Option 1: Clone and run (recommended)
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 ~/.config/zsh/install.sh
+
+# Option 2: One-liner via curl
+curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
 That's it! The installer handles everything automatically.
@@ -14,25 +17,54 @@ That's it! The installer handles everything automatically.
 
 ## Installer Options
 
+### Basic Options
 ```bash
 ./install.sh              # Interactive installation
-./install.sh --yes        # Non-interactive (accept all defaults)
-./install.sh --check      # Verify existing installation
-./install.sh --update     # Update to latest version
-./install.sh --uninstall  # Remove configuration
-./install.sh --help       # Show all options
+./install.sh --yes, -y    # Non-interactive (accept all defaults)
+./install.sh --quiet, -q  # Minimal output (implies --yes)
+./install.sh --dry-run, -n # Show what would be done without changes
+./install.sh --help, -h   # Show all options
+./install.sh --version, -v # Show version number
+```
+
+### Installation Profiles
+```bash
+./install.sh --minimal    # Core ZSH + Oh My Zsh only (essential tools only)
+./install.sh --full       # Install all tools automatically
+./install.sh --skip-tools # Skip recommended tools (essential still installed)
+./install.sh --tools fzf,eza,bat  # Install only specific tools
+```
+
+**Tool Tiers:**
+- **Essential** (always installed): `starship`, `atuin` - Required for proper shell experience
+- **Recommended** (default Y): `fzf`, `eza`, `bat`, `ripgrep`, `fd`, `zoxide` - Power user tools
+- **Extra** (--full only): `yazi` - File manager
+
+### Maintenance
+```bash
+./install.sh --check, -c  # Verify existing installation
+./install.sh --update     # Update to latest version (git pull)
+./install.sh --repair     # Repair broken installation
+./install.sh --uninstall, -u # Remove configuration
+```
+
+### Environment Variables
+```bash
+NO_COLOR=1 ./install.sh   # Disable colored output
+XDG_CONFIG_HOME=~/.config ./install.sh  # Override config directory
 ```
 
 ## What the Installer Does
 
-1. **Checks Requirements** - Verifies zsh, git, curl are installed
+1. **Checks Requirements** - Verifies zsh, git, curl, network connectivity
 2. **Installs Oh My Zsh** - If not already present
 3. **Backs Up Existing Config** - Saves ~/.zshrc, ~/.zshenv to timestamped backup
-4. **Installs Configuration** - Symlinks (recommended) or copies files
+4. **Installs Configuration** - Symlinks (from repo) or copies files
 5. **Configures ZDOTDIR** - Creates ~/.zshenv pointing to config
-6. **Installs Optional Tools** - fzf, eza, bat, ripgrep, fd, zoxide, starship, atuin
-7. **Creates .zshlocal** - For your personal customizations
-8. **Verifies Installation** - Checks all components are in place
+6. **Installs Essential Tools** - starship (prompt), atuin (history) - always installed
+7. **Installs Recommended Tools** - fzf, eza, bat, ripgrep, fd, zoxide (prompted)
+8. **Creates .zshlocal** - For your personal customizations
+9. **Verifies Installation** - Checks all components are in place
 
 ---
 
@@ -86,40 +118,63 @@ exec zsh
 
 ---
 
-## Optional Tools
+## Tools
 
-The installer can install these recommended tools:
+### Essential Tools (Always Installed)
+
+These are required for a proper shell experience:
 
 | Tool | Purpose | Install Method |
 |------|---------|----------------|
-| **fzf** | Fuzzy finder | Package manager |
-| **eza** | Modern ls | brew/pacman/dnf or cargo |
-| **bat** | Better cat | Package manager |
-| **ripgrep** | Fast grep | Package manager |
+| **starship** | Cross-shell prompt with git status | brew/pacman/dnf or script |
+| **atuin** | Shell history search and sync | brew/pacman or script |
+
+### Recommended Tools (Prompted)
+
+Power user tools that enhance productivity:
+
+| Tool | Purpose | Install Method |
+|------|---------|----------------|
+| **fzf** | Fuzzy finder (Ctrl+R, Ctrl+T) | Package manager |
+| **eza** | Modern ls with icons | brew/pacman/dnf or cargo |
+| **bat** | Better cat with syntax highlighting | Package manager |
+| **ripgrep** | Fast grep (10x faster) | Package manager |
 | **fd** | Modern find | Package manager |
-| **zoxide** | Smart cd | Package manager |
-| **starship** | Cross-shell prompt | brew/pacman/dnf or script |
-| **atuin** | Shell history sync | brew/pacman or script |
+| **zoxide** | Smart cd (learns your habits) | Package manager |
+
+### Extra Tools (--full only)
+
+| Tool | Purpose | Install Method |
+|------|---------|----------------|
+| **yazi** | Terminal file manager | brew/pacman or script |
 
 ### Manual Tool Installation
 
 **macOS:**
 ```bash
-brew install fzf eza bat ripgrep fd zoxide starship atuin
+# Essential
+brew install starship atuin
+
+# Recommended
+brew install fzf eza bat ripgrep fd zoxide
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install fzf bat ripgrep fd-find zoxide
-# eza, starship, atuin need alternative install methods
+# Essential (via install scripts - most reliable)
 curl -sS https://starship.rs/install.sh | sh
 bash <(curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh)
-cargo install eza
+
+# Recommended
+sudo apt install fzf bat ripgrep fd-find zoxide
+cargo install eza  # or download from GitHub releases
 ```
+
+> **Note:** On Ubuntu/Debian, `bat` is installed as `batcat` and `fd` is installed as `fdfind`. The shell config handles this automatically with aliases.
 
 **Arch:**
 ```bash
-sudo pacman -S fzf eza bat ripgrep fd zoxide starship atuin
+sudo pacman -S starship atuin fzf eza bat ripgrep fd zoxide
 ```
 
 ---
@@ -197,7 +252,7 @@ exec zsh
 
 Enable debug mode to see what's slow:
 ```bash
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 exec zsh
 ```
 

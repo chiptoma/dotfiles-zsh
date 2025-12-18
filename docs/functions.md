@@ -1,6 +1,6 @@
 # Functions Library
 
-User-facing utility functions organized by category. All functions use the `zsh_` prefix and are designed for interactive use.
+User-facing utility functions organized by category. All functions use the `z_` prefix and are designed for interactive use.
 
 ## Function Categories
 
@@ -16,7 +16,7 @@ User-facing utility functions organized by category. All functions use the `zsh_
 
 ## System Functions
 
-### `zsh_calc` / `calc`
+### `z_calc` / `calc`
 
 Calculator using Python for complex expressions.
 
@@ -33,7 +33,7 @@ calc "log(100)"     # 2.0
 - Constants: `pi`, `e`, `tau`
 - Operators: `+`, `-`, `*`, `/`, `**` (power), `%` (modulo)
 
-### `zsh_weather` / `weather`
+### `z_weather` / `weather`
 
 Get weather forecast from wttr.in.
 
@@ -43,16 +43,16 @@ weather London       # Weather for specific city
 weather "New York"   # Multi-word city names
 ```
 
-### `zsh_timeout`
+### `z_timeout`
 
 Run a command with a timeout.
 
 ```bash
-zsh_timeout 5 long_running_command    # Kill after 5 seconds
-zsh_timeout 60 make build             # 60 second timeout
+z_timeout 5 long_running_command    # Kill after 5 seconds
+z_timeout 60 make build             # 60 second timeout
 ```
 
-### `zsh_pskill`
+### `z_pskill`
 
 Interactively kill processes by name using fzf.
 
@@ -68,44 +68,44 @@ pskill node     # Filter to processes matching "node"
 
 ## Update Management
 
-### `zsh_update` / `zupdate`
+### `z_update` / `zupdate`
 
 Update the ZSH configuration to the latest version.
 
 ```bash
-zsh_update   # or zupdate
+z_update   # or zupdate
 ```
 
 **Configuration:**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_UPDATE_CHECK_ENABLED` | `true` | Check for updates on shell startup |
-| `ZSH_UPDATE_CHECK_INTERVAL` | `86400` | Seconds between checks (24h) |
-| `ZSH_UPDATE_AUTO_FETCH` | `true` | Fetch updates in background |
-| `ZSH_UPDATE_PROMPT` | `true` | Interactive prompt when updates available |
-| `ZSH_UPDATE_AUTO_APPLY` | `false` | Auto-apply updates without prompting |
+| `Z_UPDATE_CHECK_ENABLED` | `true` | Check for updates on shell startup |
+| `Z_UPDATE_CHECK_INTERVAL` | `86400` | Seconds between checks (24h) |
+| `Z_UPDATE_AUTO_FETCH` | `true` | Fetch updates in background |
+| `Z_UPDATE_PROMPT` | `true` | Interactive prompt when updates available |
+| `Z_UPDATE_AUTO_APPLY` | `false` | Auto-apply updates without prompting |
 
 **Behavior modes:**
 
 1. **Interactive prompt (default)**: Shows "Updates available. Apply now? [y/N]"
-2. **Auto-apply**: Set `ZSH_UPDATE_AUTO_APPLY=true` to update automatically
-3. **Passive notification**: Set `ZSH_UPDATE_PROMPT=false` for notification only
+2. **Auto-apply**: Set `Z_UPDATE_AUTO_APPLY=true` to update automatically
+3. **Passive notification**: Set `Z_UPDATE_PROMPT=false` for notification only
 
 **Example configuration in `.zshlocal`:**
 
 ```bash
 # Check every 12 hours, auto-apply
-export ZSH_UPDATE_CHECK_INTERVAL=43200
-export ZSH_UPDATE_AUTO_APPLY=true
+export Z_UPDATE_CHECK_INTERVAL=43200
+export Z_UPDATE_AUTO_APPLY=true
 
 # Or: disable update checks entirely
-export ZSH_UPDATE_CHECK_ENABLED=false
+export Z_UPDATE_CHECK_ENABLED=false
 ```
 
 ## File Functions
 
-### `zsh_sizeof` / `sizeof`
+### `z_sizeof` / `sizeof`
 
 Show size of files or directories.
 
@@ -115,7 +115,7 @@ sizeof file.txt        # Size of single file
 sizeof dir1 dir2       # Size of multiple items
 ```
 
-### `zsh_backup` / `backup`
+### `z_backup` / `backup`
 
 Create timestamped backup of a file.
 
@@ -123,7 +123,7 @@ Create timestamped backup of a file.
 backup config.yaml     # Creates config.yaml.2024-01-15_14-30-45.bak
 ```
 
-### `zsh_todos` / `todos`
+### `z_todos` / `todos`
 
 Find TODO/FIXME/HACK comments in files.
 
@@ -138,7 +138,7 @@ todos src/             # Search specific directory
 - `HACK:`
 - `XXX:`
 
-### `zsh_extract` / `extract`
+### `z_extract` / `extract`
 
 Extract any archive format automatically.
 
@@ -154,7 +154,7 @@ extract package.7z
 - `.zip`, `.rar`, `.7z`
 - `.Z`, `.deb`, `.rpm`
 
-### `zsh_yazi` / `y`
+### `z_yazi` / `y`
 
 File manager with directory change on exit.
 
@@ -165,7 +165,7 @@ y ~/Documents          # Open in specific directory
 
 When you quit yazi, your shell `cd`s to the last visited directory.
 
-### `zsh_up` / `up`
+### `z_up` / `up`
 
 Navigate up multiple directories.
 
@@ -175,7 +175,7 @@ up 3                   # Go up 3 levels
 up 5                   # Go up 5 levels
 ```
 
-### `zsh_mkcd` / `mkcd`
+### `z_mkcd` / `mkcd`
 
 Create directory and cd into it.
 
@@ -186,7 +186,7 @@ mkcd path/to/deep/dir  # Creates all intermediate directories
 
 ## Git Functions
 
-### `zsh_git_cleanup` / `git-cleanup`
+### `z_git_cleanup` / `git-cleanup`
 
 Clean up merged branches.
 
@@ -199,7 +199,7 @@ git-cleanup            # Remove local branches merged to main/master
 - Only removes fully merged branches
 - Shows branches before deletion
 
-### `zsh_gitsize` / `gitsize`
+### `z_gitsize` / `gitsize`
 
 Show repository size breakdown.
 
@@ -209,7 +209,7 @@ gitsize                # Shows .git size, working tree size, total
 
 ## Docker Functions
 
-### `zsh_docker_stop_all` / `docker-stop-all`
+### `z_docker_stop_all` / `docker-stop-all`
 
 Stop all running containers.
 
@@ -217,7 +217,7 @@ Stop all running containers.
 docker-stop-all        # Stops every running container
 ```
 
-### `zsh_docker_rmi_dangling` / `docker-rmi-dangling`
+### `z_docker_rmi_dangling` / `docker-rmi-dangling`
 
 Remove dangling (untagged) images.
 
@@ -225,7 +225,7 @@ Remove dangling (untagged) images.
 docker-rmi-dangling    # Removes <none>:<none> images
 ```
 
-### `zsh_docker_rmv_dangling` / `docker-rmv-dangling`
+### `z_docker_rmv_dangling` / `docker-rmv-dangling`
 
 Remove dangling volumes.
 
@@ -235,7 +235,7 @@ docker-rmv-dangling    # Removes unused anonymous volumes
 
 ## Network Functions
 
-### `zsh_show_ports` / `ports`
+### `z_show_ports` / `ports`
 
 List all listening ports.
 
@@ -248,7 +248,7 @@ ports                  # Shows all listening TCP/UDP ports
 - Process name
 - PID
 
-### `zsh_portcheck` / `portcheck`
+### `z_portcheck` / `portcheck`
 
 Check if a specific port is in use.
 
@@ -257,7 +257,7 @@ portcheck 3000         # Check if port 3000 is in use
 portcheck 8080         # Check if port 8080 is in use
 ```
 
-### `zsh_publicip` / `publicip`
+### `z_publicip` / `publicip`
 
 Get your public IP address.
 
@@ -265,7 +265,7 @@ Get your public IP address.
 publicip               # Shows your external IP (via ipify.org)
 ```
 
-### `zsh_localip` / `localip`
+### `z_localip` / `localip`
 
 Get your local network IP.
 
@@ -273,7 +273,7 @@ Get your local network IP.
 localip                # Shows your LAN IP address
 ```
 
-### `zsh_speedtest` / `speedtest`
+### `z_speedtest` / `speedtest`
 
 Test internet connection speed.
 
@@ -281,7 +281,7 @@ Test internet connection speed.
 speedtest              # Download speed test via curl
 ```
 
-### `zsh_waitport` / `waitport`
+### `z_waitport` / `waitport`
 
 Wait for a port to become available.
 
@@ -296,7 +296,7 @@ waitport 3000 30       # Wait up to 30 seconds for port 3000
 
 ## Python Functions
 
-### `zsh_activate_venv` / `activate`
+### `z_activate_venv` / `activate`
 
 Automatically find and activate a Python virtual environment.
 
@@ -313,7 +313,7 @@ activate               # Auto-detects venv in current or parent dirs
 
 ## Introspection Functions
 
-### `zsh_alias_browser` / `als`
+### `z_alias_browser` / `als`
 
 Interactive alias browser with fzf.
 
@@ -334,10 +334,10 @@ als git                # Pre-filter to git aliases
 
 | Function | Alias | Description |
 |----------|-------|-------------|
-| `zsh_killapp` | `killapp` | Quit application by name |
-| `zsh_wifi_name` | `wifi` | Show current Wi-Fi network |
-| `zsh_wifi_password` | `wifipass` | Show Wi-Fi password |
-| `zsh_macos_check_tools` | `checktools` | Check recommended tools |
+| `z_killapp` | `killapp` | Quit application by name |
+| `z_wifi_name` | `wifi` | Show current Wi-Fi network |
+| `z_wifi_password` | `wifipass` | Show Wi-Fi password |
+| `z_macos_check_tools` | `checktools` | Check recommended tools |
 
 ```bash
 killapp Safari         # Quit Safari gracefully
@@ -351,7 +351,7 @@ checktools             # Shows installed/missing tools
 
 | Function | Alias | Description |
 |----------|-------|-------------|
-| `zsh_linux_check_tools` | `checktools` | Check recommended tools |
+| `z_linux_check_tools` | `checktools` | Check recommended tools |
 
 ## Dependencies
 

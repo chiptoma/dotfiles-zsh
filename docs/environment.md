@@ -55,13 +55,13 @@ Configures XDG-compliant paths for:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_ENVIRONMENT_ENABLED` | `true` | Enable/disable environment module |
-| `ZSH_ENVIRONMENT_XDG_STRICT` | `true` | Enforce XDG for all tools |
-| `ZSH_ENVIRONMENT_SSH_MINIMAL` | `true` | Minimal env in SSH sessions |
-| `ZSH_ENVIRONMENT_SSH_AGENT` | `true` | Auto-detect SSH agent socket |
-| `ZSH_LOCALE_OVERRIDE` | empty | Override system locale |
-| `ZSH_GUI_EDITORS_ORDER` | `"surf cursor code"` | GUI editor preference order |
-| `ZSH_TERMINAL_EDITORS_ORDER` | `"nvim vim vi"` | Terminal editor preference |
+| `Z_ENVIRONMENT_ENABLED` | `true` | Enable/disable environment module |
+| `Z_ENVIRONMENT_XDG_STRICT` | `true` | Enforce XDG for all tools |
+| `Z_ENVIRONMENT_SSH_MINIMAL` | `true` | Minimal env in SSH sessions |
+| `Z_ENVIRONMENT_SSH_AGENT` | `true` | Auto-detect SSH agent socket |
+| `Z_LOCALE_OVERRIDE` | empty | Override system locale |
+| `Z_GUI_EDITORS_ORDER` | `"surf cursor code"` | GUI editor preference order |
+| `Z_TERMINAL_EDITORS_ORDER` | `"nvim vim vi"` | Terminal editor preference |
 
 ## XDG Directory Structure
 
@@ -107,10 +107,10 @@ The module automatically finds editors by checking:
 
 ```bash
 # GUI editors (in order)
-ZSH_GUI_EDITORS_ORDER="surf cursor code"
+Z_GUI_EDITORS_ORDER="surf cursor code"
 
 # Terminal editors (in order)
-ZSH_TERMINAL_EDITORS_ORDER="nvim vim vi"
+Z_TERMINAL_EDITORS_ORDER="nvim vim vi"
 ```
 
 ### Environment Variables Set
@@ -127,8 +127,8 @@ ZSH_TERMINAL_EDITORS_ORDER="nvim vim vi"
 
 ```bash
 # In .zshlocal
-export ZSH_GUI_EDITORS_ORDER="code cursor sublime"
-export ZSH_TERMINAL_EDITORS_ORDER="vim nano"
+export Z_GUI_EDITORS_ORDER="code cursor sublime"
+export Z_TERMINAL_EDITORS_ORDER="vim nano"
 ```
 
 ## SSH Agent Detection
@@ -142,7 +142,7 @@ Order of preference:
 
 Disable with:
 ```bash
-export ZSH_ENVIRONMENT_SSH_AGENT=false
+export Z_ENVIRONMENT_SSH_AGENT=false
 ```
 
 ## Locale Configuration
@@ -151,14 +151,14 @@ Override system locale:
 
 ```bash
 # In .zshlocal
-export ZSH_LOCALE_OVERRIDE="en_US.UTF-8"
+export Z_LOCALE_OVERRIDE="en_US.UTF-8"
 ```
 
 This sets `LANG`, `LC_ALL`, and `LANGUAGE`.
 
 ## SSH Session Detection
 
-In SSH sessions (when `ZSH_ENVIRONMENT_SSH_MINIMAL=true`):
+In SSH sessions (when `Z_ENVIRONMENT_SSH_MINIMAL=true`):
 
 - Skips GUI editor detection
 - Reduces environment setup
@@ -170,10 +170,10 @@ The module provides hooks for customization:
 
 ```bash
 # Run before environment setup
-ZSH_PRE_ENV_INIT_HOOKS+=('my_pre_init_function')
+Z_PRE_ENV_INIT_HOOKS+=('my_pre_init_function')
 
 # Run after environment setup
-ZSH_POST_ENV_INIT_HOOKS+=('my_post_init_function')
+Z_POST_ENV_INIT_HOOKS+=('my_post_init_function')
 ```
 
 ## Tool-Specific Variables
@@ -252,6 +252,6 @@ ssh-add -l  # List loaded keys
 ### Debug Environment Loading
 
 ```bash
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 exec zsh
 ```

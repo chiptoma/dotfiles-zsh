@@ -17,8 +17,8 @@ ZSH can compile scripts to bytecode (`.zwc` files) for faster loading. This modu
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_COMPILATION_ENABLED` | `false` | Enable/disable compilation |
-| `ZSH_COMPILATION_CLEANUP_ON_START` | `true` | Remove stale `.zwc` on startup |
+| `Z_COMPILATION_ENABLED` | `false` | Enable/disable compilation |
+| `Z_COMPILATION_CLEANUP_ON_START` | `true` | Remove stale `.zwc` on startup |
 
 **Note:** Compilation is **disabled by default**. Enable it for faster startup on slower systems.
 
@@ -27,7 +27,7 @@ ZSH can compile scripts to bytecode (`.zwc` files) for faster loading. This modu
 Add to `.zshlocal`:
 
 ```bash
-export ZSH_COMPILATION_ENABLED=true
+export Z_COMPILATION_ENABLED=true
 ```
 
 Then restart your shell or run:
@@ -40,8 +40,8 @@ source ~/.config/zsh/modules/compilation.zsh
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `zsh_cleanup_zwc` | `compclean` | Remove stale `.zwc` files |
-| `zsh_cleanup_zwc all` | `compclean-all` | Remove ALL `.zwc` files |
+| `z_cleanup_zwc` | `compclean` | Remove stale `.zwc` files |
+| `z_cleanup_zwc all` | `compclean-all` | Remove ALL `.zwc` files |
 
 ## What Gets Compiled
 
@@ -116,7 +116,7 @@ compclean-all
 See all compiled files:
 
 ```bash
-export ZSH_COMPILATION_DEBUG=true
+export Z_COMPILATION_DEBUG=true
 exec zsh
 ```
 

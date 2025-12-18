@@ -17,15 +17,15 @@ Type `als` (or `aliases`) to open an interactive fzf browser of all available al
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_ALIASES_ENABLED` | `true` | Enable/disable aliases module |
-| `ZSH_ALIASES_MODERN_TOOLS` | `true` | Use modern CLI replacements |
-| `ZSH_ALIASES_SAFETY_PROMPTS` | `true` | Confirm destructive operations |
+| `Z_ALIASES_ENABLED` | `true` | Enable/disable aliases module |
+| `Z_ALIASES_MODERN_TOOLS` | `true` | Use modern CLI replacements |
+| `Z_ALIASES_SAFETY_PROMPTS` | `true` | Confirm destructive operations |
 
 ---
 
 ## Safety Aliases
 
-Enabled when `ZSH_ALIASES_SAFETY_PROMPTS=true`:
+Enabled when `Z_ALIASES_SAFETY_PROMPTS=true`:
 
 | Alias | Command | Description |
 |-------|---------|-------------|
@@ -51,9 +51,9 @@ Enabled when `ZSH_ALIASES_SAFETY_PROMPTS=true`:
 | `dld` | `cd ~/Downloads` | Downloads |
 | `dsk` | `cd ~/Desktop` | Desktop |
 | `doc` | `cd ~/Documents` | Documents |
-| `mkcd` | `zsh_mkcd` | Create dir and cd into it |
-| `take` | `zsh_mkcd` | Create dir and cd into it |
-| `up` | `zsh_up` | Navigate up N directories |
+| `mkcd` | `z_mkcd` | Create dir and cd into it |
+| `take` | `z_mkcd` | Create dir and cd into it |
+| `up` | `z_up` | Navigate up N directories |
 | `d` | `dirs -v \| head -10` | Show directory stack |
 | `p` | `pushd` | Push to directory stack |
 
@@ -74,11 +74,11 @@ Enabled when `ZSH_ALIASES_SAFETY_PROMPTS=true`:
 | `rd` | `rmdir` | Remove empty directory |
 | `c` / `cl` / `clr` / `cls` | `clear` | Clear terminal |
 | `j` | `jobs -l` | List background jobs |
-| `sizeof` | `zsh_sizeof` | Show size of file/dir |
-| `backup` | `zsh_backup` | Create timestamped backup |
-| `todos` | `zsh_todos` | Find TODO/FIXME comments |
-| `extract` | `zsh_extract` | Universal archive extractor |
-| `gitsize` | `zsh_gitsize` | Git-tracked file sizes |
+| `sizeof` | `z_sizeof` | Show size of file/dir |
+| `backup` | `z_backup` | Create timestamped backup |
+| `todos` | `z_todos` | Find TODO/FIXME comments |
+| `extract` | `z_extract` | Universal archive extractor |
+| `gitsize` | `z_gitsize` | Git-tracked file sizes |
 
 ### Yazi File Manager (if installed)
 
@@ -90,7 +90,7 @@ Enabled when `ZSH_ALIASES_SAFETY_PROMPTS=true`:
 
 ## Modern Tool Replacements
 
-These activate when `ZSH_ALIASES_MODERN_TOOLS=true` and the tool is installed:
+These activate when `Z_ALIASES_MODERN_TOOLS=true` and the tool is installed:
 
 ### eza (ls replacement)
 
@@ -270,7 +270,7 @@ Pattern: `g` + first letter of each word. Modifiers: `a`=all, `s`=staged, `f`=fo
 | `gwt` | `git worktree` | Worktree |
 | `gbi` | `git bisect` | Bisect |
 | `lg` | `lazygit` | Lazygit TUI |
-| `gcleanup` | `zsh_git_cleanup` | Delete merged branches |
+| `gcleanup` | `z_git_cleanup` | Delete merged branches |
 
 ---
 
@@ -284,10 +284,10 @@ Pattern: `g` + first letter of each word. Modifiers: `a`=all, `s`=staged, `f`=fo
 | `dimg` | `docker images` | List images |
 | `dvol` | `docker volume ls` | List volumes |
 | `dnet` | `docker network ls` | List networks |
-| `dstop` | `zsh_docker_stop_all` | Stop all containers |
+| `dstop` | `z_docker_stop_all` | Stop all containers |
 | `dclean` | `docker system prune -af` | Prune everything |
-| `drmi` | `zsh_docker_rmi_dangling` | Remove dangling images |
-| `drmv` | `zsh_docker_rmv_dangling` | Remove dangling volumes |
+| `drmi` | `z_docker_rmi_dangling` | Remove dangling images |
+| `drmv` | `z_docker_rmv_dangling` | Remove dangling volumes |
 | `lzd` | `lazydocker` | Lazydocker TUI |
 
 ---
@@ -343,7 +343,7 @@ Pattern: `g` + first letter of each word. Modifiers: `a`=all, `s`=staged, `f`=fo
 | `python` | `python3` | Python interpreter |
 | `pip` | `pip3` | Package manager |
 | `venv` | `python3 -m venv` | Create virtualenv |
-| `activate` | `zsh_activate_venv` | Activate nearest venv |
+| `activate` | `z_activate_venv` | Activate nearest venv |
 
 ---
 
@@ -365,15 +365,15 @@ Pattern: `g` + first letter of each word. Modifiers: `a`=all, `s`=staged, `f`=fo
 | Alias | Command | Description |
 |-------|---------|-------------|
 | `psg` | `ps aux \| grep` | Search processes |
-| `pskill` | `zsh_pskill` | Kill by name |
+| `pskill` | `z_pskill` | Kill by name |
 | `ka` | `killall` | Kill all by name |
-| `timeout` | `zsh_timeout` | Run with time limit |
-| `ports` | `zsh_show_ports` | Show listening ports |
-| `ip` | `zsh_publicip` | Public IP |
-| `localip` | `zsh_localip` | Local IP |
-| `speedtest` | `zsh_speedtest` | Internet speed |
-| `portcheck` | `zsh_portcheck` | Check if port open |
-| `waitport` | `zsh_waitport` | Wait for port |
+| `timeout` | `z_timeout` | Run with time limit |
+| `ports` | `z_show_ports` | Show listening ports |
+| `ip` | `z_publicip` | Public IP |
+| `localip` | `z_localip` | Local IP |
+| `speedtest` | `z_speedtest` | Internet speed |
+| `portcheck` | `z_portcheck` | Check if port open |
+| `waitport` | `z_waitport` | Wait for port |
 | `p8` | `ping -c 5 8.8.8.8` | Quick ping test |
 
 ---
@@ -390,7 +390,7 @@ Pattern: `g` + first letter of each word. Modifiers: `a`=all, `s`=staged, `f`=fo
 | `flushdns` | Flush DNS cache |
 | `lock` | Lock screen |
 | `afk` | Start screensaver |
-| `killapp` | `zsh_killapp` | Kill app by name |
+| `killapp` | `z_killapp` | Kill app by name |
 | `pbp` | `pbpaste` | Paste from clipboard |
 | `pbc` | `pbcopy` | Copy to clipboard |
 | `wifi-scan` | Scan WiFi networks |

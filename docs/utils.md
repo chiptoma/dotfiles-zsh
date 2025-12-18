@@ -76,7 +76,7 @@ Check if running in CI/CD environment.
 
 ```bash
 if _is_ci; then
-    export ZSH_LOG_LEVEL=NONE  # Quiet mode
+    export Z_LOG_LEVEL=NONE  # Quiet mode
 fi
 ```
 
@@ -191,7 +191,7 @@ _safe_source "$HOME/.config/zsh/.zshlocal"
 Enable strict ownership checking:
 
 ```bash
-export ZSH_VERIFY_FILE_OWNERSHIP=true
+export Z_VERIFY_FILE_OWNERSHIP=true
 ```
 
 When enabled, `_safe_source` will:

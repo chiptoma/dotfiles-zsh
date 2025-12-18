@@ -72,16 +72,16 @@ Automatically adds CLI tools from:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_PATH_ENABLED` | `true` | Enable/disable path management |
-| `ZSH_PATH_HOMEBREW` | `true` | Detect and initialize Homebrew |
-| `ZSH_PATH_CLEAN` | `true` | Remove non-existent directories |
-| `ZSH_PATH_PROJECT_BIN` | `false` | Add project-local bin directories |
-| `ZSH_PATH_SSH_MINIMAL` | `true` | Use minimal PATH in SSH sessions |
-| `ZSH_PATH_FORCE_MINIMAL` | `false` | Force minimal PATH always |
+| `Z_PATH_ENABLED` | `true` | Enable/disable path management |
+| `Z_PATH_HOMEBREW` | `true` | Detect and initialize Homebrew |
+| `Z_PATH_CLEAN` | `true` | Remove non-existent directories |
+| `Z_PATH_PROJECT_BIN` | `false` | Add project-local bin directories |
+| `Z_PATH_SSH_MINIMAL` | `true` | Use minimal PATH in SSH sessions |
+| `Z_PATH_FORCE_MINIMAL` | `false` | Force minimal PATH always |
 
 ## Project-Local Binaries
 
-When enabled (`ZSH_PATH_PROJECT_BIN=true`), automatically adds these directories when you `cd`:
+When enabled (`Z_PATH_PROJECT_BIN=true`), automatically adds these directories when you `cd`:
 
 - `./bin` - Generic project binaries
 - `./node_modules/.bin` - Node.js executables
@@ -191,8 +191,8 @@ Format: `name => "path:position:condition[:value]"`
 
 Minimal mode activates when:
 
-1. `ZSH_PATH_FORCE_MINIMAL=true`
-2. SSH session detected (`$SSH_CONNECTION` set) and `ZSH_PATH_SSH_MINIMAL=true`
+1. `Z_PATH_FORCE_MINIMAL=true`
+2. SSH session detected (`$SSH_CONNECTION` set) and `Z_PATH_SSH_MINIMAL=true`
 3. Running in Docker/CI (detected via `/.dockerenv`, `CI` variable)
 
 In minimal mode, many development tool paths are skipped for faster startup.

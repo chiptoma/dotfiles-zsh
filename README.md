@@ -1,6 +1,8 @@
 # ZSH Configuration
 
-[![CI](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/ci.yml)
+[![Quality](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-quality.yml)
+[![Installer](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-installer.yml)
+[![Platforms](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml/badge.svg)](https://github.com/chiptoma/dotfiles-zsh/actions/workflows/test-platforms.yml)
 
 A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support.
 
@@ -8,7 +10,7 @@ A modular, modern ZSH configuration with security-first defaults, lazy loading, 
 
 | Feature | Description |
 |---------|-------------|
-| **Modular Architecture** | Enable/disable features independently via `ZSH_*_ENABLED` flags |
+| **Modular Architecture** | Enable/disable features independently via `Z_*_ENABLED` flags |
 | **Lazy Loading** | Deferred initialization for starship, atuin, zoxide, nvm, pyenv, rbenv |
 | **Security First** | History filtering, safe aliases, ownership verification |
 | **Cross-Platform** | macOS (Intel/Apple Silicon) and Linux with auto-detection |
@@ -18,16 +20,20 @@ A modular, modern ZSH configuration with security-first defaults, lazy loading, 
 ## Quick Start
 
 ```bash
-# Clone and install (handles everything automatically)
+# Option 1: Clone and install (recommended)
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 ~/.config/zsh/install.sh
+
+# Option 2: One-liner via curl
+curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
 The installer automatically:
 - Installs Oh My Zsh if missing
 - Configures ZDOTDIR
 - Creates XDG directories
-- Offers optional tool installation (starship, fzf, etc.)
+- Installs essential tools (starship prompt, atuin history)
+- Offers recommended tool installation (fzf, eza, zoxide, etc.)
 
 See [INSTALL.md](INSTALL.md) for detailed instructions.
 
@@ -103,7 +109,7 @@ Detailed documentation for each module:
 | Logging | [docs/logging.md](docs/logging.md) | `_log` function with levels, colors, caller info |
 | Utils | [docs/utils.md](docs/utils.md) | Core helpers: `_has_cmd`, `_safe_source`, `_cache_eval` |
 | Platform | [docs/platform.md](docs/platform.md) | OS-specific detection and paths |
-| Functions | [docs/functions.md](docs/functions.md) | User-facing `zsh_*` functions |
+| Functions | [docs/functions.md](docs/functions.md) | User-facing `z_*` functions |
 
 ### Optional (Toggleable)
 
@@ -126,94 +132,92 @@ All options can be set in `.zshlocal` or exported before sourcing.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_LOG_LEVEL` | `WARN` | Log verbosity: `DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE` |
+| `Z_LOG_LEVEL` | `WARN` | Log verbosity: `DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE` |
 
 ### Module Toggles
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_ENVIRONMENT_ENABLED` | `true` | Environment module |
-| `ZSH_PATH_ENABLED` | `true` | PATH module |
-| `ZSH_LAZY_ENABLED` | `true` | Lazy loading module |
-| `ZSH_COMPLETION_ENABLED` | `true` | Completion module |
-| `ZSH_HISTORY_ENABLED` | `true` | History module |
-| `ZSH_ALIASES_ENABLED` | `true` | Aliases module |
-| `ZSH_KEYBINDINGS_ENABLED` | `true` | Keybindings module |
-| `ZSH_COMPILATION_ENABLED` | `false` | Compilation module |
+| `Z_ENVIRONMENT_ENABLED` | `true` | Environment module |
+| `Z_PATH_ENABLED` | `true` | PATH module |
+| `Z_LAZY_ENABLED` | `true` | Lazy loading module |
+| `Z_COMPLETION_ENABLED` | `true` | Completion module |
+| `Z_HISTORY_ENABLED` | `true` | History module |
+| `Z_ALIASES_ENABLED` | `true` | Aliases module |
+| `Z_KEYBINDINGS_ENABLED` | `true` | Keybindings module |
+| `Z_COMPILATION_ENABLED` | `false` | Compilation module |
 
 ### Lazy Loading
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_LAZY_STARSHIP` | `true` | Lazy load starship prompt |
-| `ZSH_LAZY_ATUIN` | `true` | Lazy load atuin history |
-| `ZSH_LAZY_ZOXIDE` | `true` | Lazy load zoxide |
-| `ZSH_LAZY_NVM` | `true` | Lazy load nvm |
-| `ZSH_LAZY_PYENV` | `true` | Lazy load pyenv |
-| `ZSH_LAZY_RBENV` | `true` | Lazy load rbenv |
+| `Z_LAZY_ZOXIDE` | `true` | Lazy load zoxide |
+| `Z_LAZY_NVM` | `true` | Lazy load nvm |
+| `Z_LAZY_PYENV` | `true` | Lazy load pyenv |
+| `Z_LAZY_RBENV` | `true` | Lazy load rbenv |
 
 ### Environment
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_ENVIRONMENT_XDG_STRICT` | `true` | Enforce XDG for all tools |
-| `ZSH_ENVIRONMENT_SSH_MINIMAL` | `true` | Minimal env in SSH sessions |
-| `ZSH_ENVIRONMENT_SSH_AGENT` | `true` | Auto-detect SSH agent socket |
-| `ZSH_LOCALE_OVERRIDE` | empty | Override system locale |
-| `ZSH_GUI_EDITORS_ORDER` | `"surf cursor code"` | GUI editor preference |
-| `ZSH_TERMINAL_EDITORS_ORDER` | `"nvim vim vi"` | Terminal editor preference |
+| `Z_ENVIRONMENT_XDG_STRICT` | `true` | Enforce XDG for all tools |
+| `Z_ENVIRONMENT_SSH_MINIMAL` | `true` | Minimal env in SSH sessions |
+| `Z_ENVIRONMENT_SSH_AGENT` | `true` | Auto-detect SSH agent socket |
+| `Z_LOCALE_OVERRIDE` | empty | Override system locale |
+| `Z_GUI_EDITORS_ORDER` | `"surf cursor code"` | GUI editor preference |
+| `Z_TERMINAL_EDITORS_ORDER` | `"nvim vim vi"` | Terminal editor preference |
 
 ### PATH
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_PATH_HOMEBREW` | `true` | Detect and init Homebrew |
-| `ZSH_PATH_CLEAN` | `true` | Remove non-existent dirs |
-| `ZSH_PATH_PROJECT_BIN` | `false` | Add `./bin`, `./node_modules/.bin` |
-| `ZSH_PATH_SSH_MINIMAL` | `true` | Minimal PATH in SSH |
-| `ZSH_PATH_FORCE_MINIMAL` | `false` | Force minimal PATH always |
+| `Z_PATH_HOMEBREW` | `true` | Detect and init Homebrew |
+| `Z_PATH_CLEAN` | `true` | Remove non-existent dirs |
+| `Z_PATH_PROJECT_BIN` | `false` | Add `./bin`, `./node_modules/.bin` |
+| `Z_PATH_SSH_MINIMAL` | `true` | Minimal PATH in SSH |
+| `Z_PATH_FORCE_MINIMAL` | `false` | Force minimal PATH always |
 
 ### History
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_HISTORY_SIZE` | `100000` | Commands in memory |
-| `ZSH_HISTORY_SAVE_SIZE` | `100000` | Commands saved to file |
-| `ZSH_HISTORY_SECURITY_FILTER` | `true` | Filter sensitive commands |
+| `Z_HISTORY_SIZE` | `100000` | Commands in memory |
+| `Z_HISTORY_SAVE_SIZE` | `100000` | Commands saved to file |
+| `Z_HISTORY_SECURITY_FILTER` | `true` | Filter sensitive commands |
 
 ### Completion
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_COMPLETION_TTL` | `86400` | Compdump TTL in seconds (24h) |
-| `ZSH_COMPLETION_MENU_SELECT` | `true` | Arrow-key menu selection |
+| `Z_COMPLETION_TTL` | `86400` | Compdump TTL in seconds (24h) |
+| `Z_COMPLETION_MENU_SELECT` | `true` | Arrow-key menu selection |
 
 ### Aliases
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_ALIASES_MODERN_TOOLS` | `true` | Use eza, bat, ripgrep, etc. |
-| `ZSH_ALIASES_SAFETY_PROMPTS` | `true` | Confirm destructive ops |
+| `Z_ALIASES_MODERN_TOOLS` | `true` | Use eza, bat, ripgrep, etc. |
+| `Z_ALIASES_SAFETY_PROMPTS` | `true` | Confirm destructive ops |
 
 ### Compilation
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_COMPILATION_CLEANUP_ON_START` | `true` | Clean stale .zwc on startup |
+| `Z_COMPILATION_CLEANUP_ON_START` | `true` | Clean stale .zwc on startup |
 
 ### Update Check
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_UPDATE_CHECK_ENABLED` | `true` | Check for updates on shell launch |
-| `ZSH_UPDATE_CHECK_INTERVAL` | `86400` | Seconds between checks (24h) |
-| `ZSH_UPDATE_AUTO_FETCH` | `true` | Fetch updates in background |
+| `Z_UPDATE_CHECK_ENABLED` | `true` | Check for updates on shell launch |
+| `Z_UPDATE_CHECK_INTERVAL` | `86400` | Seconds between checks (24h) |
+| `Z_UPDATE_AUTO_FETCH` | `true` | Fetch updates in background |
 
 ### Other
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_VERIFY_FILE_OWNERSHIP` | `false` | Check file ownership before sourcing |
+| `Z_VERIFY_FILE_OWNERSHIP` | `false` | Check file ownership before sourcing |
 
 ## Customization
 
@@ -232,16 +236,16 @@ alias dev='cd ~/Development'
 alias prj='cd ~/Projects'
 
 # Enable project-local binaries
-export ZSH_PATH_PROJECT_BIN=true
+export Z_PATH_PROJECT_BIN=true
 
 # Override locale
-export ZSH_LOCALE_OVERRIDE="en_US.UTF-8"
+export Z_LOCALE_OVERRIDE="en_US.UTF-8"
 
 # Debug mode (see all module loading)
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 
 # Disable lazy loading for specific tools
-export ZSH_LAZY_STARSHIP=false
+export Z_LAZY_ZOXIDE=false
 ```
 
 ## Key Bindings
@@ -260,13 +264,13 @@ export ZSH_LAZY_STARSHIP=false
 
 | Alias | Command | Description |
 |-------|---------|-------------|
-| `lazy` | `zsh_lazy_status` | Show lazy loading status |
-| `zupdate` | `zsh_update` | Update to latest version |
-| `zversion` | `zsh_version` | Show current version |
+| `lazy` | `z_lazy_status` | Show lazy loading status |
+| `zupdate` | `z_update` | Update to latest version |
+| `zversion` | `z_version` | Show current version |
 | `path` | `path_show` | Display PATH entries |
 | `pathdebug` | `path_debug` | PATH diagnostics |
 | `hstats` | `history_stats` | Top commands chart |
-| `als` | `zsh_alias_browser` | Interactive alias browser (fzf) |
+| `als` | `z_alias_browser` | Interactive alias browser (fzf) |
 
 ### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for 200+)
 
@@ -290,13 +294,13 @@ exec zsh  # Restart shell completely
 
 **Debug module loading:**
 ```bash
-export ZSH_LOG_LEVEL=DEBUG
+export Z_LOG_LEVEL=DEBUG
 exec zsh
 ```
 
 **Check lazy loading status:**
 ```bash
-zsh_lazy_status
+z_lazy_status
 ```
 
 **PATH issues:**
@@ -317,21 +321,24 @@ exec zsh
 - ZSH 5.8+
 - [Oh My Zsh](https://ohmyz.sh/)
 
-**Recommended:**
-- [starship](https://starship.rs/) - Cross-shell prompt
-- [atuin](https://atuin.sh/) - Shell history sync
-- [fzf](https://github.com/junegunn/fzf) - Fuzzy finder
+**Essential (installed automatically):**
+- [starship](https://starship.rs/) - Cross-shell prompt with git status
+- [atuin](https://atuin.sh/) - Shell history search and sync
+
+**Recommended (prompted during install):**
+- [fzf](https://github.com/junegunn/fzf) - Fuzzy finder (Ctrl+R, Ctrl+T)
 - [zoxide](https://github.com/ajeetdsouza/zoxide) - Smarter cd
-- [eza](https://github.com/eza-community/eza) - Modern ls
-- [bat](https://github.com/sharkdp/bat) - Modern cat
-- [ripgrep](https://github.com/BurntSushi/ripgrep) - Modern grep
+- [eza](https://github.com/eza-community/eza) - Modern ls with icons
+- [bat](https://github.com/sharkdp/bat) - Modern cat with syntax highlighting
+- [ripgrep](https://github.com/BurntSushi/ripgrep) - Fast grep
+- [fd](https://github.com/sharkdp/fd) - Modern find
 
 ```bash
 # macOS
-brew install starship atuin fzf zoxide eza bat ripgrep
+brew install starship atuin fzf zoxide eza bat ripgrep fd
 
-# Linux (Ubuntu/Debian)
-# See individual tool docs for installation
+# Linux (Ubuntu/Debian) - see INSTALL.md for details
+# Note: bat→batcat, fd→fdfind on Debian-based systems
 ```
 
 ## License

@@ -38,9 +38,9 @@ Smart, fast, and user-friendly tab completion system with caching and intelligen
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZSH_COMPLETION_ENABLED` | `true` | Enable/disable completion module |
-| `ZSH_COMPLETION_TTL` | `86400` | Compdump TTL in seconds (24 hours) |
-| `ZSH_COMPLETION_MENU_SELECT` | `true` | Enable arrow-key menu selection |
+| `Z_COMPLETION_ENABLED` | `true` | Enable/disable completion module |
+| `Z_COMPLETION_TTL` | `86400` | Compdump TTL in seconds (24 hours) |
+| `Z_COMPLETION_MENU_SELECT` | `true` | Enable arrow-key menu selection |
 
 ## Custom Completions
 
