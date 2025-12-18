@@ -1,14 +1,14 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH UNIT TEST FRAMEWORK
-# ? Self-contained unit tests for core zsh configuration functions.
-# ? Run: ./tests/unit-test.zsh [--verbose]
+# ZSH UNIT TEST FRAMEWORK
+# Self-contained unit tests for core zsh configuration functions.
+# Run: ./tests/unit-test.zsh [--verbose]
 # ==============================================================================
 
-# ! Do NOT use set -e - we handle failures via test assertions
+# Do NOT use set -e - we handle failures via test assertions
 
 # ----------------------------------------------------------
-# * CONFIGURATION
+# CONFIGURATION
 # ----------------------------------------------------------
 
 VERBOSE=false
@@ -34,7 +34,7 @@ SKIPPED=0
 TEST_TMP=""
 
 # ----------------------------------------------------------
-# * TEST HELPERS
+# TEST HELPERS
 # ----------------------------------------------------------
 
 pass() {
@@ -131,7 +131,7 @@ assert_dir_exists() {
 }
 
 # ----------------------------------------------------------
-# * TEST SETUP & TEARDOWN
+# TEST SETUP & TEARDOWN
 # ----------------------------------------------------------
 
 setup_test_env() {
@@ -164,7 +164,7 @@ load_module() {
     fi
 
     # Reset guards to allow reload
-    unset _ZSH_UTILS_LOADED _ZSH_UTILS_INDEX_LOADED _ZSH_LOGGING_LOADED _ZSH_PATH_LOADED 2>/dev/null
+    unset _Z_UTILS_LOADED _Z_UTILS_INDEX_LOADED _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
 
     # Source minimal dependencies (new paths after refactor)
     source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
@@ -172,14 +172,14 @@ load_module() {
 }
 
 # ----------------------------------------------------------
-# * TESTS: lib/utils.zsh
+# TESTS: lib/utils.zsh
 # ----------------------------------------------------------
 
 test_utils() {
     section "lib/utils/core.zsh"
 
     # Load module
-    unset _ZSH_UTILS_LOADED 2>/dev/null
+    unset _Z_UTILS_LOADED 2>/dev/null
     source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
     source "$ZDOTDIR/lib/utils/core.zsh" || { skip "core.zsh not loadable"; return; }
 
@@ -231,47 +231,47 @@ test_utils() {
 }
 
 # ----------------------------------------------------------
-# * TESTS: modules/logging.zsh
+# TESTS: modules/logging.zsh
 # ----------------------------------------------------------
 
 test_logging() {
     section "lib/utils/logging.zsh"
 
     # Load module
-    unset _ZSH_LOGGING_LOADED 2>/dev/null
+    unset _Z_LOGGING_LOADED 2>/dev/null
     source "$ZDOTDIR/lib/utils/logging.zsh" || { skip "logging.zsh not loadable"; return; }
 
     # Test log levels exist
-    assert_eq "${ZSH_LOG_LEVELS[DEBUG]}" "0" "DEBUG level is 0"
-    assert_eq "${ZSH_LOG_LEVELS[INFO]}" "1" "INFO level is 1"
-    assert_eq "${ZSH_LOG_LEVELS[WARN]}" "2" "WARN level is 2"
-    assert_eq "${ZSH_LOG_LEVELS[ERROR]}" "3" "ERROR level is 3"
-    assert_eq "${ZSH_LOG_LEVELS[NONE]}" "4" "NONE level is 4"
+    assert_eq "${Z_LOG_LEVELS[DEBUG]}" "0" "DEBUG level is 0"
+    assert_eq "${Z_LOG_LEVELS[INFO]}" "1" "INFO level is 1"
+    assert_eq "${Z_LOG_LEVELS[WARN]}" "2" "WARN level is 2"
+    assert_eq "${Z_LOG_LEVELS[ERROR]}" "3" "ERROR level is 3"
+    assert_eq "${Z_LOG_LEVELS[NONE]}" "4" "NONE level is 4"
 
-    # Test log_level_set
-    local old_level="$ZSH_LOG_LEVEL"
-    log_level_set DEBUG
-    assert_eq "$ZSH_LOG_LEVEL" "DEBUG" "log_level_set changes level"
-    log_level_set "$old_level"
+    # Test z_log_level_set
+    local old_level="$Z_LOG_LEVEL"
+    z_log_level_set DEBUG
+    assert_eq "$Z_LOG_LEVEL" "DEBUG" "z_log_level_set changes level"
+    z_log_level_set "$old_level"
 
     # Test invalid log level
-    assert_false "log_level_set rejects invalid level" log_level_set INVALID_LEVEL
+    assert_false "z_log_level_set rejects invalid level" z_log_level_set INVALID_LEVEL
 
     # Test _log output (capture stderr for WARN/ERROR)
     local output
-    ZSH_LOG_LEVEL=DEBUG
-    ZSH_LOG_TIMESTAMP_ENABLE=false
-    ZSH_LOG_SHOW_CALLER=false
+    Z_LOG_LEVEL=DEBUG
+    Z_LOG_TIMESTAMP_ENABLE=false
+    Z_LOG_SHOW_CALLER=false
     output=$(_log INFO "test message" 2>&1)
     assert_contains "$output" "INFO" "_log includes level"
     assert_contains "$output" "test message" "_log includes message"
 
     # Restore
-    ZSH_LOG_LEVEL="$old_level"
+    Z_LOG_LEVEL="$old_level"
 }
 
 # ----------------------------------------------------------
-# * TESTS: modules/path.zsh (Functions Only)
+# TESTS: modules/path.zsh (Functions Only)
 # ----------------------------------------------------------
 
 test_path_functions() {
@@ -280,7 +280,7 @@ test_path_functions() {
     # We test path functions in isolation without running path_init
     # Load only the function definitions
 
-    unset _ZSH_LOGGING_LOADED _ZSH_PATH_LOADED 2>/dev/null
+    unset _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
     source "$ZDOTDIR/modules/logging.zsh" 2>/dev/null || true
 
     # Define minimal stubs for dependencies
@@ -292,7 +292,7 @@ test_path_functions() {
     _is_ci() { return 1; }
 
     # Source path module (will run path_init, but we'll test functions after)
-    typeset -g ZSH_PATH_ENABLED=true
+    typeset -g Z_PATH_ENABLED=true
     source "$ZDOTDIR/modules/path.zsh" 2>/dev/null || { skip "path.zsh not loadable"; return; }
 
     # Test _path_add prepend
@@ -331,10 +331,10 @@ test_path_functions() {
 
     # Test path_contains (suppress debug output)
     local output
-    ZSH_LOG_LEVEL=ERROR output=$(path_contains /usr/bin 2>&1)
+    Z_LOG_LEVEL=ERROR output=$(path_contains /usr/bin 2>&1)
     assert_contains "$output" "IS in PATH" "path_contains finds /usr/bin"
 
-    ZSH_LOG_LEVEL=ERROR output=$(path_contains /nonexistent/path 2>&1)
+    Z_LOG_LEVEL=ERROR output=$(path_contains /nonexistent/path 2>&1)
     assert_contains "$output" "IS NOT in PATH" "path_contains rejects nonexistent"
 
     # Restore original path
@@ -342,7 +342,7 @@ test_path_functions() {
 }
 
 # ----------------------------------------------------------
-# * TESTS: modules/path.zsh (Condition Evaluation)
+# TESTS: modules/path.zsh (Condition Evaluation)
 # ----------------------------------------------------------
 
 test_path_conditions() {
@@ -382,7 +382,7 @@ test_path_conditions() {
 }
 
 # ----------------------------------------------------------
-# * TESTS: modules/lazy.zsh
+# TESTS: modules/lazy.zsh
 # ----------------------------------------------------------
 
 test_lazy() {
@@ -392,20 +392,20 @@ test_lazy() {
     [[ -f "$ZDOTDIR/modules/lazy.zsh" ]] || { skip "lazy.zsh not found"; return; }
 
     # Test lazy status function exists after loading
-    unset _ZSH_LAZY_LOADED 2>/dev/null
-    typeset -g ZSH_LAZY_ENABLED=true
-    typeset -g ZSH_LAZY_ZOXIDE=false  # Disable actual lazy loads for testing
-    typeset -g ZSH_LAZY_NVM=false
-    typeset -g ZSH_LAZY_PYENV=false
-    typeset -g ZSH_LAZY_RBENV=false
+    unset _Z_LAZY_LOADED 2>/dev/null
+    typeset -g Z_LAZY_ENABLED=true
+    typeset -g Z_LAZY_ZOXIDE=false  # Disable actual lazy loads for testing
+    typeset -g Z_LAZY_NVM=false
+    typeset -g Z_LAZY_PYENV=false
+    typeset -g Z_LAZY_RBENV=false
 
     source "$ZDOTDIR/modules/lazy.zsh" 2>/dev/null || { skip "lazy.zsh not loadable"; return; }
 
-    # Test zsh_lazy_status function exists
-    if typeset -f zsh_lazy_status > /dev/null 2>&1; then
-        pass "zsh_lazy_status function defined"
+    # Test z_lazy_status function exists
+    if typeset -f z_lazy_status > /dev/null 2>&1; then
+        pass "z_lazy_status function defined"
     else
-        fail "zsh_lazy_status function defined"
+        fail "z_lazy_status function defined"
     fi
 
     # Test _LAZY_LOADED_TOOLS array exists
@@ -421,10 +421,44 @@ test_lazy() {
     else
         fail "lazy_load function defined"
     fi
+
+    # Test lazy_load_precmd function exists
+    if typeset -f lazy_load_precmd > /dev/null 2>&1; then
+        pass "lazy_load_precmd function defined"
+    else
+        fail "lazy_load_precmd function defined"
+    fi
+
+    # Test _LAZY_PRECMD_INITS array exists
+    if [[ -n "${(t)_LAZY_PRECMD_INITS}" ]]; then
+        pass "_LAZY_PRECMD_INITS array exists"
+    else
+        fail "_LAZY_PRECMD_INITS array exists"
+    fi
+
+    # Test _lazy_validate_cmd security validation
+    if typeset -f _lazy_validate_cmd > /dev/null 2>&1; then
+        pass "_lazy_validate_cmd function defined"
+
+        # Test valid command names
+        assert_true "validates simple command" _lazy_validate_cmd "mycommand"
+        assert_true "validates hyphenated" _lazy_validate_cmd "my-command"
+        assert_true "validates underscored" _lazy_validate_cmd "my_command"
+        assert_true "validates with numbers" _lazy_validate_cmd "cmd123"
+
+        # Test invalid command names (should be rejected)
+        assert_false "rejects semicolon" _lazy_validate_cmd "cmd;rm" 2>/dev/null
+        assert_false "rejects pipe" _lazy_validate_cmd "cmd|cat" 2>/dev/null
+        assert_false "rejects subshell" _lazy_validate_cmd '$(whoami)' 2>/dev/null
+        assert_false "rejects backticks" _lazy_validate_cmd '`whoami`' 2>/dev/null
+        assert_false "rejects spaces" _lazy_validate_cmd "cmd arg" 2>/dev/null
+    else
+        fail "_lazy_validate_cmd function defined"
+    fi
 }
 
 # ----------------------------------------------------------
-# * TESTS: Input Validation
+# TESTS: Input Validation
 # ----------------------------------------------------------
 
 test_input_validation() {
@@ -437,8 +471,8 @@ test_input_validation() {
     result=$(_is_empty 2>&1) || true
     pass "_is_empty handles no args"
 
-    # log_level_set with empty arg
-    assert_false "log_level_set rejects empty input" log_level_set ""
+    # z_log_level_set with empty arg
+    assert_false "z_log_level_set rejects empty input" z_log_level_set ""
 
     # _path_add with non-existent directory (should not add)
     local path_before=${#path[@]}
@@ -448,14 +482,14 @@ test_input_validation() {
 }
 
 # ----------------------------------------------------------
-# * TESTS: modules/history.zsh
+# TESTS: modules/history.zsh
 # ----------------------------------------------------------
 
 test_history() {
     section "modules/history.zsh"
 
     # Load dependencies first
-    unset _ZSH_HISTORY_LOADED 2>/dev/null
+    unset _Z_HISTORY_LOADED 2>/dev/null
     source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
     source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
 
@@ -504,10 +538,299 @@ test_history() {
     else
         fail "history_clean function defined"
     fi
+
+    # Test history edge cases
+    # Test with empty HISTFILE path
+    local old_histfile="$HISTFILE"
+    unset HISTFILE
+    assert_false "history_backup handles missing HISTFILE" history_backup 2>/dev/null
+    HISTFILE="$old_histfile"
 }
 
 # ----------------------------------------------------------
-# * TEST RUNNER
+# TESTS: lib/utils/platform/detect.zsh
+# ----------------------------------------------------------
+
+test_platform_detection() {
+    section "lib/utils/platform/detect.zsh"
+
+    # Check if platform detection module exists
+    [[ -f "$ZDOTDIR/lib/utils/platform/detect.zsh" ]] || { skip "detect.zsh not found"; return; }
+
+    # Load module
+    unset _Z_PLATFORM_DETECT_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/utils/platform/detect.zsh" 2>/dev/null || { skip "detect.zsh not loadable"; return; }
+
+    # Test primary platform detection functions exist
+    if typeset -f _is_macos > /dev/null 2>&1; then
+        pass "_is_macos function defined"
+    else
+        fail "_is_macos function defined"
+    fi
+
+    if typeset -f _is_linux > /dev/null 2>&1; then
+        pass "_is_linux function defined"
+    else
+        fail "_is_linux function defined"
+    fi
+
+    if typeset -f _is_bsd > /dev/null 2>&1; then
+        pass "_is_bsd function defined"
+    else
+        fail "_is_bsd function defined"
+    fi
+
+    # Test architecture detection functions
+    if typeset -f _is_arm > /dev/null 2>&1; then
+        pass "_is_arm function defined"
+    else
+        fail "_is_arm function defined"
+    fi
+
+    if typeset -f _is_x86_64 > /dev/null 2>&1; then
+        pass "_is_x86_64 function defined"
+    else
+        fail "_is_x86_64 function defined"
+    fi
+
+    # Test WSL detection
+    if typeset -f _is_wsl > /dev/null 2>&1; then
+        pass "_is_wsl function defined"
+    else
+        fail "_is_wsl function defined"
+    fi
+
+    # Platform-specific validation
+    if [[ "$OSTYPE" == darwin* ]]; then
+        assert_true "_is_macos returns true on macOS" _is_macos
+        assert_false "_is_linux returns false on macOS" _is_linux
+    elif [[ "$OSTYPE" == linux* ]]; then
+        assert_false "_is_macos returns false on Linux" _is_macos
+        assert_true "_is_linux returns true on Linux" _is_linux
+    fi
+}
+
+# ----------------------------------------------------------
+# TESTS: Security (Negative Tests)
+# Verify that security controls reject malicious inputs.
+# ----------------------------------------------------------
+
+test_security_negative() {
+    section "Security (Negative Tests)"
+
+    # ─────────────────────────────────────────────────────────
+    # Lazy Load Injection Prevention
+    # ─────────────────────────────────────────────────────────
+
+    # Test that lazy_load rejects unsafe command names
+    if typeset -f _lazy_validate_cmd > /dev/null 2>&1; then
+        # Shell metacharacters that could enable injection
+        assert_false "rejects newline injection" _lazy_validate_cmd $'cmd\nrm -rf /' 2>/dev/null
+        assert_false "rejects carriage return" _lazy_validate_cmd $'cmd\rrm' 2>/dev/null
+        assert_false "rejects ampersand" _lazy_validate_cmd "cmd&whoami" 2>/dev/null
+        assert_false "rejects double ampersand" _lazy_validate_cmd "cmd&&whoami" 2>/dev/null
+        assert_false "rejects double pipe" _lazy_validate_cmd "cmd||whoami" 2>/dev/null
+        assert_false "rejects redirect" _lazy_validate_cmd "cmd>file" 2>/dev/null
+        assert_false "rejects append redirect" _lazy_validate_cmd "cmd>>file" 2>/dev/null
+        assert_false "rejects input redirect" _lazy_validate_cmd "cmd<file" 2>/dev/null
+        assert_false "rejects dollar expansion" _lazy_validate_cmd 'cmd$PATH' 2>/dev/null
+        assert_false "rejects brace expansion" _lazy_validate_cmd "cmd{a,b}" 2>/dev/null
+        assert_false "rejects glob asterisk" _lazy_validate_cmd "cmd*" 2>/dev/null
+        assert_false "rejects glob question" _lazy_validate_cmd "cmd?" 2>/dev/null
+        assert_false "rejects square brackets" _lazy_validate_cmd "cmd[0]" 2>/dev/null
+        assert_false "rejects parentheses" _lazy_validate_cmd "cmd()" 2>/dev/null
+        assert_false "rejects hash comment" _lazy_validate_cmd "cmd#" 2>/dev/null
+        assert_false "rejects exclamation" _lazy_validate_cmd "cmd!" 2>/dev/null
+        assert_false "rejects tilde expansion" _lazy_validate_cmd "~cmd" 2>/dev/null
+        assert_false "rejects equals in name" _lazy_validate_cmd "VAR=cmd" 2>/dev/null
+        assert_false "rejects forward slash" _lazy_validate_cmd "/bin/cmd" 2>/dev/null
+        assert_false "rejects backslash" _lazy_validate_cmd "cmd\\n" 2>/dev/null
+    else
+        skip "_lazy_validate_cmd not available for security tests"
+    fi
+
+    # Test lazy_load function integration
+    if typeset -f lazy_load > /dev/null 2>&1; then
+        # Verify lazy_load returns error for unsafe commands
+        local result
+        result=$(lazy_load "cmd;rm" "echo init" 2>&1)
+        [[ $? -ne 0 ]] && pass "lazy_load rejects unsafe command (semicolon)" || fail "lazy_load rejects unsafe command (semicolon)"
+
+        result=$(lazy_load '$(whoami)' "echo init" 2>&1)
+        [[ $? -ne 0 ]] && pass "lazy_load rejects unsafe command (subshell)" || fail "lazy_load rejects unsafe command (subshell)"
+    else
+        skip "lazy_load not available for integration test"
+    fi
+
+    # ─────────────────────────────────────────────────────────
+    # History Filter Completeness
+    # ─────────────────────────────────────────────────────────
+
+    if typeset -f _should_ignore_history_cmd > /dev/null 2>&1; then
+        # Additional sensitive patterns that should be filtered
+        assert_true "ignores GPG passphrase" _should_ignore_history_cmd "gpg --passphrase secret"
+        assert_true "ignores ssh with password" _should_ignore_history_cmd "sshpass -p password ssh user@host"
+        assert_true "ignores mysql with password" _should_ignore_history_cmd "mysql -u root -pMyPassword"
+        assert_true "ignores PGPASSWORD" _should_ignore_history_cmd "PGPASSWORD=secret psql"
+        assert_true "ignores private key export" _should_ignore_history_cmd "export PRIVATE_KEY=-----BEGIN"
+        assert_true "ignores heroku config set" _should_ignore_history_cmd "heroku config:set SECRET_KEY=abc123"
+        assert_true "ignores npm with token" _should_ignore_history_cmd "NPM_TOKEN=abc npm publish"
+        assert_true "ignores github token" _should_ignore_history_cmd "export GITHUB_TOKEN=ghp_xxxx"
+        assert_true "ignores gitlab token" _should_ignore_history_cmd "export GITLAB_TOKEN=glpat-xxxx"
+
+        # curl/wget with credentials in URL
+        assert_true "ignores curl with credentials in URL" _should_ignore_history_cmd "curl https://user:pass@api.example.com/data"
+        assert_true "ignores wget with credentials in URL" _should_ignore_history_cmd "wget https://user:pass@example.com/file"
+
+        # Env vars with 'key' suffix
+        assert_true "ignores key= assignment" _should_ignore_history_cmd "export ENCRYPTION_KEY=abc123"
+
+        # Edge cases that should NOT be filtered (false positive prevention)
+        assert_false "allows git commit with password in message" _should_ignore_history_cmd "git commit -m 'Add password validation'"
+        assert_false "allows echo about secrets" _should_ignore_history_cmd "echo 'Remember to set secrets'"
+        assert_false "allows grep for password patterns" _should_ignore_history_cmd "grep -r 'password' src/"
+        assert_false "allows cat of non-secret file" _should_ignore_history_cmd "cat /etc/passwd"
+    else
+        skip "_should_ignore_history_cmd not available for history tests"
+    fi
+
+    # ─────────────────────────────────────────────────────────
+    # Precmd Array Protection
+    # ─────────────────────────────────────────────────────────
+
+    # Verify _LAZY_PRECMD_INITS is readonly after module load
+    if [[ -n "${(t)_LAZY_PRECMD_INITS}" ]]; then
+        # Try to modify readonly array (should fail)
+        local modify_result
+        modify_result=$( (eval '_LAZY_PRECMD_INITS+=("injection:whoami")' 2>&1) || true )
+        if [[ "$modify_result" == *"read-only"* ]] || [[ "$modify_result" == *"readonly"* ]]; then
+            pass "_LAZY_PRECMD_INITS is protected (readonly)"
+        else
+            # Check if it actually modified
+            local found_injection=false
+            for entry in "${_LAZY_PRECMD_INITS[@]}"; do
+                [[ "$entry" == *"injection"* ]] && found_injection=true
+            done
+            if [[ "$found_injection" == "false" ]]; then
+                pass "_LAZY_PRECMD_INITS is protected (modification failed silently)"
+            else
+                fail "_LAZY_PRECMD_INITS is protected (readonly)" "readonly array" "modifiable"
+            fi
+        fi
+    else
+        skip "_LAZY_PRECMD_INITS not available for protection test"
+    fi
+}
+
+# ----------------------------------------------------------
+# TESTS: lib/functions/python.zsh
+# ----------------------------------------------------------
+
+test_python() {
+    section "lib/functions/python.zsh"
+
+    # Check if python functions module exists
+    [[ -f "$ZDOTDIR/lib/functions/python.zsh" ]] || { skip "python.zsh not found"; return; }
+
+    # Load dependencies first
+    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+
+    # Load module
+    unset _Z_FUNCTIONS_PYTHON_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/functions/python.zsh" 2>/dev/null || { skip "python.zsh not loadable"; return; }
+
+    # Test function existence
+    if typeset -f z_activate_venv > /dev/null 2>&1; then
+        pass "z_activate_venv function defined"
+    else
+        fail "z_activate_venv function defined"
+    fi
+
+    # Test z_activate_venv returns error when no venv exists
+    local test_dir=$(mktemp -d)
+    pushd "$test_dir" > /dev/null
+    local result
+    result=$(z_activate_venv 2>&1)
+    local exit_code=$?
+    popd > /dev/null
+    rm -rf "$test_dir"
+
+    if [[ $exit_code -ne 0 ]]; then
+        pass "z_activate_venv returns error when no venv exists"
+    else
+        fail "z_activate_venv returns error when no venv exists" "non-zero" "$exit_code"
+    fi
+
+    # Test idempotent guard
+    if [[ "${_Z_FUNCTIONS_PYTHON_LOADED:-}" == "1" ]]; then
+        pass "Python module sets idempotent guard"
+    else
+        fail "Python module sets idempotent guard"
+    fi
+}
+
+# ----------------------------------------------------------
+# TESTS: lib/functions/docker.zsh
+# ----------------------------------------------------------
+
+test_docker() {
+    section "lib/functions/docker.zsh"
+
+    # Check if docker functions module exists
+    [[ -f "$ZDOTDIR/lib/functions/docker.zsh" ]] || { skip "docker.zsh not found"; return; }
+
+    # Load dependencies first
+    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+
+    # Load module
+    unset _Z_FUNCTIONS_DOCKER_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/functions/docker.zsh" 2>/dev/null || { skip "docker.zsh not loadable"; return; }
+
+    # Test function existence
+    if typeset -f z_docker_stop_all > /dev/null 2>&1; then
+        pass "z_docker_stop_all function defined"
+    else
+        fail "z_docker_stop_all function defined"
+    fi
+
+    if typeset -f z_docker_rmi_dangling > /dev/null 2>&1; then
+        pass "z_docker_rmi_dangling function defined"
+    else
+        fail "z_docker_rmi_dangling function defined"
+    fi
+
+    if typeset -f z_docker_rmv_dangling > /dev/null 2>&1; then
+        pass "z_docker_rmv_dangling function defined"
+    else
+        fail "z_docker_rmv_dangling function defined"
+    fi
+
+    # Test idempotent guard
+    if [[ "${_Z_FUNCTIONS_DOCKER_LOADED:-}" == "1" ]]; then
+        pass "Docker module sets idempotent guard"
+    else
+        fail "Docker module sets idempotent guard"
+    fi
+
+    # Test docker command check (should fail gracefully if docker not installed)
+    if ! command -v docker > /dev/null 2>&1; then
+        # Docker not installed - verify functions handle this gracefully
+        local result
+        result=$(z_docker_stop_all 2>&1)
+        if [[ "$result" == *"docker command not found"* ]]; then
+            pass "z_docker_stop_all handles missing docker gracefully"
+        else
+            fail "z_docker_stop_all handles missing docker gracefully" "error message" "$result"
+        fi
+    else
+        skip "Docker is installed, skipping missing-docker test"
+    fi
+}
+
+# ----------------------------------------------------------
+# TEST RUNNER
 # ----------------------------------------------------------
 
 main() {
@@ -525,6 +848,10 @@ main() {
     test_lazy
     test_history
     test_input_validation
+    test_platform_detection
+    test_python
+    test_docker
+    test_security_negative
 
     teardown_test_env
 

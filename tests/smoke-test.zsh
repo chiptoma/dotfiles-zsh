@@ -1,14 +1,14 @@
 #!/bin/zsh
 # ==============================================================================
-# * ZSH CONFIGURATION SMOKE TEST
-# ? Validates installation and shell functionality.
-# ? Run: ./scripts/smoke-test.zsh [--verbose]
+# ZSH CONFIGURATION SMOKE TEST
+# Validates installation and shell functionality.
+# Run: ./scripts/smoke-test.zsh [--verbose]
 # ==============================================================================
 
 set -e
 
 # ----------------------------------------------------------
-# * CONFIGURATION
+# CONFIGURATION
 # ----------------------------------------------------------
 
 VERBOSE=false
@@ -31,7 +31,7 @@ FAILED=0
 WARNINGS=0
 
 # ----------------------------------------------------------
-# * TEST HELPERS
+# TEST HELPERS
 # ----------------------------------------------------------
 
 pass() {
@@ -60,7 +60,7 @@ section() {
 }
 
 # ----------------------------------------------------------
-# * ENVIRONMENT SETUP
+# ENVIRONMENT SETUP
 # ----------------------------------------------------------
 
 section "Environment"
@@ -95,7 +95,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * FILE STRUCTURE
+# FILE STRUCTURE
 # ----------------------------------------------------------
 
 section "File Structure"
@@ -124,7 +124,7 @@ for file in "${required_files[@]}"; do
 done
 
 # ----------------------------------------------------------
-# * ZSHENV LOADING
+# ZSHENV LOADING
 # ----------------------------------------------------------
 
 section "Loading .zshenv"
@@ -144,7 +144,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * CORE FUNCTIONS (.zshenv)
+# CORE FUNCTIONS (.zshenv)
 # ----------------------------------------------------------
 
 section "Core Functions (from .zshenv)"
@@ -176,7 +176,7 @@ for func in "${core_functions[@]}"; do
 done
 
 # ----------------------------------------------------------
-# * OH MY ZSH CHECK
+# OH MY ZSH CHECK
 # ----------------------------------------------------------
 
 section "Oh My Zsh"
@@ -196,7 +196,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * ZSHRC LOADING (NON-INTERACTIVE)
+# ZSHRC LOADING (NON-INTERACTIVE)
 # ----------------------------------------------------------
 
 section "Loading .zshrc (non-interactive)"
@@ -204,7 +204,7 @@ section "Loading .zshrc (non-interactive)"
 # Test .zshrc loads - capture errors, don't swallow them
 zshrc_output=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    export ZSH_LOG_LEVEL=ERROR
+    export Z_LOG_LEVEL=ERROR
     source \$ZDOTDIR/.zshenv
     source \$ZDOTDIR/.zshrc 2>&1
     echo 'ZSHRC_OK'
@@ -223,7 +223,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * INTERACTIVE SHELL TEST
+# INTERACTIVE SHELL TEST
 # ----------------------------------------------------------
 
 section "Interactive Shell"
@@ -253,7 +253,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * LOGIN SHELL TEST
+# LOGIN SHELL TEST
 # ----------------------------------------------------------
 
 section "Login Shell"
@@ -273,21 +273,21 @@ else
 fi
 
 # ----------------------------------------------------------
-# * USER FUNCTIONS (.zshrc)
+# USER FUNCTIONS (.zshrc)
 # ----------------------------------------------------------
 
 section "User Functions (from .zshrc)"
 
 user_functions=(
-    "zsh_version"
-    "zsh_lazy_status"
+    "z_version"
+    "z_lazy_status"
     "path_show"
 )
 
 for func in "${user_functions[@]}"; do
     result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH_LOG_LEVEL=NONE
+        export Z_LOG_LEVEL=NONE
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if (( \$+functions[$func] )); then
@@ -309,7 +309,7 @@ for func in "${user_functions[@]}"; do
 done
 
 # ----------------------------------------------------------
-# * MODULE LOADING
+# MODULE LOADING
 # ----------------------------------------------------------
 
 section "Module Loading"
@@ -317,7 +317,7 @@ section "Module Loading"
 # Check that HISTFILE is set (required)
 histfile_result=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    export ZSH_LOG_LEVEL=NONE
+    export Z_LOG_LEVEL=NONE
     source \$ZDOTDIR/.zshenv 2>/dev/null
     source \$ZDOTDIR/.zshrc 2>/dev/null
     [[ -n \"\$HISTFILE\" ]] && echo 'HIST_SET' || echo 'HIST_UNSET'
@@ -333,7 +333,7 @@ fi
 # Check EDITOR (optional - depends on what's installed)
 editor_result=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    export ZSH_LOG_LEVEL=NONE
+    export Z_LOG_LEVEL=NONE
     source \$ZDOTDIR/.zshenv 2>/dev/null
     source \$ZDOTDIR/.zshrc 2>/dev/null
     [[ -n \"\$EDITOR\" ]] && echo 'EDITOR_SET' || echo 'EDITOR_UNSET'
@@ -347,7 +347,7 @@ else
 fi
 
 # ----------------------------------------------------------
-# * ALIAS AVAILABILITY
+# ALIAS AVAILABILITY
 # ----------------------------------------------------------
 
 section "Aliases"
@@ -362,7 +362,7 @@ test_aliases=(
 for alias_name in "${test_aliases[@]}"; do
     result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH_LOG_LEVEL=NONE
+        export Z_LOG_LEVEL=NONE
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         if alias $alias_name >/dev/null 2>&1; then
@@ -381,7 +381,7 @@ for alias_name in "${test_aliases[@]}"; do
 done
 
 # ----------------------------------------------------------
-# * SUMMARY
+# SUMMARY
 # ----------------------------------------------------------
 
 section "Summary"
