@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH SYNTAX CHECKER
-# ? Validates all .zsh files for parse errors
+# ZSH SYNTAX CHECKER
+# Validates all .zsh files for parse errors
 # ==============================================================================
 
 SCRIPT_DIR="${0:A:h}"

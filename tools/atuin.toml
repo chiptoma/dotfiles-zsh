@@ -1,24 +1,24 @@
 # ==============================================================================
-# * ATUIN CONFIGURATION
-# ? Enhanced shell history with sync capabilities.
-# ? Copy to ~/.config/atuin/config.toml and customize.
-# ? Documentation: https://docs.atuin.sh/configuration/
+# ATUIN CONFIGURATION
+# Enhanced shell history with sync capabilities.
+# Copy to ~/.config/atuin/config.toml and customize.
+# Documentation: https://docs.atuin.sh/configuration/
 # ==============================================================================
 
 # ----------------------------------------------------------
-# * SEARCH SETTINGS
+# SEARCH SETTINGS
 # ----------------------------------------------------------
 
 # Search mode: prefix, fulltext, fuzzy, skim
-# ? fuzzy is recommended - matches anywhere in command
+# fuzzy is recommended - matches anywhere in command
 search_mode = "fuzzy"
 
 # Filter mode: global, host, session, directory, workspace
-# ? global shows all history, directory shows only commands from current dir
+# global shows all history, directory shows only commands from current dir
 filter_mode = "global"
 
 # ----------------------------------------------------------
-# * DISPLAY SETTINGS
+# DISPLAY SETTINGS
 # ----------------------------------------------------------
 
 # Date format: us (MM/DD) or uk (DD/MM)
@@ -37,25 +37,25 @@ show_preview = true
 show_help = true
 
 # ----------------------------------------------------------
-# * BEHAVIOR SETTINGS
+# BEHAVIOR SETTINGS
 # ----------------------------------------------------------
 
 # Execute command immediately on Enter (Tab to edit instead)
 enter_accept = true
 
 # Filter out commands containing secrets (API keys, tokens, etc.)
-# ? Highly recommended - prevents accidental secret exposure
+# Highly recommended - prevents accidental secret exposure
 secrets_filter = true
 
 # Keymap mode: auto, emacs, vim-insert, vim-normal
 keymap_mode = "auto"
 
 # ----------------------------------------------------------
-# * SYNC SETTINGS
-# ? Sync is disabled by default. To enable:
-# ? 1. Create account: atuin register -u <username> -e <email>
-# ? 2. Or login: atuin login -u <username>
-# ? 3. Set auto_sync = true below
+# SYNC SETTINGS
+# Sync is disabled by default. To enable:
+# 1. Create account: atuin register -u <username> -e <email>
+# 2. Or login: atuin login -u <username>
+# 3. Set auto_sync = true below
 # ----------------------------------------------------------
 
 # Enable automatic sync (requires account)
@@ -68,8 +68,8 @@ auto_sync = false
 # sync_frequency = "10m"
 
 # ----------------------------------------------------------
-# * HISTORY FILTERS
-# ? Prevent sensitive commands from being saved
+# HISTORY FILTERS
+# Prevent sensitive commands from being saved
 # ----------------------------------------------------------
 
 # Regex patterns to exclude from history
@@ -85,7 +85,7 @@ auto_sync = false
 # ]
 
 # ----------------------------------------------------------
-# * STATISTICS
+# STATISTICS
 # ----------------------------------------------------------
 
 [stats]
@@ -108,7 +108,7 @@ common_prefix = ["sudo"]
 ignored_commands = ["cd", "ls", "clear"]
 
 # ----------------------------------------------------------
-# * SYNC V2
+# SYNC V2
 # ----------------------------------------------------------
 
 [sync]

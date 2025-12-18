@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * ZSH ENVIRONMENT INFO
-# ? Displays ZSH environment configuration including editors, LESS, and bat.
+# ZSH ENVIRONMENT INFO
+# Displays ZSH environment configuration including editors, LESS, and bat.
 # ==============================================================================
 
 # Source the zshrc to get all settings

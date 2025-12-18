@@ -109,7 +109,7 @@ style = "yellow"
 format = "took [$duration]($style)"
 
 # ----------------------------------------------------------
-# * HOSTNAME & USERNAME (SSH sessions only)
+# HOSTNAME & USERNAME (SSH sessions only)
 # ----------------------------------------------------------
 
 [hostname]

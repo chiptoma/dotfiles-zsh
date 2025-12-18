@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# * XDG CLEANUP CHECK
-# ? Identifies dotfiles that can be moved to XDG-compliant directories.
+# XDG CLEANUP CHECK
+# Identifies dotfiles that can be moved to XDG-compliant directories.
 # ==============================================================================
 
 # Colors
@@ -29,7 +29,7 @@ check_dotfile() {
     local dotfile="$1"
     local xdg_location="$2"
     local note="$3"
-    
+
     if [[ -e "$HOME/$dotfile" ]]; then
         echo "${GREEN}✓${NC} $dotfile"
         echo "  → Move to: ${CYAN}$xdg_location${NC}"
@@ -54,7 +54,7 @@ echo "${YELLOW}Dotfiles that should stay in HOME:${NC}\n"
 stay_dotfile() {
     local dotfile="$1"
     local reason="$2"
-    
+
     if [[ -e "$HOME/$dotfile" ]]; then
         echo "${RED}✗${NC} $dotfile"
         echo "  ${YELLOW}Reason:${NC} $reason\n"
