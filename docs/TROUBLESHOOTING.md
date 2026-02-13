@@ -358,6 +358,84 @@ source ~/.config/zsh/.zshlocal
 
 ---
 
+## Debugging Guide
+
+### Enable Debug Logging
+
+The framework has a built-in logging system with levels: `DEBUG`, `INFO`, `WARN`, `ERROR`, `NONE`.
+
+```bash
+# Temporary: see all module loading for one session
+Z_LOG_LEVEL=DEBUG exec zsh
+
+# Persistent: add to .zshlocal
+echo 'export Z_LOG_LEVEL=DEBUG' >> ~/.config/zsh/.zshlocal
+exec zsh
+```
+
+Debug output shows: timestamp, level, source file, function name, and message. Example:
+```
+[+2025-01-15 10:32:01] [DEBUG] [path.zsh:_path_add:42]: Adding /opt/homebrew/bin
+[+2025-01-15 10:32:01] [DEBUG] [lazy.zsh:_lazy_init_zoxide:85]: Deferred zoxide init
+```
+
+### Test Individual Modules
+
+You can source and test any module in isolation:
+
+```bash
+# Start a clean shell
+zsh -f
+
+# Load just the core utilities
+source ~/.config/zsh/.zshenv
+
+# Now test a specific module
+source ~/.config/zsh/modules/history.zsh
+echo $HISTFILE   # Should be set
+
+# Or test a function library
+source ~/.config/zsh/lib/functions/system.zsh
+z_calc 2+2       # Should output 4
+```
+
+### Run the Test Suite
+
+```bash
+# Unit tests (fast, ~200 tests)
+zsh ~/.config/zsh/tests/unit-test.zsh --verbose
+
+# Smoke tests (verifies shell starts correctly)
+zsh ~/.config/zsh/tests/smoke-test.zsh
+```
+
+### Common Debug Scenarios
+
+**Which modules loaded?**
+```bash
+# Check idempotent guard variables
+Z_LOG_LEVEL=DEBUG zsh -ic 'print -l ${(k)parameters[(I)_Z_*_LOADED]}; exit'
+```
+
+**What's in my PATH?**
+```bash
+path          # Pretty-printed list
+pathdebug     # Full diagnostics with conditions
+```
+
+**What did lazy loading defer?**
+```bash
+lazy          # Show status of all lazy-loaded tools
+```
+
+**Is a tool being detected?**
+```bash
+# Check if a command is in the hash table
+(( $+commands[starship] )) && echo "found" || echo "not found"
+```
+
+---
+
 ## Getting Help
 
 ### Built-in Commands

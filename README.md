@@ -30,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.
 ```
 
 The installer automatically:
-- Installs Oh My Zsh if missing
+- Installs Oh My Zsh if desired (optional — framework works without it)
 - Configures ZDOTDIR
 - Creates XDG directories
 - Installs essential tools (starship prompt, atuin history)
@@ -84,7 +84,7 @@ Detailed documentation for each module:
 | Module | Docs | Description |
 |--------|------|-------------|
 | **History** | [docs/history.md](docs/history.md) | Security filtering, interactive search, statistics |
-| **Aliases** | [docs/aliases.md](docs/aliases.md) | 200+ aliases organized by category |
+| **Aliases** | [docs/aliases.md](docs/aliases.md) | 75+ aliases organized by category |
 | **Functions** | [docs/functions.md](docs/functions.md) | 30+ utility functions (calc, weather, ports, etc.) |
 | **Keybindings** | [docs/keybindings.md](docs/keybindings.md) | Atuin, navigation, editing shortcuts |
 | **Completion** | [docs/completion.md](docs/completion.md) | Smart tab completion with caching |
@@ -273,7 +273,7 @@ export Z_LAZY_ZOXIDE=false
 | `hstats` | `history_stats` | Top commands chart |
 | `als` | `z_alias_browser` | Interactive alias browser (fzf) |
 
-### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for 200+)
+### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for all aliases)
 
 | Alias | Expansion | Category |
 |-------|-----------|----------|
@@ -316,11 +316,24 @@ rm -f ~/.cache/zsh/completion/zcompdump*
 exec zsh
 ```
 
+## Oh My Zsh (Optional)
+
+Oh My Zsh is **optional**. When installed, it provides plugin management for zsh-autosuggestions, zsh-syntax-highlighting, and fzf-tab. When absent, the framework falls back to basic `compinit` and all core modules (PATH, environment, lazy loading, history, aliases, functions) continue to work normally.
+
+```bash
+# Install OMZ if you want plugins
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Or run without it — everything except plugins works
+```
+
 ## Dependencies
 
 **Required:**
 - ZSH 5.8+
-- [Oh My Zsh](https://ohmyz.sh/)
+
+**Optional:**
+- [Oh My Zsh](https://ohmyz.sh/) — Plugin manager (graceful fallback if absent)
 
 **Essential (installed automatically):**
 - [starship](https://starship.rs/) - Cross-shell prompt with git status

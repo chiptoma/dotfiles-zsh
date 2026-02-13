@@ -54,6 +54,30 @@ NO_COLOR=1 ./install.sh   # Disable colored output
 XDG_CONFIG_HOME=~/.config ./install.sh  # Override config directory
 ```
 
+## SSH / Headless Server Quick-Start
+
+For servers, containers, or CI environments where you want the framework without optional tools:
+
+```bash
+git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
+~/.config/zsh/install.sh --skip-tools --yes
+```
+
+This gives you:
+- Full modular framework (PATH, environment, history, aliases, functions)
+- Security-filtered history
+- XDG-compliant directory structure
+- SSH minimal mode (auto-detected — lighter env for remote sessions)
+- No optional tool prompts or downloads
+
+Oh My Zsh is **not required**. Without it, the framework falls back to basic `compinit` and all core modules work normally. Add tools later at any time:
+
+```bash
+~/.config/zsh/install.sh --tools starship,fzf
+```
+
+---
+
 ## What the Installer Does
 
 1. **Checks Requirements** - Verifies zsh, git, curl, network connectivity
