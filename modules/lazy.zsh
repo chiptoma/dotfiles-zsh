@@ -320,7 +320,7 @@ _lazy_init_rbenv() {
 
     # Find rbenv installation
     local rbenv_root="${RBENV_ROOT:-$HOME/.rbenv}"
-    [[ ! -d "$rbenv_root" ]] && _has_cmd rbenv || return 0
+    [[ ! -d "$rbenv_root" ]] && ! _has_cmd rbenv && return 0
 
     _rbenv_lazy_load() {
         unfunction rbenv ruby gem bundle 2>/dev/null

@@ -78,11 +78,15 @@ fi
 
 # XDG runtime directory
 if [[ -z "$XDG_RUNTIME_DIR" ]]; then
-    export XDG_RUNTIME_DIR="/run/user/$UID"
-    if [[ ! -d "$XDG_RUNTIME_DIR" ]]; then
-        export XDG_RUNTIME_DIR="/tmp/runtime-$USER"
-        mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null
-        chmod 700 "$XDG_RUNTIME_DIR" 2>/dev/null
+    if [[ -d "/run/user/$UID" ]]; then
+        export XDG_RUNTIME_DIR="/run/user/$UID"
+    else
+        local _runtime="/tmp/runtime-${USER:-$UID}"
+        if mkdir -p "$_runtime" 2>/dev/null && chmod 700 "$_runtime" 2>/dev/null; then
+            export XDG_RUNTIME_DIR="$_runtime"
+        else
+            _log WARN "Cannot create XDG_RUNTIME_DIR at $_runtime"
+        fi
     fi
 fi
 
@@ -93,35 +97,25 @@ fi
 
 # ----------------------------------------------------------
 # LINUX-SPECIFIC PATHS
+# Snap, flatpak, nix, ccache, games, etc. are handled by
+# modules/path.zsh via Z_PATH_DEFINITIONS (canonical source).
+# Only Linuxbrew env vars are set here (needed before path.zsh).
 # ----------------------------------------------------------
 
-# Snap packages
-[[ -d /snap/bin ]] && path=(/snap/bin $path)
-
-# Flatpak
-[[ -d /var/lib/flatpak/exports/bin ]] && path=(/var/lib/flatpak/exports/bin $path)
-[[ -d "$HOME/.local/share/flatpak/exports/bin" ]] && path=("$HOME/.local/share/flatpak/exports/bin" $path)
-
-# AppImage / local bin
-[[ -d "$HOME/Applications" ]] && path=("$HOME/Applications" $path)
-[[ -d "$HOME/.local/bin" ]] && path=("$HOME/.local/bin" $path)
-
-# Linuxbrew
+# Linuxbrew - set env vars directly (PATH handled by path.zsh)
 if [[ -d /home/linuxbrew/.linuxbrew ]]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv 2>/dev/null)"
+    export HOMEBREW_PREFIX="/home/linuxbrew/.linuxbrew"
+    export HOMEBREW_CELLAR="${HOMEBREW_PREFIX}/Cellar"
+    export HOMEBREW_REPOSITORY="${HOMEBREW_PREFIX}"
+    export MANPATH="${HOMEBREW_PREFIX}/share/man${MANPATH:+:$MANPATH}"
+    export INFOPATH="${HOMEBREW_PREFIX}/share/info${INFOPATH:+:$INFOPATH}"
 elif [[ -d "$HOME/.linuxbrew" ]]; then
-    eval "$("$HOME/.linuxbrew/bin/brew" shellenv 2>/dev/null)"
+    export HOMEBREW_PREFIX="$HOME/.linuxbrew"
+    export HOMEBREW_CELLAR="${HOMEBREW_PREFIX}/Cellar"
+    export HOMEBREW_REPOSITORY="${HOMEBREW_PREFIX}"
+    export MANPATH="${HOMEBREW_PREFIX}/share/man${MANPATH:+:$MANPATH}"
+    export INFOPATH="${HOMEBREW_PREFIX}/share/info${INFOPATH:+:$INFOPATH}"
 fi
-
-# Nix
-[[ -d /nix/var/nix/profiles/default/bin ]] && path=(/nix/var/nix/profiles/default/bin $path)
-[[ -d "$HOME/.nix-profile/bin" ]] && path=("$HOME/.nix-profile/bin" $path)
-
-# ccache
-[[ -d /usr/lib/ccache ]] && path=(/usr/lib/ccache $path)
-
-# Games
-[[ -d /usr/games ]] && path=($path /usr/games)
 
 # ----------------------------------------------------------
 # PACKAGE MANAGER DETECTION
@@ -203,7 +197,23 @@ _get_clipboard_cmd() {
 if _is_wsl; then
     _log DEBUG "WSL environment detected"
     export BROWSER="wslview"
-    export WINHOME="/mnt/c/Users/${USER}"
+
+    # Detect Windows home directory (WSL/Windows usernames often differ)
+    if [[ -z "$WINHOME" ]]; then
+        local _winhome=""
+        if _has_cmd wslpath && _has_cmd cmd.exe; then
+            _winhome=$(cmd.exe /C "echo %USERPROFILE%" 2>/dev/null | tr -d '\r')
+            [[ -n "$_winhome" ]] && _winhome=$(wslpath "$_winhome" 2>/dev/null)
+        fi
+        # Fall back to convention if detection failed
+        : ${_winhome:="/mnt/c/Users/${USER}"}
+        # Only export if the directory actually exists
+        if [[ -d "$_winhome" ]]; then
+            export WINHOME="$_winhome"
+        else
+            _log WARN "Windows home not found at: $_winhome"
+        fi
+    fi
 
     # Fix: Check directory exists first, then get socket (glob fails with multiple files)
     if [[ -z "$WSL_INTEROP" && -d /run/WSL ]]; then

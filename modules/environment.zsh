@@ -97,6 +97,9 @@ typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
 }
 
 # XDG Base Directories - Defaults (set only if not already defined)
+# NOTE: These duplicate .zshenv definitions intentionally.
+# .zshenv sets them early (before utils/platform load); this table drives
+# env_show display and ensures standalone sourcing of this module works.
 ZSH_ENV_XDG_BASE=(
     'XDG_CONFIG_HOME'   "$HOME/.config"
     'XDG_CACHE_HOME'    "$HOME/.cache"
@@ -861,6 +864,7 @@ env_reload() {
     fi
 
     if [[ -f "$script_path" ]]; then
+        unset _Z_ENVIRONMENT_LOADED
         source "$script_path"
         echo "✓ Environment module reloaded"
     else
@@ -875,14 +879,14 @@ env_reload() {
 # Keybindings are handled by keybindings.zsh module.
 # ----------------------------------------------------------
 
-# direnv - Environment switcher (init directly, no PROMPT involvement)
-if _has_cmd direnv; then
+# direnv - Environment switcher (interactive only, uses precmd hook)
+if _is_interactive && _has_cmd direnv; then
     _cache_eval "direnv-hook" "direnv hook zsh" "direnv"
     _log "DEBUG" "direnv hook initialized"
 fi
 
-# atuin - Better shell history (widgets only, keybindings in keybindings.zsh)
-if _has_cmd atuin; then
+# atuin - Better shell history (interactive only, registers ZLE widgets)
+if _is_interactive && _has_cmd atuin; then
     _cache_eval "atuin-init" "atuin init zsh --disable-up-arrow" "atuin"
     _log "DEBUG" "atuin widgets loaded (keybindings in keybindings.zsh)"
 fi

@@ -303,11 +303,7 @@ history_clean() {
     if [[ -d "$lock_dir" ]]; then
         local lock_age=0
         local lock_mtime
-        if _is_macos; then
-            lock_mtime=$(stat -f %m "$lock_dir" 2>/dev/null || echo 0)
-        else
-            lock_mtime=$(stat -c %Y "$lock_dir" 2>/dev/null || echo 0)
-        fi
+        lock_mtime=$(_get_mtime "$lock_dir")
         if [[ "$lock_mtime" -gt 0 ]]; then
             lock_age=$(( EPOCHSECONDS - lock_mtime ))
         fi
@@ -324,16 +320,8 @@ history_clean() {
         return 1
     fi
 
-    # Preserve existing traps before setting cleanup trap
-    local _old_trap_exit _old_trap_int _old_trap_term
-    _old_trap_exit=$(trap -p EXIT 2>/dev/null)
-    _old_trap_int=$(trap -p INT 2>/dev/null)
-    _old_trap_term=$(trap -p TERM 2>/dev/null)
-
-    # Clean up lock on exit and restore previous traps
-    trap "rmdir '$lock_dir' 2>/dev/null; ${_old_trap_exit:+eval \"\${_old_trap_exit#trap -- }\"}" EXIT
-    trap "rmdir '$lock_dir' 2>/dev/null; ${_old_trap_int:+eval \"\${_old_trap_int#trap -- }\"}" INT
-    trap "rmdir '$lock_dir' 2>/dev/null; ${_old_trap_term:+eval \"\${_old_trap_term#trap -- }\"}" TERM
+    # Clean up lock on exit/interrupt (traps are function-scoped in zsh)
+    trap "rmdir '$lock_dir' 2>/dev/null" EXIT INT TERM
 
     local temp_file="${HISTFILE}.tmp"
     local backup_dir="${ZSH_DATA_HOME}/backups/history"

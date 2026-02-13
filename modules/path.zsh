@@ -727,6 +727,7 @@ path_reload() {
     fi
 
     if [[ -f "$script_path" ]]; then
+        unset _Z_PATH_LOADED
         source "$script_path"
         echo "path.zsh module reloaded."
     else

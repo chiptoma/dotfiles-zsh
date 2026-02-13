@@ -52,7 +52,6 @@ plugins=(
   1password
   alias-finder
   encode64
-  extract
   gitignore
   gitfast
   sudo
@@ -64,7 +63,7 @@ plugins=(
 # Tool-dependent plugins (only load if tool is installed)
 (( $+commands[eza] )) && plugins+=(eza)
 (( $+commands[fzf] )) && plugins+=(fzf fzf-tab)
-(( $+commands[zoxide] )) && plugins+=(zoxide)
+# zoxide: lazy.zsh handles deferred init (faster than OMZ's eager plugin)
 
 # Platform-specific plugins
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -109,11 +108,17 @@ export ZSH_THEME=""
 # Set compdump path before OMZ (OMZ uses this; canonical definition in completion.zsh)
 export ZSH_COMPDUMP="${ZSH_CACHE_HOME}/completion/zcompdump-${ZSH_VERSION}"
 
-# Verify Oh My Zsh is installed
-_require_omz || return 1
-
-# Load Oh My Zsh
-source "$ZSH/oh-my-zsh.sh"
+# Load Oh My Zsh (optional — shell degrades gracefully without it)
+if [[ -d "$ZSH" ]]; then
+    source "$ZSH/oh-my-zsh.sh"
+else
+    # OMZ not installed — provide minimal fallback so shell stays usable
+    autoload -Uz compinit && compinit -d "${ZSH_COMPDUMP}"
+    if [[ -t 1 ]]; then
+        print -P "%F{yellow}Warning:%f Oh My Zsh not found at $ZSH. Plugins disabled."
+        print -P "Install: sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\""
+    fi
+fi
 
 # ----------------------------------------------------------
 # COMPILATION MODULE

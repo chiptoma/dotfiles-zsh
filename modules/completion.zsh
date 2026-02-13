@@ -104,9 +104,7 @@ autoload -Uz compinit
         if (( ${+builtins[zstat]} )); then
             dump_age=$(( EPOCHSECONDS - $(zstat +mtime "${ZSH_COMPDUMP}") ))
         else
-            local dump_mtime=$(stat -f %m "${ZSH_COMPDUMP}" 2>/dev/null || \
-                               stat -c %Y "${ZSH_COMPDUMP}" 2>/dev/null || echo 0)
-            dump_age=$(( EPOCHSECONDS - dump_mtime ))
+            dump_age=$(( EPOCHSECONDS - $(_get_mtime "${ZSH_COMPDUMP}") ))
         fi
     fi
 
@@ -115,9 +113,7 @@ autoload -Uz compinit
         if (( ${+builtins[zstat]} )); then
             audit_age=$(( EPOCHSECONDS - $(zstat +mtime "$audit_marker") ))
         else
-            local audit_mtime=$(stat -f %m "$audit_marker" 2>/dev/null || \
-                                stat -c %Y "$audit_marker" 2>/dev/null || echo 0)
-            audit_age=$(( EPOCHSECONDS - audit_mtime ))
+            audit_age=$(( EPOCHSECONDS - $(_get_mtime "$audit_marker") ))
         fi
     else
         # No marker = never audited, force audit

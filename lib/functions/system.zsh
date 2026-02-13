@@ -352,8 +352,7 @@ z_update() {
     if [[ -f "$lock_file" ]]; then
         local lock_age lock_mtime now
         now=$(date +%s)
-        # Cross-platform stat: macOS uses -f%m, Linux uses -c%Y
-        lock_mtime=$(stat -f%m "$lock_file" 2>/dev/null || stat -c%Y "$lock_file" 2>/dev/null)
+        lock_mtime=$(_get_mtime "$lock_file")
         if [[ -n "$lock_mtime" ]]; then
             lock_age=$(( now - lock_mtime ))
             if (( lock_age < 300 )); then  # 5 minute timeout
@@ -833,7 +832,7 @@ z_help() {
     echo "  ${_UI_GREEN}la${_UI_RESET}        List all files including hidden"
     echo "  ${_UI_GREEN}..${_UI_RESET}        Go up one directory"
     echo "  ${_UI_GREEN}gs${_UI_RESET}        Git status"
-    echo "  ${_UI_GREEN}gp${_UI_RESET}        Git push"
+    echo "  ${_UI_GREEN}gps${_UI_RESET}       Git push"
     echo "  ${_UI_GREEN}gpl${_UI_RESET}       Git pull"
     echo ""
 
@@ -931,28 +930,44 @@ z_status() {
     echo ""
     _ui_section "Integrations"
 
-    # Check if integrations are in .zshlocal
-    local zshlocal="${ZDOTDIR}/.zshlocal"
-    [[ -f "$zshlocal" ]] || zshlocal="$HOME/.zshlocal"
-
     local -a integrations=(
-        "zoxide:zoxide init:Smart cd"
-        "atuin:atuin init:History sync"
-        "starship:starship init:Prompt"
+        "zoxide:Smart cd"
+        "atuin:History sync"
+        "starship:Prompt"
     )
 
     for entry in "${integrations[@]}"; do
         local cmd="${entry%%:*}"
-        local pattern="${entry#*:}"
-        pattern="${pattern%%:*}"
-        local desc="${entry##*:}"
+        local desc="${entry#*:}"
 
-        if _has_cmd "$cmd" && [[ -f "$zshlocal" ]] && grep -q "$pattern" "$zshlocal" 2>/dev/null; then
-            _ui_kv "$cmd" "$desc" "ok" "active"
-        elif _has_cmd "$cmd"; then
-            _ui_kv "$cmd" "$desc" "warn" "installed, not integrated"
-        else
+        if ! _has_cmd "$cmd"; then
             _ui_kv "$cmd" "$desc" "error" "not installed"
+            continue
+        fi
+
+        # Detect integration via runtime artifacts (functions, widgets, env vars)
+        local is_active=false
+        case "$cmd" in
+            zoxide)
+                (( ${+_LAZY_LOADED_TOOLS[zoxide]} )) && is_active=true
+                (( $+functions[__zoxide_z] )) && is_active=true
+                # Lazy wrapper function means integration is configured
+                (( $+functions[z] )) && is_active=true
+                ;;
+            atuin)
+                (( $+widgets[atuin-up-search] )) && is_active=true
+                (( $+widgets[atuin-search] )) && is_active=true
+                ;;
+            starship)
+                (( $+functions[starship_precmd] )) && is_active=true
+                [[ "${STARSHIP_SHELL:-}" == "zsh" ]] && is_active=true
+                ;;
+        esac
+
+        if [[ "$is_active" == "true" ]]; then
+            _ui_kv "$cmd" "$desc" "ok" "active"
+        else
+            _ui_kv "$cmd" "$desc" "warn" "installed, not integrated"
         fi
     done
 

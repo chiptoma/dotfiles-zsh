@@ -43,7 +43,10 @@ _is_ssh_session() {
 
 # Check if running inside a Docker container
 _is_docker() {
-    [[ -f /.dockerenv ]] || grep -q docker /proc/1/cgroup 2>/dev/null
+    [[ -f /.dockerenv ]] ||
+    grep -q docker /proc/1/cgroup 2>/dev/null ||
+    grep -q docker /proc/1/mountinfo 2>/dev/null ||
+    [[ "${container:-}" == "docker" ]]
 }
 
 # Check if running in CI/CD environment
@@ -112,8 +115,11 @@ _ensure_file() {
         _log DEBUG "Created file: $file"
 
         if [[ -n "$perms" ]]; then
-            chmod "$perms" "$file" 2>/dev/null
-            _log DEBUG "Set permissions $perms on: $file"
+            if ! chmod "$perms" "$file" 2>/dev/null; then
+                _log WARN "Failed to set permissions $perms on: $file"
+            else
+                _log DEBUG "Set permissions $perms on: $file"
+            fi
         fi
     fi
     return 0
@@ -153,6 +159,24 @@ _validate_safe_cmd() {
 }
 
 # ----------------------------------------------------------
+# CROSS-PLATFORM HELPERS
+# ----------------------------------------------------------
+
+# Get file modification time as epoch seconds
+# Usage: _get_mtime <file>
+# Returns: mtime as epoch seconds (0 on failure)
+# Tries zstat (no subprocess) first, then external stat
+_get_mtime() {
+    local file="$1"
+    # zsh/stat builtin (loaded by completion.zsh, may be available)
+    if (( ${+builtins[zstat]} )); then
+        zstat +mtime "$file" 2>/dev/null && return
+    fi
+    # External stat: macOS/BSD uses -f %m, Linux uses -c %Y
+    stat -f %m "$file" 2>/dev/null || stat -c %Y "$file" 2>/dev/null || echo 0
+}
+
+# ----------------------------------------------------------
 # CACHING HELPERS
 # ----------------------------------------------------------
 
@@ -176,11 +200,12 @@ _cache_eval() {
     local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
     local cache_file="${cache_dir}/${name}.zsh"
 
-    # Allowlist of known-safe command prefixes (warn if not in list)
+    # Allowlist of known-safe command prefixes (enforced)
     local -a _CACHE_EVAL_ALLOWLIST=(direnv atuin starship helm zoxide pyenv rbenv brew nvm)
     local cmd_name="${cmd%% *}"
     if (( ! ${_CACHE_EVAL_ALLOWLIST[(Ie)$cmd_name]} )); then
-        _log WARN "_cache_eval: Command '$cmd_name' not in allowlist (proceeding anyway)"
+        _log ERROR "_cache_eval: Command '$cmd_name' not in allowlist — rejected"
+        return 1
     fi
 
     # Ensure cache directory exists
@@ -192,7 +217,7 @@ _cache_eval() {
     if [[ ! -f "$cache_file" ]] || \
        { _has_cmd "$binary" && [[ "$(command -v "$binary")" -nt "$cache_file" ]]; }; then
         _log DEBUG "Regenerating cache for $name"
-        eval "$cmd" > "$cache_file" 2>/dev/null
+        eval "$cmd" >| "$cache_file" 2>/dev/null
         chmod 600 "$cache_file" 2>/dev/null
     fi
 
@@ -240,13 +265,9 @@ _safe_source() {
 
 # Check if Oh-My-Zsh is installed
 # Usage: _require_omz
-# Returns: 0 if installed, 1 with error message if not
+# Returns: 0 if installed, 1 if not (caller handles messaging)
 _require_omz() {
-    [[ -d "$ZSH" ]] && return 0
-
-    print -P "%F{red}Error:%f Oh My Zsh not found at ${ZSH:-\$ZSH not set}"
-    print -P "Install: sh -c \"\$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)\""
-    return 1
+    [[ -d "$ZSH" ]]
 }
 
 # ----------------------------------------------------------

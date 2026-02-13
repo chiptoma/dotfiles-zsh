@@ -34,7 +34,13 @@ export ZSH_DATA_HOME="$XDG_DATA_HOME/zsh"
 export ZSH_CACHE_HOME="$XDG_CACHE_HOME/zsh"
 export ZSH_STATE_HOME="$XDG_STATE_HOME/zsh"
 
-mkdir -p "$ZSH_CONFIG_HOME" "$ZSH_CACHE_HOME" "$ZSH_STATE_HOME" "$ZSH_DATA_HOME" "${ZSH_CACHE_HOME}/completion"
+if ! mkdir -p "$ZSH_CONFIG_HOME" "$ZSH_CACHE_HOME" "$ZSH_STATE_HOME" "$ZSH_DATA_HOME" "${ZSH_CACHE_HOME}/completion" 2>/dev/null; then
+    # Fall back to /tmp if home directories are not writable (read-only containers, etc.)
+    print -ru2 -- "[WARN] Cannot create ZSH directories under $HOME — using /tmp fallback"
+    export ZSH_CACHE_HOME="/tmp/zsh-cache-${USER:-$UID}"
+    export ZSH_STATE_HOME="/tmp/zsh-state-${USER:-$UID}"
+    mkdir -p "$ZSH_CACHE_HOME" "$ZSH_STATE_HOME" "${ZSH_CACHE_HOME}/completion" 2>/dev/null
+fi
 
 # ----------------------------------------------------------
 # UTILS LIBRARY
