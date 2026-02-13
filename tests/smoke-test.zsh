@@ -191,8 +191,26 @@ omz_path=$(zsh -c "
 if [[ -d "$omz_path" ]]; then
     pass "Oh My Zsh found at $omz_path"
 else
-    fail "Oh My Zsh NOT found at $omz_path"
-    warn ".zshrc will fail to load without OMZ"
+    warn "Oh My Zsh NOT found at $omz_path (shell will use fallback mode)"
+fi
+
+# Test graceful degradation without OMZ
+section "OMZ Fallback"
+
+omz_fallback_result=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    export ZSH='/tmp/nonexistent-omz-dir'
+    export Z_LOG_LEVEL=NONE
+    source \$ZDOTDIR/.zshenv 2>/dev/null
+    source \$ZDOTDIR/.zshrc 2>/dev/null
+    echo 'FALLBACK_OK'
+" 2>&1)
+
+if [[ "$omz_fallback_result" == *"FALLBACK_OK"* ]]; then
+    pass "Shell starts without OMZ (graceful fallback)"
+else
+    fail "Shell fails without OMZ"
+    info "Output: $omz_fallback_result"
 fi
 
 # ----------------------------------------------------------
@@ -379,6 +397,69 @@ for alias_name in "${test_aliases[@]}"; do
         fail "alias '$alias_name' not defined"
     fi
 done
+
+# ----------------------------------------------------------
+# PATH INTEGRATION
+# ----------------------------------------------------------
+
+section "PATH Integration"
+
+# PATH should contain /usr/bin after full shell init
+path_result=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    export Z_LOG_LEVEL=NONE
+    source \$ZDOTDIR/.zshenv 2>/dev/null
+    source \$ZDOTDIR/.zshrc 2>/dev/null
+    [[ \":\$PATH:\" == *\":/usr/bin:\"* ]] && echo 'USR_BIN_OK' || echo 'USR_BIN_MISSING'
+" 2>&1)
+
+if [[ "$path_result" == *"USR_BIN_OK"* ]]; then
+    pass "PATH contains /usr/bin after init"
+else
+    fail "PATH missing /usr/bin after init"
+fi
+
+# On macOS, /opt/homebrew/bin should be in PATH if Homebrew installed
+if [[ -d /opt/homebrew ]]; then
+    brew_path_result=$(zsh -c "
+        export ZDOTDIR='$ZDOTDIR'
+        export Z_LOG_LEVEL=NONE
+        source \$ZDOTDIR/.zshenv 2>/dev/null
+        source \$ZDOTDIR/.zshrc 2>/dev/null
+        [[ \":\$PATH:\" == *\":/opt/homebrew/bin:\"* ]] && echo 'BREW_OK' || echo 'BREW_MISSING'
+    " 2>&1)
+
+    if [[ "$brew_path_result" == *"BREW_OK"* ]]; then
+        pass "PATH contains /opt/homebrew/bin (Homebrew)"
+    else
+        warn "PATH missing /opt/homebrew/bin (Homebrew detected but not in PATH)"
+    fi
+fi
+
+# Lazy-loaded wrappers should exist as functions after init
+lazy_result=$(zsh -c "
+    export ZDOTDIR='$ZDOTDIR'
+    export Z_LOG_LEVEL=NONE
+    source \$ZDOTDIR/.zshenv 2>/dev/null
+    source \$ZDOTDIR/.zshrc 2>/dev/null
+    local -i count=0
+    for fn in z nvm pyenv rbenv; do
+        (( \$+functions[\$fn] )) && ((count++))
+    done
+    echo \"LAZY_WRAPPERS=\$count\"
+" 2>&1)
+
+if [[ "$lazy_result" == *"LAZY_WRAPPERS="* ]]; then
+    local wrapper_count="${lazy_result##*LAZY_WRAPPERS=}"
+    wrapper_count="${wrapper_count%%$'\n'*}"
+    if [[ "$wrapper_count" -gt 0 ]]; then
+        pass "Lazy wrappers installed ($wrapper_count found)"
+    else
+        warn "No lazy wrappers found (tools may not be installed)"
+    fi
+else
+    warn "Could not check lazy wrappers"
+fi
 
 # ----------------------------------------------------------
 # SUMMARY
