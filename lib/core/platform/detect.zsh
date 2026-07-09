@@ -40,23 +40,6 @@ _is_wsl() {
 }
 
 # ----------------------------------------------------------
-# BSD VARIANTS
-# Detects FreeBSD, OpenBSD, and NetBSD systems
-# ----------------------------------------------------------
-
-_is_freebsd() {
-    [[ "$OSTYPE" == freebsd* ]]
-}
-
-_is_openbsd() {
-    [[ "$OSTYPE" == openbsd* ]]
-}
-
-_is_netbsd() {
-    [[ "$OSTYPE" == netbsd* ]]
-}
-
-# ----------------------------------------------------------
 # ARCHITECTURE DETECTION
 # Detects CPU architecture (ARM, x86_64, Apple Silicon)
 # ----------------------------------------------------------
