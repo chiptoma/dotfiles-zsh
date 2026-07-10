@@ -113,3 +113,13 @@
 # if [[ "$(hostname)" == "work-laptop" ]]; then
 #     export HTTP_PROXY="http://proxy.company.com:8080"
 # fi
+
+# ----------------------------------------------------------
+# CLAUDE CODE — OP TOKEN TOOLING (optional)
+# If you use the dotfiles/claude setup: secret injection is
+# owned by its SessionStart hook — no shell wrapper needed;
+# `claude` runs bare. Sourcing the shared lib only provides
+# `op-token-setup` (store/rotate the 1Password service-account
+# token) in every terminal. Prefer `just token` from that repo.
+# ----------------------------------------------------------
+# _safe_source "$HOME/.claude/lib/inject-secrets.zsh"
