@@ -1,5 +1,5 @@
 # ==============================================================================
-# ZSH TOOL INSTALL MANIFEST
+# ZSH TOOL CATALOG
 # Shared tool definitions readable by both Bash installer and ZSH framework.
 # ==============================================================================
 #
@@ -12,7 +12,7 @@
 #   category  - essential, recommended, or extra
 #   replaces  - Classic command this replaces (empty = supplement)
 #   brew      - Homebrew package name (SCRIPT = needs custom install)
-#   apt       - APT package name (SCRIPT = needs custom install)
+#   apt       - APT package name (SCRIPT = needs custom install; empty = macOS-only)
 #
 # Lines starting with # are comments. Empty lines are ignored.
 # ==============================================================================

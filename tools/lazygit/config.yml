@@ -1,0 +1,10 @@
+# ==============================================================================
+# LAZYGIT CONFIGURATION
+# Conservative defaults; delta paging is intentionally not wired here so
+# lazygit keeps working when delta is absent.
+# ==============================================================================
+
+gui:
+  nerdFontsVersion: "3"
+  showRandomTip: false
+  border: rounded

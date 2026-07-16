@@ -33,6 +33,9 @@ BACKUP_DIR=""
 # Non-interactive mode (set via --yes flag)
 AUTO_YES=false
 
+# Backup directory chosen via --restore (empty = newest ~/.zsh-backup-*)
+RESTORE_DIR=""
+
 # Dry-run mode (set via --dry-run flag)
 DRY_RUN=false
 
@@ -47,6 +50,12 @@ VERBOSE=false
 
 # Installation profile: minimal, recommended (default), full
 INSTALL_PROFILE="recommended"
+
+# True when --minimal/--full was passed (skips the interactive tool menu)
+PROFILE_EXPLICIT=false
+
+# Installation method: symlink, copy, or empty (prompt; copy when unattended)
+INSTALL_METHOD=""
 
 # Specific tools to install (set via --tools flag, comma-separated)
 SELECTED_TOOLS=""
@@ -68,9 +77,10 @@ ESSENTIAL_FILES=(
     ".zshrc"
     "lib/core/index.zsh"
     "lib/core/logging.zsh"
+    "lib/registry/tools.dat"
     "modules/01_path.zsh"
     "modules/02_environment.zsh"
-    "modules/07_aliases.zsh"
+    "modules/06_aliases.zsh"
 )
 
 # Initialize paths (call this at start of main to pick up env overrides)
@@ -318,6 +328,26 @@ restore_backup() {
     fi
 
     print_info "Restoring from backup: $backup_dir"
+
+    # MANIFEST-driven restore (backups made by this installer version)
+    if [[ -f "$backup_dir/MANIFEST" ]]; then
+        local orig rel
+        while IFS=$'\t' read -r orig rel; do
+            [[ -n "$orig" && -e "$backup_dir/$rel" ]] || continue
+            mkdir -p "$(dirname "$orig")"
+            if [[ -d "$backup_dir/$rel" ]]; then
+                rm -rf "$orig"
+                cp -r "$backup_dir/$rel" "$orig"
+            else
+                cp "$backup_dir/$rel" "$orig"
+            fi
+            print_dim "  Restored $orig"
+        done < "$backup_dir/MANIFEST"
+        print_success "Backup restored"
+        return
+    fi
+
+    # Legacy backups without a MANIFEST
     [[ -f "$backup_dir/.zshrc" ]] && cp "$backup_dir/.zshrc" "$HOME/.zshrc" && print_dim "  Restored ~/.zshrc"
     [[ -f "$backup_dir/.zshenv" ]] && cp "$backup_dir/.zshenv" "$HOME/.zshenv" && print_dim "  Restored ~/.zshenv"
     [[ -f "$backup_dir/.zprofile" ]] && cp "$backup_dir/.zprofile" "$HOME/.zprofile" && print_dim "  Restored ~/.zprofile"
@@ -763,6 +793,23 @@ install_special_tool() {
             install_github_binary "yazi" \
                 'https://github.com/sxyazi/yazi/releases/latest/download/yazi-${arch}-unknown-${os}-musl.zip' \
                 "unzip"
+            ;;
+        SCRIPT:*)
+            # Generic fallback: most SCRIPT-marked tools are Rust crates whose
+            # crate name matches the brew package (btm→bottom, tldr→tealdeer)
+            local t="${tool#SCRIPT:}"
+            local idx crate
+            idx=$(find_catalog_index "$t")
+            crate="$t"
+            if [[ "$idx" -ge 0 && -n "${CAT_BREWS[$idx]}" && "${CAT_BREWS[$idx]}" != "SCRIPT" ]]; then
+                crate="${CAT_BREWS[$idx]}"
+            fi
+            if has_cmd cargo; then
+                print_info "Installing $t via cargo ($crate)..."
+                cargo install "$crate" && return 0
+            fi
+            print_warning "No install recipe for $t on this system — install it manually"
+            return 1
             ;;
         *)
             print_error "Unknown special install: $tool"
@@ -1260,34 +1307,63 @@ install_omz_plugins() {
 # ----------------------------------------------------------
 
 backup_existing() {
-    # Check for existing files
+    # Shell entry files + the install dir
     local -a existing_files=()
     [[ -f "$HOME/.zshrc" ]] && existing_files+=("$HOME/.zshrc")
     [[ -f "$HOME/.zshenv" ]] && existing_files+=("$HOME/.zshenv")
     [[ -f "$HOME/.zprofile" ]] && existing_files+=("$HOME/.zprofile")
     [[ -d "$INSTALL_DIR" && "$INSTALL_DIR" != "$SCRIPT_DIR" ]] && existing_files+=("$INSTALL_DIR")
 
-    if [[ ${#existing_files[@]} -eq 0 ]]; then
+    # Tool configs the installer may overwrite (tools/manifest.dat)
+    local manifest="$SCRIPT_DIR/tools/manifest.dat"
+    local -a config_dests=()
+    if [[ -f "$manifest" ]]; then
+        local tool src dest mode dest_path
+        while IFS=: read -r tool src dest mode; do
+            case "$tool" in "#"*|"") continue ;; esac
+            dest_path="${dest//\$XDG_CONFIG_HOME/${XDG_CONFIG_HOME:-$HOME/.config}}"
+            dest_path="${dest_path/#\~/$HOME}"
+            [[ -f "$dest_path" ]] && config_dests+=("$tool:$dest_path")
+        done < "$manifest"
+    fi
+
+    if [[ ${#existing_files[@]} -eq 0 && ${#config_dests[@]} -eq 0 ]]; then
         print_success "No existing configuration to backup"
         return 0
     fi
 
     echo "  Found existing files:"
+    local file entry
     for file in "${existing_files[@]}"; do
         print_dim "  - $file"
+    done
+    for entry in "${config_dests[@]}"; do
+        print_dim "  - ${entry#*:} (${entry%%:*} config)"
     done
     echo ""
 
     if confirm "Backup existing configuration?" "y"; then
         mkdir -p "$BACKUP_DIR"
+        # MANIFEST maps original path -> backup-relative path (tab-separated)
+        : > "$BACKUP_DIR/MANIFEST"
 
         for file in "${existing_files[@]}"; do
             if [[ -e "$file" ]]; then
-                local basename
-                basename=$(basename "$file")
-                cp -r "$file" "$BACKUP_DIR/$basename"
+                local base
+                base=$(basename "$file")
+                cp -r "$file" "$BACKUP_DIR/$base"
+                printf '%s\t%s\n' "$file" "$base" >> "$BACKUP_DIR/MANIFEST"
                 print_success "Backed up: $file"
             fi
+        done
+
+        for entry in "${config_dests[@]}"; do
+            local tool="${entry%%:*}" path="${entry#*:}" base
+            base=$(basename "$path")
+            mkdir -p "$BACKUP_DIR/tools/$tool"
+            cp "$path" "$BACKUP_DIR/tools/$tool/$base"
+            printf '%s\t%s\n' "$path" "tools/$tool/$base" >> "$BACKUP_DIR/MANIFEST"
+            print_success "Backed up: $path"
         done
 
         print_info "Backup location: $BACKUP_DIR"
@@ -1296,6 +1372,26 @@ backup_existing() {
         register_rollback "restore_backup '$BACKUP_DIR'"
     else
         print_warning "Skipping backup (existing files may be overwritten)"
+    fi
+}
+
+# Keep the newest 5 backups; always ask before deleting, never unattended
+prune_old_backups() {
+    $AUTO_YES && return 0
+    local -a backups=()
+    local d
+    while IFS= read -r d; do
+        backups+=("$d")
+    done < <(ls -dt "$HOME"/.zsh-backup-* 2>/dev/null)
+    [[ ${#backups[@]} -le 5 ]] && return 0
+
+    local n_old=$(( ${#backups[@]} - 5 ))
+    if confirm "Found ${#backups[@]} zsh backups — delete the $n_old oldest?" "n"; then
+        local i
+        for ((i = 5; i < ${#backups[@]}; i++)); do
+            rm -rf "${backups[$i]}"
+            print_dim "  Removed ${backups[$i]}"
+        done
     fi
 }
 
@@ -1311,8 +1407,18 @@ install_config() {
         method="none"
     elif [[ "$SCRIPT_DIR" == /tmp/* ]]; then
         # Source is in temp directory (curl-pipe mode) - copy files
+        if [[ "$INSTALL_METHOD" == "symlink" ]]; then
+            print_warning "--symlink unavailable from a temporary checkout, using copy"
+        fi
         method="copy"
         print_info "Using copy installation (curl-pipe mode)"
+    elif [[ -n "$INSTALL_METHOD" ]]; then
+        method="$INSTALL_METHOD"
+        print_info "Using $method installation (--$method)"
+    elif $AUTO_YES; then
+        # Unattended default: copy is self-contained and survives repo moves
+        method="copy"
+        print_info "Using copy installation (unattended default; pass --symlink to override)"
     else
         local choice
         choice=$(prompt_choice "How would you like to install?" "Symlink (recommended for development)" "Copy files")
@@ -1397,6 +1503,12 @@ install_config() {
                     fi
                     return 1
                 fi
+                # Preserve user-local config from the replaced install
+                if [[ -f "$old_backup/.zshlocal" ]]; then
+                    cp "$old_backup/.zshlocal" "$INSTALL_DIR/.zshlocal"
+                    print_success "Preserved existing .zshlocal"
+                fi
+
                 # Clean up old backup after successful swap
                 rm -rf "$old_backup" 2>/dev/null
 
@@ -1480,23 +1592,196 @@ setup_zdotdir() {
 # OPTIONAL TOOLS
 # ----------------------------------------------------------
 
-# Tools with descriptions, commands, and categories
-# Format: "tool:command:description:category"
-# Categories:
-#   essential   - Required for proper shell experience (always installed)
-#   recommended - Useful power tools (installed by default, user can skip)
-#   extra       - Nice-to-have (only with --full profile)
-declare -a ALL_TOOLS=(
-    "starship:starship:Cross-shell prompt with git status and icons:essential"
-    "atuin:atuin:Shell history search and sync across machines:essential"
-    "eza:eza:Modern ls - colorful file listings with icons:recommended"
-    "zoxide:zoxide:Smart cd - jump to directories you use often:recommended"
-    "fzf:fzf:Fuzzy finder - search history and files with Ctrl+R/T:recommended"
-    "bat:bat:Better cat - view files with syntax highlighting:recommended"
-    "ripgrep:rg:Fast grep - search file contents 10x faster:recommended"
-    "fd:fd:Modern find - find files by name quickly:recommended"
-    "yazi:yazi:File manager - browse files in terminal with preview:extra"
-)
+# Tool catalog: parsed from lib/registry/tools.dat — the single source of
+# truth shared with the zsh runtime (lib/registry/tools.zsh).
+# Parallel indexed arrays: macOS ships bash 3.2, no associative arrays.
+CAT_NAMES=()
+CAT_BINS=()
+CAT_DESCS=()
+CAT_CATEGORIES=()
+CAT_REPLACES_LIST=()
+CAT_BREWS=()
+CAT_APTS=()
+
+load_tool_catalog() {
+    # Idempotent: parse once
+    [[ ${#CAT_NAMES[@]} -gt 0 ]] && return 0
+
+    local catalog="$SCRIPT_DIR/lib/registry/tools.dat"
+    if [[ -f "$catalog" ]]; then
+        local name binary desc category replaces brew apt
+        while IFS=: read -r name binary desc category replaces brew apt; do
+            case "$name" in "#"*|"") continue ;; esac
+            CAT_NAMES+=("$name")
+            CAT_BINS+=("$binary")
+            CAT_DESCS+=("$desc")
+            CAT_CATEGORIES+=("$category")
+            CAT_REPLACES_LIST+=("$replaces")
+            CAT_BREWS+=("$brew")
+            CAT_APTS+=("$apt")
+        done < "$catalog"
+    fi
+
+    # Embedded minimal fallback keeps curl-pipe bootstraps working even if
+    # the catalog is somehow absent
+    if [[ ${#CAT_NAMES[@]} -eq 0 ]]; then
+        print_warning "Tool catalog missing ($catalog) — using minimal embedded set"
+        CAT_NAMES=(starship atuin)
+        CAT_BINS=(starship atuin)
+        CAT_DESCS=("Cross-shell prompt with git integration" "Searchable shell history synced across machines")
+        CAT_CATEGORIES=(essential essential)
+        CAT_REPLACES_LIST=("" "")
+        CAT_BREWS=(starship atuin)
+        CAT_APTS=(SCRIPT SCRIPT)
+    fi
+}
+
+# Echoes the catalog index for a tool name, or -1 when unknown
+find_catalog_index() {
+    local name="$1" i
+    for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
+        if [[ "${CAT_NAMES[$i]}" == "$name" ]]; then
+            echo "$i"
+            return 0
+        fi
+    done
+    echo -1
+}
+
+# ----------------------------------------------------------
+# INTERACTIVE TOOL SELECTION (checkbox menu)
+# Operates on MENU_* parallel arrays (bash 3.2: no assoc arrays).
+# ----------------------------------------------------------
+
+MENU_NAMES=()
+MENU_DESCS=()
+MENU_CATS=()
+MENU_REPLACES=()
+MENU_SEL=()
+
+# Fills MENU_* from missing catalog tools, grouped essential->recommended->extra
+build_tool_menu() {
+    MENU_NAMES=() MENU_DESCS=() MENU_CATS=() MENU_REPLACES=() MENU_SEL=()
+    local tier i
+    for tier in essential recommended extra; do
+        for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
+            [[ "${CAT_CATEGORIES[$i]}" == "$tier" ]] || continue
+            has_cmd "${CAT_BINS[$i]}" && continue
+            # Empty apt column marks macOS-only tools (e.g. mas)
+            if ! is_macos && [[ -z "${CAT_APTS[$i]}" ]]; then
+                continue
+            fi
+            MENU_NAMES+=("${CAT_NAMES[$i]}")
+            MENU_DESCS+=("${CAT_DESCS[$i]}")
+            MENU_CATS+=("$tier")
+            MENU_REPLACES+=("${CAT_REPLACES_LIST[$i]:-}")
+            MENU_SEL+=(0)
+        done
+    done
+}
+
+# Pre-checks MENU_SEL from the active INSTALL_PROFILE
+apply_profile_preset() {
+    local i
+    for ((i = 0; i < ${#MENU_NAMES[@]}; i++)); do
+        case "$INSTALL_PROFILE" in
+            minimal)     [[ "${MENU_CATS[$i]}" == "essential" ]] && MENU_SEL[$i]=1 || MENU_SEL[$i]=0 ;;
+            recommended) [[ "${MENU_CATS[$i]}" != "extra" ]] && MENU_SEL[$i]=1 || MENU_SEL[$i]=0 ;;
+            full)        MENU_SEL[$i]=1 ;;
+        esac
+    done
+}
+
+render_tool_menu() {
+    local i marker color group="" selected_count=0 num extra
+    for ((i = 0; i < ${#MENU_SEL[@]}; i++)); do
+        [[ "${MENU_SEL[$i]}" == "1" ]] && selected_count=$((selected_count + 1))
+    done
+
+    echo ""
+    echo -e "  ${BOLD}Select tools to install${NC}  ${DIM}($selected_count of ${#MENU_NAMES[@]} selected · preset: $INSTALL_PROFILE)${NC}"
+    for ((i = 0; i < ${#MENU_NAMES[@]}; i++)); do
+        if [[ "${MENU_CATS[$i]}" != "$group" ]]; then
+            group="${MENU_CATS[$i]}"
+            case "$group" in
+                essential)   color="$GREEN" ;;
+                recommended) color="$CYAN" ;;
+                *)           color="$YELLOW" ;;
+            esac
+            echo ""
+            echo -e "  ${color}${BOLD}${group}${NC}"
+        fi
+        if [[ "${MENU_SEL[$i]}" == "1" ]]; then
+            marker="${GREEN}[✓]${NC}"
+        else
+            marker="${DIM}[ ]${NC}"
+        fi
+        num=$(printf '%2d' "$((i + 1))")
+        extra=""
+        [[ -n "${MENU_REPLACES[$i]}" ]] && extra=" ${DIM}(replaces ${MENU_REPLACES[$i]})${NC}"
+        echo -e "   $marker ${DIM}$num${NC}  ${WHITE}$(printf '%-10s' "${MENU_NAMES[$i]}")${NC} ${MENU_DESCS[$i]}$extra"
+    done
+    echo ""
+    echo -e "  ${DIM}toggle numbers (e.g. 3 5 12) · ${NC}a${DIM}=all · ${NC}n${DIM}=none · ${NC}p${DIM}=cycle preset · ${NC}Enter${DIM}=confirm${NC}"
+}
+
+# Interactive loop; returns with MENU_SEL holding the final selection
+select_tools_interactive() {
+    apply_profile_preset
+
+    local input tok i j
+    while true; do
+        render_tool_menu
+        echo -ne "  ${YELLOW}?${NC} selection ${DIM}>${NC} "
+        if ! { read -r input </dev/tty; } 2>/dev/null; then
+            echo ""
+            break
+        fi
+        case "$input" in
+            "") break ;;
+            a|A) for ((i = 0; i < ${#MENU_SEL[@]}; i++)); do MENU_SEL[$i]=1; done ;;
+            n|N) for ((i = 0; i < ${#MENU_SEL[@]}; i++)); do MENU_SEL[$i]=0; done ;;
+            p|P)
+                case "$INSTALL_PROFILE" in
+                    minimal)     INSTALL_PROFILE="recommended" ;;
+                    recommended) INSTALL_PROFILE="full" ;;
+                    *)           INSTALL_PROFILE="minimal" ;;
+                esac
+                apply_profile_preset
+                ;;
+            *)
+                for tok in $input; do
+                    if [[ "$tok" =~ ^[0-9]+$ ]] && [[ "$tok" -ge 1 && "$tok" -le ${#MENU_NAMES[@]} ]]; then
+                        j=$((tok - 1))
+                        if [[ "${MENU_SEL[$j]}" == "1" ]]; then
+                            MENU_SEL[$j]=0
+                        else
+                            MENU_SEL[$j]=1
+                        fi
+                    else
+                        echo -e "  ${RED}✗${NC} not a valid choice: $tok"
+                    fi
+                done
+                ;;
+        esac
+    done
+}
+
+# Resolve a catalog index to a package spec for the given package manager.
+# Echoes: a package name, SCRIPT:<tool>, CARGO:<crate>, or "" (unavailable).
+resolve_package() {
+    local idx="$1" pm="$2"
+    local name="${CAT_NAMES[$idx]}" pkg=""
+
+    case "$pm" in
+        brew) pkg="${CAT_BREWS[$idx]}" ;;
+        apt)  pkg="${CAT_APTS[$idx]}" ;;
+        *)    pkg="$(get_package_name "$name" "$pm")" ;;
+    esac
+
+    [[ "$pkg" == "SCRIPT" ]] && pkg="SCRIPT:$name"
+    echo "$pkg"
+}
 
 # Check if a tool should be installed based on profile and selection
 should_install_tool() {
@@ -1546,19 +1831,18 @@ install_optional_tools() {
     local -a installed=()
     local -a to_install=()
 
-    # Categorize tools
-    for entry in "${ALL_TOOLS[@]}"; do
-        local tool="${entry%%:*}"
-        local rest="${entry#*:}"
-        local check_cmd="${rest%%:*}"
-        rest="${rest#*:}"
-        local desc="${rest%%:*}"
-        local category="${rest#*:}"
-
-        if has_cmd "$check_cmd"; then
-            installed+=("$tool")
+    # Categorize tools from the shared catalog
+    load_tool_catalog
+    local i
+    for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
+        # Empty apt column marks macOS-only tools (e.g. mas)
+        if ! is_macos && [[ -z "${CAT_APTS[$i]}" ]]; then
+            continue
+        fi
+        if has_cmd "${CAT_BINS[$i]}"; then
+            installed+=("${CAT_NAMES[$i]}")
         else
-            missing+=("$tool:$check_cmd:$desc:$category")
+            missing+=("${CAT_NAMES[$i]}:${CAT_BINS[$i]}:${CAT_DESCS[$i]}:${CAT_CATEGORIES[$i]}")
         fi
     done
 
@@ -1576,32 +1860,12 @@ install_optional_tools() {
         return 0
     fi
 
-    echo ""
-    echo "  Missing tools:"
-    echo ""
-    # Print with columnar alignment: tool name, description, category
-    for entry in "${missing[@]}"; do
-        local tool="${entry%%:*}"
-        local rest="${entry#*:}"
-        rest="${rest#*:}"
-        local desc="${rest%%:*}"
-        local category="${rest#*:}"
-        local marker="" pad=""
-        case "$category" in
-            essential)   marker="${GREEN}essential${NC}"; pad="  " ;;
-            recommended) marker="${CYAN}recommended${NC}"; pad="" ;;
-            extra)       marker="${YELLOW}extra${NC}"; pad="      " ;;
-        esac
-        # Columnar format: [marker]  tool  description
-        # Use printf for tool padding, echo -e for color interpretation
-        local padded_tool
-        padded_tool=$(printf '%-10s' "$tool")
-        echo -e "    ${DIM}[${NC}${marker}${pad}${DIM}]${NC}  ${YELLOW}${padded_tool}${NC} ${desc}"
-    done
-
-    # Determine which tools to install
-    local install_recommended=false
-    local install_extra=false
+    # Interactive checkbox menu applies only when a human can drive it and
+    # nothing on the command line already decided the selection
+    local use_menu=false
+    if [[ -z "$SELECTED_TOOLS" ]] && ! $AUTO_YES && ! $PROFILE_EXPLICIT && [[ -r /dev/tty ]]; then
+        use_menu=true
+    fi
 
     if [[ -n "$SELECTED_TOOLS" ]]; then
         # Specific tools selected via --tools flag
@@ -1613,55 +1877,46 @@ install_optional_tools() {
                 to_install+=("$entry")
             fi
         done
+    elif $use_menu; then
+        # Checkbox menu over every missing catalog tool
+        build_tool_menu
+        select_tools_interactive
+        local mi
+        for ((mi = 0; mi < ${#MENU_NAMES[@]}; mi++)); do
+            [[ "${MENU_SEL[$mi]}" == "1" ]] || continue
+            for entry in "${missing[@]}"; do
+                if [[ "${entry%%:*}" == "${MENU_NAMES[$mi]}" ]]; then
+                    to_install+=("$entry")
+                fi
+            done
+        done
     else
-        # Essential tools are always installed
+        # Unattended or explicit profile: category rules decide
+        echo ""
+        echo "  Missing tools:"
+        echo ""
         for entry in "${missing[@]}"; do
             local tool="${entry%%:*}"
             local rest="${entry#*:}"
             rest="${rest#*:}"
-            rest="${rest#*:}"
-            local category="${rest}"
-            if [[ "$category" == "essential" ]]; then
+            local desc="${rest%%:*}"
+            local category="${rest#*:}"
+            local marker="" pad=""
+            case "$category" in
+                essential)   marker="${GREEN}essential${NC}"; pad="  " ;;
+                recommended) marker="${CYAN}recommended${NC}"; pad="" ;;
+                extra)       marker="${YELLOW}extra${NC}"; pad="      " ;;
+            esac
+            local padded_tool
+            padded_tool=$(printf '%-10s' "$tool")
+            echo -e "    ${DIM}[${NC}${marker}${pad}${DIM}]${NC}  ${YELLOW}${padded_tool}${NC} ${desc}"
+
+            if should_install_tool "$tool" "$category"; then
                 to_install+=("$entry")
             fi
         done
-
-        # Determine recommended/extra based on profile and user choice
-        if [[ "$INSTALL_PROFILE" == "full" ]]; then
-            install_recommended=true
-            install_extra=true
-            echo ""
-            print_info "Full profile: installing all tools"
-        elif [[ "$INSTALL_PROFILE" == "minimal" ]]; then
-            echo ""
-            print_info "Minimal profile: installing essential tools only"
-        elif $AUTO_YES; then
-            install_recommended=true
-        else
-            # Prompt for recommended tools
-            echo ""
-            if confirm "Also install recommended CLI tools?" "y"; then
-                install_recommended=true
-            fi
-            # Prompt for extra tools (yazi, etc.)
-            if confirm "Install extra tools (yazi file manager)?" "n"; then
-                install_extra=true
-            fi
-        fi
-
-        # Add recommended and extra tools based on flags
-        for entry in "${missing[@]}"; do
-            local tool="${entry%%:*}"
-            local rest="${entry#*:}"
-            rest="${rest#*:}"
-            rest="${rest#*:}"
-            local category="${rest}"
-            if [[ "$category" == "recommended" ]] && $install_recommended; then
-                to_install+=("$entry")
-            elif [[ "$category" == "extra" ]] && $install_extra; then
-                to_install+=("$entry")
-            fi
-        done
+        echo ""
+        print_info "Profile '$INSTALL_PROFILE': installing ${#to_install[@]} of ${#missing[@]} missing tools"
     fi
 
     if [[ ${#to_install[@]} -eq 0 ]]; then
@@ -1680,10 +1935,14 @@ install_optional_tools() {
 
     for entry in "${to_install[@]}"; do
         local tool="${entry%%:*}"
-        local pkg_name
-        pkg_name=$(get_package_name "$tool" "$pm")
+        local idx pkg_name
+        idx=$(find_catalog_index "$tool")
+        pkg_name=$(resolve_package "$idx" "$pm")
 
-        if [[ "$pkg_name" == CARGO:* ]] || [[ "$pkg_name" == SCRIPT:* ]]; then
+        if [[ -z "$pkg_name" ]]; then
+            print_dim "  $tool is not available on this platform — skipped"
+            continue
+        elif [[ "$pkg_name" == CARGO:* ]] || [[ "$pkg_name" == SCRIPT:* ]]; then
             special_install+=("$pkg_name:$tool")
         else
             pm_install+=("$pkg_name:$tool")
@@ -1844,33 +2103,60 @@ setup_shell_integrations() {
 
 install_tool_configs() {
     local tools_dir="$SCRIPT_DIR/tools"
-    [[ -d "$tools_dir" ]] || return 0
+    local manifest="$tools_dir/manifest.dat"
+    [[ -f "$manifest" ]] || return 0
 
     print_section "Tool Configurations"
+    load_tool_catalog
 
-    # Starship config
-    if has_cmd starship && [[ -f "$tools_dir/starship.toml" ]]; then
-        local dest="$HOME/.config/starship.toml"
-        if [[ -f "$dest" ]]; then
-            cp "$dest" "${dest}.backup"
-            print_dim "Backed up existing starship config"
-        fi
-        mkdir -p "$(dirname "$dest")"
-        cp "$tools_dir/starship.toml" "$dest"
-        print_success "Installed starship config"
-    fi
+    local tool src dest mode installed_count=0
+    while IFS=: read -r tool src dest mode; do
+        case "$tool" in "#"*|"") continue ;; esac
 
-    # Atuin config
-    if has_cmd atuin && [[ -f "$tools_dir/atuin.toml" ]]; then
-        local dest="$HOME/.config/atuin/config.toml"
-        if [[ -f "$dest" ]]; then
-            cp "$dest" "${dest}.backup"
-            print_dim "Backed up existing atuin config"
+        # Only configure tools that are actually present (catalog maps
+        # names to binaries: ripgrep->rg, tldr->tldr, ...)
+        local idx bin
+        idx=$(find_catalog_index "$tool")
+        bin="$tool"
+        [[ "$idx" -ge 0 ]] && bin="${CAT_BINS[$idx]}"
+        has_cmd "$bin" || continue
+
+        if [[ ! -f "$tools_dir/$src" ]]; then
+            print_warning "Config source missing for $tool: tools/$src"
+            continue
         fi
-        mkdir -p "$(dirname "$dest")"
-        cp "$tools_dir/atuin.toml" "$dest"
-        print_success "Installed atuin config"
-    fi
+
+        # Expand destination tokens
+        local dest_path="$dest"
+        dest_path="${dest_path//\$XDG_CONFIG_HOME/${XDG_CONFIG_HOME:-$HOME/.config}}"
+        dest_path="${dest_path/#\~/$HOME}"
+
+        if $DRY_RUN; then
+            print_dim "[dry-run] install tools/$src -> $dest_path ($mode)"
+            continue
+        fi
+
+        if [[ -f "$dest_path" ]]; then
+            cp "$dest_path" "${dest_path}.backup"
+            print_dim "Backed up existing ${dest_path##*/}"
+        fi
+        mkdir -p "$(dirname "$dest_path")"
+        cp "$tools_dir/$src" "$dest_path"
+
+        if [[ "$mode" == "gitinclude" ]] && has_cmd git; then
+            # Idempotent: only add the include once
+            if ! git config --global --get-all include.path 2>/dev/null | grep -Fqx "$dest_path"; then
+                git config --global include.path "$dest_path"
+                print_dim "Added $tool to git global include.path"
+            fi
+        fi
+
+        print_success "Installed $tool config"
+        installed_count=$((installed_count + 1))
+    done < "$manifest"
+
+    [[ $installed_count -eq 0 ]] && print_dim "No configurable tools present — nothing to do"
+    return 0
 }
 
 # ----------------------------------------------------------
@@ -2032,53 +2318,6 @@ create_local_config() {
     fi
 }
 
-setup_atuin_config() {
-    # Skip if atuin is not installed
-    if ! has_cmd atuin && [[ ! -x "$HOME/.atuin/bin/atuin" ]]; then
-        return 0
-    fi
-
-    local atuin_config_dir="$HOME/.config/atuin"
-    local atuin_config="$atuin_config_dir/config.toml"
-    local atuin_example="$INSTALL_DIR/examples/atuin.toml"
-
-    # Skip if example doesn't exist
-    [[ ! -f "$atuin_example" ]] && return 0
-
-    # Skip if config already exists
-    if [[ -f "$atuin_config" ]]; then
-        print_info "atuin config already exists"
-        return 0
-    fi
-
-    print_section "Atuin Configuration"
-
-    if confirm "Set up atuin config from template?" "y"; then
-        # Create config directory
-        mkdir -p "$atuin_config_dir"
-
-        # Copy template
-        cp "$atuin_example" "$atuin_config"
-        print_success "Created atuin config"
-
-        # Ask about sync
-        echo ""
-        if confirm "Enable atuin sync (requires account)?" "n"; then
-            # Enable auto_sync in config
-            sed -i.bak 's/^auto_sync = false/auto_sync = true/' "$atuin_config" 2>/dev/null || \
-            sed -i '' 's/^auto_sync = false/auto_sync = true/' "$atuin_config" 2>/dev/null
-            rm -f "$atuin_config.bak" 2>/dev/null
-
-            echo ""
-            print_info "To complete sync setup, run:"
-            echo -e "    ${WHITE}atuin register -u <username> -e <email>${NC}  (new account)"
-            echo -e "    ${WHITE}atuin login -u <username>${NC}                (existing account)"
-        fi
-
-        print_info "Config: $atuin_config"
-    fi
-}
-
 print_installation_failed() {
     local reason="$1"
     print_header "Installation Failed"
@@ -2126,9 +2365,10 @@ print_summary() {
     echo -e "    ${WHITE}health${NC}  - Check for issues"
     echo ""
 
-    # In curl-pipe mode, exec doesn't work (replaces subshell, not user's shell)
-    # Just tell them to run it themselves
-    if $CURL_PIPE_MODE; then
+    # In curl-pipe mode, exec doesn't work (replaces subshell, not user's shell).
+    # In unattended mode (--yes/CI/Ansible), never exec — it would hijack the
+    # calling process and consume piped stdin as shell commands.
+    if $CURL_PIPE_MODE || $AUTO_YES; then
         echo -e "  ${YELLOW}→${NC} Run ${WHITE}exec zsh${NC} to start using your new shell"
         echo ""
     elif confirm "Start a new ZSH shell now?" "y"; then
@@ -2401,7 +2641,8 @@ repair_installation() {
 uninstall() {
     print_header "Uninstalling ZSH Configuration"
 
-    if confirm "This will remove the ZSH configuration. Continue?"; then
+    # default y: reaching here already required an explicit --uninstall
+    if confirm "This will remove the ZSH configuration. Continue?" "y"; then
         # Remove config
         if [[ -d "$INSTALL_DIR" || -L "$INSTALL_DIR" ]]; then
             rm -rf "$INSTALL_DIR"
@@ -2422,6 +2663,14 @@ uninstall() {
             print_success "Removed data directories"
         fi
 
+        # Offer to bring back the pre-install dotfiles
+        # (|| true: no backups -> ls rc=2 would trip set -e + pipefail)
+        local newest_backup
+        newest_backup=$(ls -dt "$HOME"/.zsh-backup-* 2>/dev/null | head -1) || true
+        if [[ -n "$newest_backup" ]] && confirm "Restore previous dotfiles from $newest_backup?" "n"; then
+            restore_backup "$newest_backup"
+        fi
+
         print_success "Uninstallation complete"
         print_info "Restart your shell or run: exec bash"
     fi
@@ -2438,16 +2687,20 @@ main() {
     # Initialize paths (must be first to pick up env overrides like custom HOME)
     init_paths
 
+    # Maintenance action, dispatched AFTER the parse loop so flag order
+    # never matters (--uninstall --yes must honor --yes)
+    local ACTION=""
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --uninstall|-u)
-                uninstall
-                exit 0
+                ACTION="uninstall"
+                shift
                 ;;
             --update)
-                update
-                exit 0
+                ACTION="update"
+                shift
                 ;;
             --yes|-y)
                 AUTO_YES=true
@@ -2469,12 +2722,22 @@ main() {
                 SKIP_TOOLS=true
                 shift
                 ;;
+            --symlink)
+                INSTALL_METHOD="symlink"
+                shift
+                ;;
+            --copy)
+                INSTALL_METHOD="copy"
+                shift
+                ;;
             --minimal)
                 INSTALL_PROFILE="minimal"
+                PROFILE_EXPLICIT=true
                 shift
                 ;;
             --full)
                 INSTALL_PROFILE="full"
+                PROFILE_EXPLICIT=true
                 shift
                 ;;
             --tools)
@@ -2487,8 +2750,18 @@ main() {
                 shift 2
                 ;;
             --repair|--fix)
-                repair_installation
-                exit $?
+                ACTION="repair"
+                shift
+                ;;
+            --restore)
+                ACTION="restore"
+                # Optional argument: a specific backup directory
+                if [[ -n "${2:-}" && "${2:0:1}" != "-" ]]; then
+                    RESTORE_DIR="$2"
+                    shift 2
+                else
+                    shift
+                fi
                 ;;
             --user)
                 # Switch to specified user (for Docker testing)
@@ -2507,9 +2780,8 @@ main() {
                 exec su - "$target_user" -c "cd '$SCRIPT_DIR' && ./install.sh $*"
                 ;;
             --check|-c)
-                print_header "ZSH Configuration Health Check"
-                verify_installation
-                exit $?
+                ACTION="check"
+                shift
                 ;;
             --version|-v)
                 echo "ZSH Dotfiles Installer v$VERSION"
@@ -2527,18 +2799,22 @@ main() {
                 echo "  --quiet, -q         Minimal output (implies --yes)"
                 echo "  --dry-run, -n       Show what would be done without making changes"
                 echo "  --verbose           Show detailed debug output"
+                echo "  --symlink           Symlink the repo into place (development setups)"
+                echo "  --copy              Copy files into place (default when unattended)"
                 echo ""
                 echo "Installation profiles:"
                 echo "  --minimal           Core ZSH + Oh My Zsh only (no optional tools)"
                 echo "  --full              Install all optional tools automatically"
                 echo "  --skip-tools        Skip optional tools installation step"
                 echo "  --tools TOOLS       Install specific tools (comma-separated)"
-                echo "                      Available: fzf,eza,bat,ripgrep,fd,zoxide,yazi,starship,atuin"
+                echo "                      Full catalog: lib/registry/tools.dat (starship, atuin,"
+                echo "                      eza, bat, fzf, zoxide, delta, lazygit, btm, dust, ...)"
                 echo ""
                 echo "Maintenance:"
                 echo "  --check, -c         Verify existing installation"
                 echo "  --update            Update to latest version (git pull)"
                 echo "  --repair, --fix     Repair broken installation"
+                echo "  --restore [DIR]     Restore dotfiles from a backup (newest by default)"
                 echo "  --uninstall, -u     Uninstall the configuration"
                 echo ""
                 echo "Advanced:"
@@ -2548,6 +2824,7 @@ main() {
                 echo "  NO_COLOR            Disable colored output"
                 echo "  XDG_CONFIG_HOME     Override config directory (default: ~/.config)"
                 echo "  XDG_DATA_HOME       Override data directory (default: ~/.local/share)"
+                echo "  ZSH_DOTFILES_REPO_URL  Override repo URL for curl-pipe installs (forks/CI)"
                 echo ""
                 echo "Examples:"
                 echo "  $0                        # Interactive installation"
@@ -2578,6 +2855,53 @@ main() {
         AUTO_YES=true
     fi
 
+    # Only force non-interactive mode if /dev/tty is unavailable (true CI/automation)
+    # When /dev/tty exists, we can read from it even if stdin is piped
+    if [[ ! -r /dev/tty ]] && ! $AUTO_YES; then
+        AUTO_YES=true
+        echo -e "  ${DIM}Non-interactive mode (no TTY available)${NC}"
+        echo ""
+    fi
+
+    # Dispatch maintenance actions now that ALL flags are parsed
+    case "$ACTION" in
+        restore)
+            local restore_from="${RESTORE_DIR:-}"
+            if [[ -z "$restore_from" ]]; then
+                # || true: no backups -> ls rc=2 would trip set -e + pipefail
+                restore_from=$(ls -dt "$HOME"/.zsh-backup-* 2>/dev/null | head -1) || true
+            fi
+            if [[ -z "$restore_from" || ! -d "$restore_from" ]]; then
+                print_error "No backup found to restore (looked for ~/.zsh-backup-*)"
+                exit 1
+            fi
+            print_header "Restore From Backup"
+            if confirm "Restore dotfiles from $restore_from (overwrites current files)?" "y"; then
+                restore_backup "$restore_from"
+            else
+                print_info "Restore cancelled"
+            fi
+            exit 0
+            ;;
+        uninstall)
+            uninstall
+            exit 0
+            ;;
+        update)
+            update
+            exit 0
+            ;;
+        repair)
+            repair_installation
+            exit $?
+            ;;
+        check)
+            print_header "ZSH Configuration Health Check"
+            verify_installation
+            exit $?
+            ;;
+    esac
+
     # Show logo and intro
     print_logo
 
@@ -2599,7 +2923,8 @@ main() {
 
         local tmp_dir
         tmp_dir=$(mktemp -d)
-        local repo_url="https://github.com/chiptoma/dotfiles-zsh.git"
+        # ZSH_DOTFILES_REPO_URL: override for forks and offline/CI testing
+        local repo_url="${ZSH_DOTFILES_REPO_URL:-https://github.com/chiptoma/dotfiles-zsh.git}"
 
         if ! git clone --depth=1 "$repo_url" "$tmp_dir" 2>/dev/null; then
             echo -e "  ${RED}✗ Failed to clone repository${NC}" >&2
@@ -2613,14 +2938,6 @@ main() {
         # Re-exec the installer from the cloned repo with original arguments
         cd "$tmp_dir"
         exec bash "$tmp_dir/install.sh" "${ORIGINAL_ARGS[@]}"
-    fi
-
-    # Only force non-interactive mode if /dev/tty is unavailable (true CI/automation)
-    # When /dev/tty exists, we can read from it even if stdin is piped
-    if [[ ! -r /dev/tty ]] && ! $AUTO_YES; then
-        AUTO_YES=true
-        echo -e "  ${DIM}Non-interactive mode (no TTY available)${NC}"
-        echo ""
     fi
 
     # Pre-install summary
@@ -2685,7 +3002,6 @@ main() {
         # Create .zshlocal first (needed for shell integrations)
         create_local_config
         install_optional_tools
-        setup_atuin_config
         install_tool_configs
 
         # Step 7: Verification & Finish
@@ -2696,6 +3012,7 @@ main() {
         print_section "Default Shell"
         offer_set_default_shell
 
+        prune_old_backups
         print_summary
     else
         print_section "Dry-Run Complete"
@@ -2705,4 +3022,7 @@ main() {
     fi
 }
 
-main "$@"
+# Source-guard: tests source this file to unit-test individual functions
+if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

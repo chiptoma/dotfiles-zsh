@@ -1,0 +1,13 @@
+# ==============================================================================
+# BAT CONFIGURATION
+# Syntax-highlighted file viewer defaults.
+# ==============================================================================
+
+# Theme that reads well on dark terminals
+--theme="TwoDark"
+
+# Show line numbers, git modifications, and the file header
+--style="numbers,changes,header"
+
+# Italics where the terminal supports them
+--italic-text=always

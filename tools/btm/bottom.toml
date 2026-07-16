@@ -1,0 +1,11 @@
+# ==============================================================================
+# BOTTOM (btm) CONFIGURATION
+# System monitor defaults.
+# ==============================================================================
+
+[flags]
+# Process view as a tree, grouped by parent
+tree = true
+
+# Celsius temperatures
+temperature_type = "c"

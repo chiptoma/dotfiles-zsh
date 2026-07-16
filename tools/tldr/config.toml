@@ -1,0 +1,8 @@
+# ==============================================================================
+# TEALDEER (tldr) CONFIGURATION
+# Keep the examples cache fresh automatically.
+# ==============================================================================
+
+[updates]
+auto_update = true
+auto_update_interval_hours = 168

@@ -1,0 +1,15 @@
+# ==============================================================================
+# RIPGREP CONFIGURATION
+# Search defaults; active via RIPGREP_CONFIG_PATH (set by the registry).
+# ==============================================================================
+
+# Case-insensitive unless the pattern contains uppercase
+--smart-case
+
+# Search hidden files, but never inside .git
+--hidden
+--glob=!.git/*
+
+# Keep very long lines readable
+--max-columns=200
+--max-columns-preview
