@@ -271,7 +271,7 @@ jobs:
         run: |
           export ZDOTDIR="${HOME}/.config/zsh"
           # Check new modules exist
-          [[ -f "$ZDOTDIR/modules/lazy.zsh" ]] || { echo "Missing lazy module"; exit 1; }
+          [[ -f "$ZDOTDIR/modules/04_lazy.zsh" ]] || { echo "Missing lazy module"; exit 1; }
           [[ -f "$ZDOTDIR/lib/core/index.zsh" ]] || { echo "Missing core"; exit 1; }
           echo "Upgrade successful - new features available"
 

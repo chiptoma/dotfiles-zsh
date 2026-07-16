@@ -68,9 +68,9 @@ ESSENTIAL_FILES=(
     ".zshrc"
     "lib/core/index.zsh"
     "lib/core/logging.zsh"
-    "modules/aliases.zsh"
-    "modules/environment.zsh"
-    "modules/path.zsh"
+    "modules/01_path.zsh"
+    "modules/02_environment.zsh"
+    "modules/07_aliases.zsh"
 )
 
 # Initialize paths (call this at start of main to pick up env overrides)
