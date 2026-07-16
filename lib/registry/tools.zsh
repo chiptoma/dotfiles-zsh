@@ -12,7 +12,7 @@
 (( ${+_Z_REGISTRY_TOOLS_LOADED} )) && return 0
 typeset -g _Z_REGISTRY_TOOLS_LOADED=1
 
-# name -> 'binary:desc:category:replaces:brew:apt' (split with ${(@s.:.)})
+# name -> 'binary:desc:category:replaces:brew:apt:completions' (split with ${(@s.:.)})
 typeset -gA Z_TOOLS
 # catalog order, preserved for display
 typeset -ga Z_TOOL_NAMES
@@ -41,18 +41,19 @@ _z_tools_load() {
 }
 
 # Prints one field of a catalog entry.
-# Usage: _z_tool_field <name> <binary|desc|category|replaces|brew|apt>
+# Usage: _z_tool_field <name> <binary|desc|category|replaces|brew|apt|completions>
 _z_tool_field() {
     local name="$1" field="$2"
     local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
     case "$field" in
-        binary)   print -r -- "${fields[1]:-}" ;;
-        desc)     print -r -- "${fields[2]:-}" ;;
-        category) print -r -- "${fields[3]:-}" ;;
-        replaces) print -r -- "${fields[4]:-}" ;;
-        brew)     print -r -- "${fields[5]:-}" ;;
-        apt)      print -r -- "${fields[6]:-}" ;;
-        *)        return 1 ;;
+        binary)      print -r -- "${fields[1]:-}" ;;
+        desc)        print -r -- "${fields[2]:-}" ;;
+        category)    print -r -- "${fields[3]:-}" ;;
+        replaces)    print -r -- "${fields[4]:-}" ;;
+        brew)        print -r -- "${fields[5]:-}" ;;
+        apt)         print -r -- "${fields[6]:-}" ;;
+        completions) print -r -- "${fields[7]:-}" ;;
+        *)           return 1 ;;
     esac
 }
 
