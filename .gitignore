@@ -22,5 +22,8 @@
 # Claude Code
 .claude/
 
+# mise (tool version manager) state
+/mise/
+
 # macOS
 .DS_Store
