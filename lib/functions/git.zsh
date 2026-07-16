@@ -78,7 +78,8 @@ z_gitsize() {
         return 1
     fi
 
-    if [[ ! -d "$repo/.git" ]]; then
+    # -e not -d: in linked worktrees and submodules .git is a file
+    if [[ ! -e "$repo/.git" ]]; then
         _ui_error "Not a git repository"
         return 1
     fi
