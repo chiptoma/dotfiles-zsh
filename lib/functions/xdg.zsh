@@ -4,14 +4,31 @@
 # Self-healing XDG compliance. Detects stray dotfiles in $HOME, migrates to
 # XDG locations with atomic backup/restore, detects orphaned XDG directories.
 # Uses xdg-ninja database (629 programs) with fallback to our registry.
+# ------------------------------------------------------------------------------
+# NOTE: The ninja DB is flattened once into ${ZSH_CACHE_HOME}/xdg/ninja-db.tsv;
+# the guardian hook rebuilds a stale cache in the background, never the prompt.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
 (( ${+_Z_XDG_GUARDIAN_LOADED} )) && return 0
 typeset -g _Z_XDG_GUARDIAN_LOADED=1
 
-# Configuration variables with defaults
+# Single time source for the whole module (see _xdg_now)
+zmodload zsh/datetime 2>/dev/null
+
+# Configuration variables with defaults:
+#   Z_XDG_GUARDIAN_ENABLED   true|false — master switch; false is a hard off
+#   Z_XDG_GUARDIAN_MODE      notify|interactive|off
+#                            notify (default): at most one summary line after
+#                            the scan, no prompts — details via z_xdg_check
+#                            interactive: full summary + view-details prompt
+#                            off: guardian hook returns immediately
+#   Z_XDG_GUARDIAN_INTERVAL  seconds between scheduled scans
+#   Z_XDG_GUARDIAN_AUTO_FIX  true: auto-migrate conflict-free items
+#   Z_XDG_GUARDIAN_QUIET     true: suppress non-essential output
+#   Z_XDG_GUARDIAN_SKIP      space-separated stray paths to ignore
 : ${Z_XDG_GUARDIAN_ENABLED:=true}
+: ${Z_XDG_GUARDIAN_MODE:=notify}
 : ${Z_XDG_GUARDIAN_INTERVAL:=86400}
 : ${Z_XDG_GUARDIAN_AUTO_FIX:=${Z_XDG_AUTO_MIGRATE:-false}}
 : ${Z_XDG_GUARDIAN_QUIET:=false}
@@ -45,6 +62,23 @@ typeset -ga _Z_XDG_DEFAULT_SKIP=(
 # ----------------------------------------------------------
 # INTERNAL HELPERS
 # ----------------------------------------------------------
+
+# Single time source: EPOCHSECONDS from zsh/datetime, with a date(1)
+# fallback for stripped-down builds where the module is unavailable
+_xdg_now() {
+    echo "${EPOCHSECONDS:-$(date +%s)}"
+}
+
+# Pipe-delimited record helpers. They communicate via REPLY/reply instead
+# of stdout so record handling in the scan hot paths stays fork-free.
+# Roundtrip-safe: empty fields (including trailing ones) are preserved.
+_xdg_record_pack() {
+    REPLY="${(j:|:)@}"
+}
+
+_xdg_record_unpack() {
+    reply=("${(@s:|:)1}")
+}
 
 _xdg_ninja_db_path() {
     local dir
@@ -100,7 +134,8 @@ _xdg_format_date_short() {
 
 _xdg_format_relative_time() {
     local epoch="$1"
-    local now="${EPOCHSECONDS:-$(date +%s)}"
+    local now
+    now=$(_xdg_now)
     local diff=$(( now - epoch ))
 
     if (( diff < 60 )); then
@@ -121,18 +156,19 @@ _xdg_state_dir() {
 }
 
 # Add a path to the permanent skip list
+# WARN: never name the local "path" — it would shadow zsh's tied $path/PATH
 _xdg_skip_permanently() {
-    local path="$1"
+    local stray_path="$1"
     if [[ -n "$Z_XDG_GUARDIAN_SKIP" ]]; then
-        Z_XDG_GUARDIAN_SKIP="$Z_XDG_GUARDIAN_SKIP $path"
+        Z_XDG_GUARDIAN_SKIP="$Z_XDG_GUARDIAN_SKIP $stray_path"
     else
-        Z_XDG_GUARDIAN_SKIP="$path"
+        Z_XDG_GUARDIAN_SKIP="$stray_path"
     fi
     # Persist to state file so it survives shell restarts
     local state_dir
     state_dir=$(_xdg_state_dir)
     _ensure_dir "$state_dir"
-    echo "$path" >> "$state_dir/xdg-guardian.skip"
+    echo "$stray_path" >> "$state_dir/xdg-guardian.skip"
 }
 
 # Extract human-friendly tool name from stray path
@@ -166,48 +202,87 @@ _xdg_size_kb() {
 # Key=expanded stray path, Value=pipe-delimited metadata.
 # Callers must declare: typeset -gA _Z_XDG_FINDINGS=()
 
-_xdg_scan_ninja() {
+# Bump when the jq filter changes so old caches self-invalidate
+typeset -g _Z_XDG_NINJA_CACHE_VERSION="#v2"
+
+_xdg_ninja_cache_file() {
+    echo "${ZSH_CACHE_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh}/xdg/ninja-db.tsv"
+}
+
+# True when the ninja TSV cache must be (re)built: missing/empty cache,
+# version-stamp mismatch, or the programs dir is newer than the cache
+_xdg_ninja_cache_stale() {
+    local ninja_dir="$1" cache="$2"
+    [[ -s "$cache" ]] || return 0
+    local stamp
+    IFS= read -r stamp < "$cache" || return 0
+    [[ "$stamp" == "$_Z_XDG_NINJA_CACHE_VERSION" ]] || return 0
+    [[ "$ninja_dir" -nt "$cache" ]] && return 0
+    return 1
+}
+
+# One jq invocation across ALL program JSON files (~629) instead of one
+# subprocess per file — the whole DB flattens to TSV in a few dozen ms
+_xdg_ninja_build_cache() {
     local ninja_dir
     ninja_dir=$(_xdg_ninja_db_path) || return 1
     _has_cmd jq || return 1
 
-    local json_file program stray_path movable help_line expanded
-    for json_file in "$ninja_dir"/*.json(N); do
-        while IFS=$'\t' read -r program stray_path movable help_line; do
-            [[ -z "$stray_path" ]] && continue
-            expanded="${stray_path/\$HOME/$HOME}"
-            _xdg_is_skipped "$expanded" && continue
-            [[ ! -e "$expanded" ]] && continue
-            _Z_XDG_FINDINGS[$expanded]="${help_line}|${movable}|${program}|ninja"
-        done < <(jq -r '.name as $n | .files[] | [$n, .path, (.movable | tostring), ((.help // "") | split("\n") | .[0])] | @tsv' "$json_file" 2>/dev/null)
-    done
+    local cache tmp
+    cache=$(_xdg_ninja_cache_file)
+    _ensure_dir "${cache:h}" || return 1
+    # Write to a temp file then mv so concurrent readers never see a
+    # partial cache
+    tmp="${cache}.$$"
+    {
+        echo "$_Z_XDG_NINJA_CACHE_VERSION"
+        jq -r '.name as $n | .files[] | [$n, .path, (.movable | tostring), ((.help // "") | split("\n") | .[0])] | @tsv' "$ninja_dir"/*.json(N) 2>/dev/null
+    } > "$tmp" || { rm -f "$tmp"; return 1; }
+    mv -f "$tmp" "$cache"
+}
+
+_xdg_scan_ninja() {
+    local ninja_dir
+    ninja_dir=$(_xdg_ninja_db_path) || return 1
+
+    local cache
+    cache=$(_xdg_ninja_cache_file)
+    if _xdg_ninja_cache_stale "$ninja_dir" "$cache"; then
+        _xdg_ninja_build_cache || return 1
+    fi
+
+    # Hot path: pure-zsh read of the warm TSV — zero subprocesses
+    local REPLY program stray_path movable help_line expanded
+    while IFS=$'\t' read -r program stray_path movable help_line; do
+        [[ "$program" == '#'* ]] && continue
+        [[ -z "$stray_path" ]] && continue
+        expanded="${stray_path/\$HOME/$HOME}"
+        _xdg_is_skipped "$expanded" && continue
+        [[ ! -e "$expanded" ]] && continue
+        _xdg_record_pack "$help_line" "$movable" "$program" "ninja"
+        _Z_XDG_FINDINGS[$expanded]="$REPLY"
+    done < "$cache"
     return 0
 }
 
 # Scan our registry Z_XDG_MIGRATIONS for stray dotfiles
 # No tool-existence gate: stray path existing IS the evidence
 _xdg_scan_registry() {
-    local stray_key val_str expanded_stray target rest hint movable command post_action expanded_target
+    local stray_key val_str expanded_stray expanded_target REPLY
+    local -a reply
     for stray_key val_str in ${(kv)Z_XDG_MIGRATIONS}; do
         expanded_stray="${(e)stray_key}"
         # Parse: target|hint|movable|command[|post_action]
-        target="${val_str%%|*}"
-        rest="${val_str#*|}"
-        hint="${rest%%|*}"
-        rest="${rest#*|}"
-        movable="${rest%%|*}"
-        rest="${rest#*|}"
-        # command may contain post_action after another pipe
-        command="${rest%%|*}"
-        post_action="${rest#*|}"
-        [[ "$post_action" == "$command" ]] && post_action=""
+        _xdg_record_unpack "$val_str"
 
         _xdg_is_skipped "$expanded_stray" && continue
         [[ ! -e "$expanded_stray" ]] && continue
 
-        expanded_target="${(e)target}"
+        expanded_target="${(e)reply[1]}"
         # Registry is authoritative — overwrites ninja entries
-        _Z_XDG_FINDINGS[$expanded_stray]="${expanded_target}|${hint}|${movable}|${command}|${post_action}|managed"
+        _xdg_record_pack "$expanded_target" "${reply[2]}" "${reply[3]}" \
+            "${reply[4]}" "${reply[5]:-}" "managed"
+        _Z_XDG_FINDINGS[$expanded_stray]="$REPLY"
     done
 }
 
@@ -215,22 +290,19 @@ _xdg_scan_registry() {
 # Populates _Z_XDG_ORPHANS: key=expanded_target, value=command|size_kb|hint
 _xdg_scan_orphans() {
     typeset -gA _Z_XDG_ORPHANS=()
-    local stray_key val_str target rest hint movable command expanded_target expanded_stray sz
+    local stray_key val_str command expanded_target expanded_stray sz REPLY
+    local -a reply
     for stray_key val_str in ${(kv)Z_XDG_MIGRATIONS}; do
-        target="${val_str%%|*}"
-        rest="${val_str#*|}"
-        hint="${rest%%|*}"
-        rest="${rest#*|}"
-        movable="${rest%%|*}"
-        rest="${rest#*|}"
-        command="${rest%%|*}"
+        # Parse: target|hint|movable|command[|post_action]
+        _xdg_record_unpack "$val_str"
+        command="${reply[4]:-}"
 
         # Skip if command is empty (always-present tools like less)
         [[ -z "$command" ]] && continue
         # Skip if tool IS installed (not orphaned)
         (( $+commands[$command] )) && continue
 
-        expanded_target="${(e)target}"
+        expanded_target="${(e)reply[1]}"
         expanded_stray="${(e)stray_key}"
         # Check if the XDG target dir exists (orphan evidence)
         [[ ! -e "$expanded_target" ]] && continue
@@ -238,7 +310,8 @@ _xdg_scan_orphans() {
         [[ -e "$expanded_stray" ]] && continue
 
         sz=$(_xdg_size_kb "$expanded_target")
-        _Z_XDG_ORPHANS[$expanded_target]="${command}|${sz}|${hint}"
+        _xdg_record_pack "$command" "$sz" "${reply[2]}"
+        _Z_XDG_ORPHANS[$expanded_target]="$REPLY"
     done
 }
 
@@ -247,7 +320,7 @@ _xdg_scan_orphans() {
 # ----------------------------------------------------------
 
 _xdg_check_conflict() {
-    local source="$1" target="$2"
+    local source="$1" target="$2" REPLY
     [[ ! -e "$source" ]] && echo "ERROR" && return 2
     [[ ! -e "$target" ]] && echo "CLEAR|0|0|0|0|0|0|0" && return 0
 
@@ -262,19 +335,23 @@ _xdg_check_conflict() {
     # Type mismatch
     if { [[ -d "$source" ]] && [[ -f "$target" ]]; } || \
        { [[ -f "$source" ]] && [[ -d "$target" ]]; }; then
-        echo "TYPE_MISMATCH|${src_mt}|${tgt_mt}|${src_sz}|${tgt_sz}|${src_items}|${tgt_items}|0"
+        _xdg_record_pack "TYPE_MISMATCH" "$src_mt" "$tgt_mt" "$src_sz" "$tgt_sz" "$src_items" "$tgt_items" "0"
+        echo "$REPLY"
         return 1
     fi
 
     local days_diff=$(( (tgt_mt - src_mt) / 86400 ))
     if (( src_mt > tgt_mt )); then
-        echo "SOURCE_NEWER|${src_mt}|${tgt_mt}|${src_sz}|${tgt_sz}|${src_items}|${tgt_items}|${days_diff}"
+        _xdg_record_pack "SOURCE_NEWER" "$src_mt" "$tgt_mt" "$src_sz" "$tgt_sz" "$src_items" "$tgt_items" "$days_diff"
+        echo "$REPLY"
         return 0
     elif (( tgt_mt > src_mt )); then
-        echo "TARGET_NEWER|${src_mt}|${tgt_mt}|${src_sz}|${tgt_sz}|${src_items}|${tgt_items}|${days_diff}"
+        _xdg_record_pack "TARGET_NEWER" "$src_mt" "$tgt_mt" "$src_sz" "$tgt_sz" "$src_items" "$tgt_items" "$days_diff"
+        echo "$REPLY"
         return 1
     else
-        echo "SAME_TIME|${src_mt}|${tgt_mt}|${src_sz}|${tgt_sz}|${src_items}|${tgt_items}|0"
+        _xdg_record_pack "SAME_TIME" "$src_mt" "$tgt_mt" "$src_sz" "$tgt_sz" "$src_items" "$tgt_items" "0"
+        echo "$REPLY"
         return 1
     fi
 }
@@ -315,7 +392,7 @@ _xdg_migrate_one() {
 
     # If forced and target exists, backup then remove target first
     if [[ -e "$target" ]] && [[ "$force" == "--force" ]]; then
-        target_backup="${backup_base}/$(basename "$target").target.$(date +%s)"
+        target_backup="${backup_base}/$(basename "$target").target.$(_xdg_now)"
         if ! cp -a "$target" "$target_backup" 2>/dev/null; then
             _log ERROR "XDG target backup failed: $target"
             echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR target-backup $target (cp failed)" >> "$log_file"
@@ -323,7 +400,7 @@ _xdg_migrate_one() {
         fi
         rm -rf "$target"
     fi
-    local backup_dir="${backup_base}/$(basename "$source").$(date +%s)"
+    local backup_dir="${backup_base}/$(basename "$source").$(_xdg_now)"
     if ! cp -a "$source" "$backup_dir" 2>/dev/null; then
         _log ERROR "XDG backup failed: $source -> $backup_dir"
         echo "$(date '+%Y-%m-%d %H:%M:%S') ERROR backup $source (cp failed)" >> "$log_file"
@@ -374,7 +451,8 @@ _xdg_clean_old_backups() {
 
     # Prune backup dirs older than 7 days
     if [[ -d "$backup_base" ]]; then
-        local now="$EPOCHSECONDS" dir_path dir_ts
+        local now dir_path dir_ts
+        now=$(_xdg_now)
         for dir_path in "$backup_base"/*(N/); do
             dir_ts="${dir_path##*.}"
             [[ "$dir_ts" =~ ^[0-9]+$ ]] || continue
@@ -405,10 +483,12 @@ _xdg_clean_old_backups() {
 _xdg_classify() {
     typeset -ga _Z_XDG_READY=() _Z_XDG_CONFLICTS=() _Z_XDG_UNMANAGED=()
 
-    local stray_path data fields is_managed movable_str target_hint hint_text command post_action
-    local sz mt items cdata crc display_name program_name unmov_reason
+    local stray_path data is_managed movable_str target_hint hint_text command post_action
+    local sz mt items cdata crc display_name program_name unmov_reason REPLY
+    local -a fields reply
     for stray_path data in ${(kv)_Z_XDG_FINDINGS}; do
-        fields=("${(@s:|:)data}")
+        _xdg_record_unpack "$data"
+        fields=("${reply[@]}")
         is_managed=false
         movable_str=""
         target_hint=""
@@ -439,7 +519,8 @@ _xdg_classify() {
             unmov_reason=""
             [[ "$movable_str" != "true" ]] && unmov_reason="not movable"
             ! $is_managed && unmov_reason="xdg-ninja only"
-            _Z_XDG_UNMANAGED+=("${stray_path}|${program_name}|${unmov_reason}|${sz}|${movable_str}")
+            _xdg_record_pack "$stray_path" "$program_name" "$unmov_reason" "$sz" "$movable_str"
+            _Z_XDG_UNMANAGED+=("$REPLY")
             continue
         fi
 
@@ -448,21 +529,28 @@ _xdg_classify() {
         # Target exists → always a conflict (mv can't replace existing dirs)
         if [[ -e "$target_hint" ]]; then
             cdata=$(_xdg_check_conflict "$stray_path" "$target_hint")
-            _Z_XDG_CONFLICTS+=("${stray_path}|${target_hint}|${hint_text}|${display_name}|${post_action}|${sz}|${mt}|${items}|${cdata}")
+            _xdg_record_pack "$stray_path" "$target_hint" "$hint_text" \
+                "$display_name" "$post_action" "$sz" "$mt" "$items" "$cdata"
+            _Z_XDG_CONFLICTS+=("$REPLY")
             continue
         fi
 
         # Clean migration candidate
-        _Z_XDG_READY+=("${stray_path}|${target_hint}|${hint_text}|${display_name}|${post_action}|${sz}|${mt}|${items}")
+        _xdg_record_pack "$stray_path" "$target_hint" "$hint_text" \
+            "$display_name" "$post_action" "$sz" "$mt" "$items"
+        _Z_XDG_READY+=("$REPLY")
     done
 }
 
 # ----------------------------------------------------------
-# GUARDIAN HOOK (foreground, interactive)
+# GUARDIAN HOOK
+# Never blocks the prompt: a cold ninja cache is built by a
+# detached background job and consumed by the NEXT shell
 # ----------------------------------------------------------
 
 _xdg_guardian_hook() {
     [[ "$Z_XDG_GUARDIAN_ENABLED" != "true" ]] && return 0
+    [[ "$Z_XDG_GUARDIAN_MODE" == "off" ]] && return 0
 
     local state_dir
     state_dir=$(_xdg_state_dir)
@@ -470,7 +558,8 @@ _xdg_guardian_hook() {
     local findings_file="$state_dir/xdg-guardian.findings"
 
     # Check if scan is needed
-    local now="$EPOCHSECONDS"
+    local now
+    now=$(_xdg_now)
     local last_check=0
     if [[ -f "$timestamp_file" ]]; then
         last_check=$(<"$timestamp_file")
@@ -478,21 +567,32 @@ _xdg_guardian_hook() {
     fi
     (( now - last_check < Z_XDG_GUARDIAN_INTERVAL )) && return 0
 
-    # Show last check info
-    if (( last_check > 0 )); then
-        local last_date rel_time
-        last_date=$(date -r "$last_check" '+%d %b %Y at %H:%M' 2>/dev/null || date -d "@$last_check" '+%d %b %Y at %H:%M' 2>/dev/null || echo "unknown")
-        rel_time=$(_xdg_format_relative_time "$last_check")
-        echo ""
-        _ui_dim "XDG Guardian: last check ${last_date} (${rel_time}). Running new scan..."
-    else
-        echo ""
-        _ui_dim "XDG Guardian: first scan. Running..."
+    # Pre-scan chatter only in interactive mode — notify prints one line max
+    if [[ "$Z_XDG_GUARDIAN_MODE" == "interactive" ]]; then
+        if (( last_check > 0 )); then
+            local last_date rel_time
+            last_date=$(date -r "$last_check" '+%d %b %Y at %H:%M' 2>/dev/null || date -d "@$last_check" '+%d %b %Y at %H:%M' 2>/dev/null || echo "unknown")
+            rel_time=$(_xdg_format_relative_time "$last_check")
+            echo ""
+            _ui_dim "XDG Guardian: last check ${last_date} (${rel_time}). Running new scan..."
+        else
+            echo ""
+            _ui_dim "XDG Guardian: first scan. Running..."
+        fi
     fi
 
-    # Foreground scan
+    # Registry + orphan scans are cheap and always run. The ninja scan only
+    # runs off a warm cache; a stale cache is rebuilt in a detached
+    # background job so the prompt is never blocked by ~629 JSON files.
     typeset -gA _Z_XDG_FINDINGS=()
-    _xdg_scan_ninja
+    local ninja_dir
+    if ninja_dir=$(_xdg_ninja_db_path) && _has_cmd jq; then
+        if _xdg_ninja_cache_stale "$ninja_dir" "$(_xdg_ninja_cache_file)"; then
+            ( _xdg_ninja_build_cache ) &>/dev/null &!
+        else
+            _xdg_scan_ninja
+        fi
+    fi
     _xdg_scan_registry
     _xdg_scan_orphans
     _xdg_classify
@@ -515,19 +615,12 @@ _xdg_guardian_hook() {
     # Auto-fix clean items if enabled
     local auto_migrated=0
     if [[ "$Z_XDG_GUARDIAN_AUTO_FIX" == "true" ]] && (( ready_count > 0 )); then
-        local entry ef_stray ef_target ef_hint ef_cmd ef_post ef_rest
+        local entry
+        local -a reply
         for entry in "${_Z_XDG_READY[@]}"; do
-            ef_stray="${entry%%|*}"
-            ef_rest="${entry#*|}"
-            ef_target="${ef_rest%%|*}"
-            ef_rest="${ef_rest#*|}"
-            ef_hint="${ef_rest%%|*}"
-            ef_rest="${ef_rest#*|}"
-            ef_cmd="${ef_rest%%|*}"
-            ef_rest="${ef_rest#*|}"
-            ef_post="${ef_rest%%|*}"
-
-            _xdg_migrate_one "$ef_stray" "$ef_target" "" "$ef_post"
+            # Record: stray|target|hint|command|post_action|size|date|items
+            _xdg_record_unpack "$entry"
+            _xdg_migrate_one "${reply[1]}" "${reply[2]}" "" "${reply[5]}"
             if (( $? == 0 )); then
                 (( auto_migrated++ ))
             fi
@@ -536,12 +629,19 @@ _xdg_guardian_hook() {
     fi
 
     # Update timestamp
-    echo "$EPOCHSECONDS" >| "$timestamp_file"
+    _xdg_now >| "$timestamp_file"
 
     # Clean old backups
     _xdg_clean_old_backups
 
-    # Summary
+    # notify mode: at most one line, never a prompt
+    if [[ "$Z_XDG_GUARDIAN_MODE" != "interactive" ]]; then
+        local remaining=$(( ready_count + conflict_count + orphan_count ))
+        (( remaining > 0 )) && _ui_warn "XDG: ${remaining} stray file(s) — run z_xdg_check for details"
+        return 0
+    fi
+
+    # Interactive summary
     if (( total == 0 )); then
         _ui_ok "XDG Guardian: all clean"
         echo ""
@@ -606,22 +706,30 @@ z_xdg_check() {
 
     local item_num=0
 
+    # Loop variables are declared ONCE for all sections below — a repeated
+    # `local` on an already-set local makes zsh print `name=value` to stdout
+    local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt
+    local short_src short_tgt fmt_sz fmt_dt conflict_type
+    local tgt_sz tgt_mt tgt_items abs_days age_label
+    local orphan_path orphan_data orphan_cmd orphan_sz orphan_hint short_orphan fmt_orphan_sz
+    local uentry u_path u_program u_reason u_sz u_movable short_u movable_tag
+    local -a reply cfields
+
     # Ready to Migrate
     if (( ${#_Z_XDG_READY} > 0 )); then
         _ui_section "Ready to Migrate"
-        local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt r
-        local short_src short_tgt fmt_sz fmt_dt
         for entry in "${_Z_XDG_READY[@]}"; do
             (( item_num++ ))
-            stray_path="${entry%%|*}"
-            r="${entry#*|}"
-            target_path="${r%%|*}"; r="${r#*|}"
-            hint_text="${r%%|*}"; r="${r#*|}"
-            cmd_name="${r%%|*}"; r="${r#*|}"
-            post_act="${r%%|*}"; r="${r#*|}"
-            sz_kb="${r%%|*}"; r="${r#*|}"
-            mt_epoch="${r%%|*}"; r="${r#*|}"
-            item_cnt="${r%%|*}"
+            # Record: stray|target|hint|command|post_action|size|date|items
+            _xdg_record_unpack "$entry"
+            stray_path="${reply[1]}"
+            target_path="${reply[2]}"
+            hint_text="${reply[3]}"
+            cmd_name="${reply[4]}"
+            post_act="${reply[5]}"
+            sz_kb="${reply[6]}"
+            mt_epoch="${reply[7]}"
+            item_cnt="${reply[8]}"
 
             short_src="~/${stray_path#$HOME/}"
             short_tgt="~/${target_path#$HOME/}"
@@ -639,23 +747,20 @@ z_xdg_check() {
     # Conflicts
     if (( ${#_Z_XDG_CONFLICTS} > 0 )); then
         _ui_section "Conflicts (target already exists)"
-        local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt cdata r
-        local short_src short_tgt fmt_sz fmt_dt cfields conflict_type
-        local tgt_sz tgt_mt tgt_items abs_days age_label
         for entry in "${_Z_XDG_CONFLICTS[@]}"; do
             (( item_num++ ))
-            stray_path="${entry%%|*}"
-            r="${entry#*|}"
-            target_path="${r%%|*}"; r="${r#*|}"
-            hint_text="${r%%|*}"; r="${r#*|}"
-            cmd_name="${r%%|*}"; r="${r#*|}"
-            post_act="${r%%|*}"; r="${r#*|}"
-            sz_kb="${r%%|*}"; r="${r#*|}"
-            mt_epoch="${r%%|*}"; r="${r#*|}"
-            item_cnt="${r%%|*}"; r="${r#*|}"
-            cdata="$r"
-
-            cfields=("${(@s:|:)cdata}")
+            # Record: stray|target|hint|command|post_action|size|date|items|cdata...
+            # cdata is itself pipe-delimited, so fields 9+ belong to it
+            _xdg_record_unpack "$entry"
+            stray_path="${reply[1]}"
+            target_path="${reply[2]}"
+            hint_text="${reply[3]}"
+            cmd_name="${reply[4]}"
+            post_act="${reply[5]}"
+            sz_kb="${reply[6]}"
+            mt_epoch="${reply[7]}"
+            item_cnt="${reply[8]}"
+            cfields=("${(@)reply[9,-1]}")
             conflict_type="${cfields[1]}"
 
             short_src="~/${stray_path#$HOME/}"
@@ -690,13 +795,13 @@ z_xdg_check() {
     # Orphaned XDG Directories
     if (( ${#_Z_XDG_ORPHANS} > 0 )); then
         _ui_section "Orphaned XDG Directories"
-        local orphan_path orphan_data orphan_cmd orphan_sz orphan_hint short_orphan fmt_orphan_sz or
         for orphan_path orphan_data in ${(kv)_Z_XDG_ORPHANS}; do
             (( item_num++ ))
-            orphan_cmd="${orphan_data%%|*}"
-            or="${orphan_data#*|}"
-            orphan_sz="${or%%|*}"
-            orphan_hint="${or#*|}"
+            # Record: command|size_kb|hint
+            _xdg_record_unpack "$orphan_data"
+            orphan_cmd="${reply[1]}"
+            orphan_sz="${reply[2]}"
+            orphan_hint="${reply[3]}"
 
             short_orphan="~/${orphan_path#$HOME/}"
             fmt_orphan_sz=$(_xdg_format_size "$orphan_sz")
@@ -713,14 +818,14 @@ z_xdg_check() {
     local unmanaged_shown=0
     if (( ${#_Z_XDG_UNMANAGED} > 0 )); then
         _ui_section "Not Managed (xdg-ninja only)"
-        local uentry u_path u_program u_reason u_sz u_movable short_u ur movable_tag
         for uentry in "${_Z_XDG_UNMANAGED[@]}"; do
-            u_path="${uentry%%|*}"
-            ur="${uentry#*|}"
-            u_program="${ur%%|*}"; ur="${ur#*|}"
-            u_reason="${ur%%|*}"; ur="${ur#*|}"
-            u_sz="${ur%%|*}"; ur="${ur#*|}"
-            u_movable="${ur%%|*}"
+            # Record: stray|program|reason|size_kb|movable
+            _xdg_record_unpack "$uentry"
+            u_path="${reply[1]}"
+            u_program="${reply[2]}"
+            u_reason="${reply[3]}"
+            u_sz="${reply[4]}"
+            u_movable="${reply[5]}"
 
             short_u="~/${u_path#$HOME/}"
             movable_tag=""
@@ -774,7 +879,9 @@ _xdg_resolve_conflict_fzf() {
 
     local short_src="~/${stray_path#$HOME/}"
     local short_tgt="~/${target_path#$HOME/}"
-    local cfields=("${(@s:|:)cdata}")
+    local -a reply
+    _xdg_record_unpack "$cdata"
+    local cfields=("${reply[@]}")
     local conflict_type="${cfields[1]}"
     local src_mt=$(_xdg_format_date "${cfields[2]}")
     local tgt_mt=$(_xdg_format_date "${cfields[3]}")
@@ -833,7 +940,9 @@ _xdg_resolve_conflict_menu() {
 
     local short_src="~/${stray_path#$HOME/}"
     local short_tgt="~/${target_path#$HOME/}"
-    local cfields=("${(@s:|:)cdata}")
+    local -a reply
+    _xdg_record_unpack "$cdata"
+    local cfields=("${reply[@]}")
     local conflict_type="${cfields[1]}"
     local abs_days="${cfields[8]#-}"
 
@@ -887,23 +996,29 @@ z_xdg_fix() {
 
     local migrated=0 skipped=0 conflict_resolved=0 errors=0 orphans_removed=0
 
+    # Loop variables are declared ONCE for all phases below — a repeated
+    # `local` on an already-set local makes zsh print `name=value` to stdout
+    local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt
+    local short_src short_tgt cdata resolution batch_choice pick
+    local orphan_path orphan_data orphan_cmd orphan_sz orphan_hint short_orphan oc
+    local -a reply
+
     # Phase 1: Clean migrations (batch)
     if (( ${#_Z_XDG_READY} > 0 )); then
         _ui_section "Ready to Migrate"
         local item_num=0
-        local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt r
-        local short_src short_tgt
         for entry in "${_Z_XDG_READY[@]}"; do
             (( item_num++ ))
-            stray_path="${entry%%|*}"
-            r="${entry#*|}"
-            target_path="${r%%|*}"; r="${r#*|}"
-            hint_text="${r%%|*}"; r="${r#*|}"
-            cmd_name="${r%%|*}"; r="${r#*|}"
-            post_act="${r%%|*}"; r="${r#*|}"
-            sz_kb="${r%%|*}"; r="${r#*|}"
-            mt_epoch="${r%%|*}"; r="${r#*|}"
-            item_cnt="${r%%|*}"
+            # Record: stray|target|hint|command|post_action|size|date|items
+            _xdg_record_unpack "$entry"
+            stray_path="${reply[1]}"
+            target_path="${reply[2]}"
+            hint_text="${reply[3]}"
+            cmd_name="${reply[4]}"
+            post_act="${reply[5]}"
+            sz_kb="${reply[6]}"
+            mt_epoch="${reply[7]}"
+            item_cnt="${reply[8]}"
 
             short_src="~/${stray_path#$HOME/}"
             short_tgt="~/${target_path#$HOME/}"
@@ -921,12 +1036,11 @@ z_xdg_fix() {
         elif [[ "$mode" == "auto" ]]; then
             # Auto-migrate all
             for entry in "${_Z_XDG_READY[@]}"; do
-                stray_path="${entry%%|*}"
-                r="${entry#*|}"
-                target_path="${r%%|*}"; r="${r#*|}"
-                hint_text="${r%%|*}"; r="${r#*|}"
-                cmd_name="${r%%|*}"; r="${r#*|}"
-                post_act="${r%%|*}"
+                _xdg_record_unpack "$entry"
+                stray_path="${reply[1]}"
+                target_path="${reply[2]}"
+                cmd_name="${reply[4]}"
+                post_act="${reply[5]}"
 
                 _xdg_migrate_one "$stray_path" "$target_path" "" "$post_act"
                 case $? in
@@ -937,17 +1051,15 @@ z_xdg_fix() {
         else
             # Interactive batch prompt
             printf "  Migrate all ${#_Z_XDG_READY} item(s)? [y]es / [n]o / [p]ick individually: "
-            local batch_choice
             read -k 1 batch_choice; echo ""
             case "$batch_choice" in
                 y|Y)
                     for entry in "${_Z_XDG_READY[@]}"; do
-                        stray_path="${entry%%|*}"
-                        r="${entry#*|}"
-                        target_path="${r%%|*}"; r="${r#*|}"
-                        hint_text="${r%%|*}"; r="${r#*|}"
-                        cmd_name="${r%%|*}"; r="${r#*|}"
-                        post_act="${r%%|*}"
+                        _xdg_record_unpack "$entry"
+                        stray_path="${reply[1]}"
+                        target_path="${reply[2]}"
+                        cmd_name="${reply[4]}"
+                        post_act="${reply[5]}"
 
                         short_src="~/${stray_path#$HOME/}"
                         _xdg_migrate_one "$stray_path" "$target_path" "" "$post_act"
@@ -959,16 +1071,14 @@ z_xdg_fix() {
                     ;;
                 p|P)
                     for entry in "${_Z_XDG_READY[@]}"; do
-                        stray_path="${entry%%|*}"
-                        r="${entry#*|}"
-                        target_path="${r%%|*}"; r="${r#*|}"
-                        hint_text="${r%%|*}"; r="${r#*|}"
-                        cmd_name="${r%%|*}"; r="${r#*|}"
-                        post_act="${r%%|*}"
+                        _xdg_record_unpack "$entry"
+                        stray_path="${reply[1]}"
+                        target_path="${reply[2]}"
+                        cmd_name="${reply[4]}"
+                        post_act="${reply[5]}"
 
                         short_src="~/${stray_path#$HOME/}"
                         printf "  Migrate ${_UI_BOLD}${cmd_name}${_UI_RESET}? [y]es / [n]o / [s]kip permanently: "
-                        local pick
                         read -k 1 pick; echo ""
                         case "$pick" in
                             y|Y)
@@ -1000,19 +1110,19 @@ z_xdg_fix() {
     # Phase 2: Conflicts (fzf or fallback)
     if (( ${#_Z_XDG_CONFLICTS} > 0 )); then
         _ui_section "Conflicts"
-        local entry stray_path target_path hint_text cmd_name post_act sz_kb mt_epoch item_cnt cdata r
-        local short_src short_tgt resolution
         for entry in "${_Z_XDG_CONFLICTS[@]}"; do
-            stray_path="${entry%%|*}"
-            r="${entry#*|}"
-            target_path="${r%%|*}"; r="${r#*|}"
-            hint_text="${r%%|*}"; r="${r#*|}"
-            cmd_name="${r%%|*}"; r="${r#*|}"
-            post_act="${r%%|*}"; r="${r#*|}"
-            sz_kb="${r%%|*}"; r="${r#*|}"
-            mt_epoch="${r%%|*}"; r="${r#*|}"
-            item_cnt="${r%%|*}"; r="${r#*|}"
-            cdata="$r"
+            # Record: stray|target|hint|command|post_action|size|date|items|cdata...
+            # cdata is itself pipe-delimited, so fields 9+ belong to it
+            _xdg_record_unpack "$entry"
+            stray_path="${reply[1]}"
+            target_path="${reply[2]}"
+            hint_text="${reply[3]}"
+            cmd_name="${reply[4]}"
+            post_act="${reply[5]}"
+            sz_kb="${reply[6]}"
+            mt_epoch="${reply[7]}"
+            item_cnt="${reply[8]}"
+            cdata="${(j:|:)${(@)reply[9,-1]}}"
 
             short_src="~/${stray_path#$HOME/}"
             short_tgt="~/${target_path#$HOME/}"
@@ -1074,12 +1184,12 @@ z_xdg_fix() {
     # Phase 3: Orphans
     if (( ${#_Z_XDG_ORPHANS} > 0 )) && ! $dry_run; then
         _ui_section "Orphaned XDG Directories"
-        local orphan_path orphan_data orphan_cmd orphan_sz orphan_hint short_orphan or
         for orphan_path orphan_data in ${(kv)_Z_XDG_ORPHANS}; do
-            orphan_cmd="${orphan_data%%|*}"
-            or="${orphan_data#*|}"
-            orphan_sz="${or%%|*}"
-            orphan_hint="${or#*|}"
+            # Record: command|size_kb|hint
+            _xdg_record_unpack "$orphan_data"
+            orphan_cmd="${reply[1]}"
+            orphan_sz="${reply[2]}"
+            orphan_hint="${reply[3]}"
 
             short_orphan="~/${orphan_path#$HOME/}"
             printf "  ${_UI_YELLOW}●${_UI_RESET} ${_UI_BOLD}%-14s${_UI_RESET} %s ${_UI_DIM}(%s not installed, %s)${_UI_RESET}\n" \
@@ -1091,7 +1201,6 @@ z_xdg_fix() {
                 (( orphans_removed++ ))
             else
                 printf "     [y]es / [n]o / [s]kip permanently: "
-                local oc
                 read -k 1 oc; echo ""
                 case "$oc" in
                     y|Y)
@@ -1113,11 +1222,11 @@ z_xdg_fix() {
         echo ""
     elif (( ${#_Z_XDG_ORPHANS} > 0 )) && $dry_run; then
         _ui_section "Orphaned XDG Directories"
-        local orphan_path orphan_data orphan_cmd orphan_sz short_orphan or
         for orphan_path orphan_data in ${(kv)_Z_XDG_ORPHANS}; do
-            orphan_cmd="${orphan_data%%|*}"
-            or="${orphan_data#*|}"
-            orphan_sz="${or%%|*}"
+            # Record: command|size_kb|hint
+            _xdg_record_unpack "$orphan_data"
+            orphan_cmd="${reply[1]}"
+            orphan_sz="${reply[2]}"
             short_orphan="~/${orphan_path#$HOME/}"
             _ui_warn "[DRY RUN] Orphan: ${orphan_cmd} (${short_orphan}, $(_xdg_format_size "$orphan_sz"))"
             (( orphans_removed++ ))
