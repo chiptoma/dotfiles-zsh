@@ -113,3 +113,36 @@ _ui_kv() {
     [[ -n "$note" ]] && output+=" ${_UI_DIM}(${note})${_UI_RESET}"
     echo "$output"
 }
+
+# ----------------------------------------------------------
+# FZF WRAPPER
+# Shared visual identity for interactive fzf browsers.
+# ----------------------------------------------------------
+
+# Run fzf with the framework's shared look and feel.
+# Usage: <feed> | _ui_fzf <title> <hints> [fzf-args...]
+#   title: bold first header line (e.g. "Aliases")
+#   hints: dim second header line (e.g. "enter=select · esc=cancel")
+# Reads the candidate list from stdin; extra args pass through to
+# fzf (--preview, --bind, --delimiter, ...).
+# Returns 1 when fzf is unavailable so callers keep their fallbacks.
+_ui_fzf() {
+    _has_cmd fzf || return 1
+    local title="$1" hints="$2"
+    shift 2
+
+    fzf \
+        --ansi \
+        --height=80% \
+        --layout=reverse \
+        --border=rounded \
+        --info=inline \
+        --prompt="❯ " \
+        --pointer="▶" \
+        --marker="✓" \
+        --header="${_UI_BOLD}${title}${_UI_RESET}"$'\n'"${_UI_DIM}${hints}${_UI_RESET}" \
+        --color="fg:-1,bg:-1,hl:green,fg+:bright-white,bg+:bright-black,hl+:green,info:yellow,prompt:cyan,pointer:green,marker:yellow,spinner:yellow,header:-1,border:bright-black,label:bright-black" \
+        --preview-window="right,55%,wrap,rounded" \
+        --bind="ctrl-/:toggle-preview" \
+        "$@"
+}

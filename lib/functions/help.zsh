@@ -378,41 +378,50 @@ _help_interactive() {
     local clip_cmd
     clip_cmd="$(_get_clipboard_cmd)"
 
+    # Pre-render per-command previews. The registry is a zsh assoc array
+    # and is invisible to fzf's preview subshell, so detail text must be
+    # rendered here and read back with cat.
+    local preview_dir
+    preview_dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/help-preview.XXXXXX" 2>/dev/null) || {
+        _ui_error "Failed to create temp dir in ${XDG_RUNTIME_DIR:-/tmp}"
+        return 1
+    }
+    trap "rm -rf '$preview_dir' 2>/dev/null" EXIT INT TERM
+
+    local expansion
+    for cmd in ${(ko)_HELP_REGISTRY}; do
+        entry="${_HELP_REGISTRY[$cmd]}"
+        _help_parse_entry "$entry"
+
+        expansion="$(alias "$cmd" 2>/dev/null)"
+        if [[ -n "$expansion" ]]; then
+            expansion="${expansion#*=}"
+            expansion="${expansion#\'}"
+            expansion="${expansion%\'}"
+        fi
+
+        {
+            printf '%s%-12s%s%s%s%s\n' "$_UI_WHITE" "Command" "$_UI_RESET" "$_UI_GREEN" "$cmd" "$_UI_RESET"
+            printf '%s%-12s%s%s%s%s\n' "$_UI_WHITE" "Function" "$_UI_RESET" "$_UI_DIM" "$func" "$_UI_RESET"
+            printf '%s%-12s%s%s\n' "$_UI_WHITE" "Category" "$_UI_RESET" "$group"
+            [[ -n "$tool_dep" ]] && \
+            printf '%s%-12s%s%s%s%s\n' "$_UI_WHITE" "Requires" "$_UI_RESET" "$_UI_YELLOW" "$tool_dep" "$_UI_RESET"
+            printf '%s%-12s%s%s\n' "$_UI_WHITE" "Description" "$_UI_RESET" "$desc"
+            [[ -n "$expansion" ]] && \
+            printf '%s%-12s%s%s%s%s\n' "$_UI_WHITE" "Expands to" "$_UI_RESET" "$_UI_DIM" "$expansion" "$_UI_RESET"
+            [[ "$platform" != "all" ]] && \
+            printf '%s%-12s%s%s\n' "$_UI_WHITE" "Platform" "$_UI_RESET" "$platform"
+        } > "$preview_dir/$cmd"
+    done
+
     local selected
-    selected=$(printf '%s\n' "${lines[@]}" | fzf \
-        --ansi \
-        --height=80% \
-        --layout=reverse \
-        --border=rounded \
-        --prompt="Search commands: " \
-        --header="ZSH Framework Help" \
-        --info=inline \
-        --color="fg:#abb2bf,bg:-1,hl:#98c379,fg+:#abb2bf,bg+:#2c323c,hl+:#98c379,info:#e5c07b,prompt:#c678dd,pointer:#61afef,marker:#e5c07b,spinner:#e5c07b,header:#e06c75" \
-        --preview="
-            cmd=\$(echo {} | awk '{print \$1}')
-            entry=\"\${_HELP_REGISTRY[\$cmd]:-}\"
-            if [[ -n \"\$entry\" ]]; then
-                IFS='|' read -r grp desc func plat tdep <<< \"\$entry\"
-                expansion=\$(alias \"\$cmd\" 2>/dev/null | cut -d= -f2- | sed \"s/^'//;s/'$//\")
-                echo ''
-                echo -e \"\\033[1;37mCommand:\\033[0m     \\033[32m\$cmd\\033[0m\"
-                echo -e \"\\033[1;37mFunction:\\033[0m    \\033[90m\$func\\033[0m\"
-                echo -e \"\\033[1;37mCategory:\\033[0m    \$grp\"
-                [[ -n \"\$tdep\" ]] && echo -e \"\\033[1;37mRequires:\\033[0m    \\033[33m\$tdep\\033[0m\"
-                echo -e \"\\033[1;37mDescription:\\033[0m \$desc\"
-                [[ -n \"\$expansion\" ]] && echo -e \"\\033[1;37mExpands to:\\033[0m  \\033[90m\$expansion\\033[0m\"
-                [[ \"\$plat\" != 'all' ]] && echo -e \"\\033[1;37mPlatform:\\033[0m    \$plat\"
-            fi
-        " \
-        --preview-window="right:45%:wrap" \
-        --border-label="| enter: execute  ^Y: copy  ^/: preview  esc: close |" \
-        --border-label-pos="bottom" \
-        --pointer=">" \
-        --marker="*" \
+    selected=$(printf '%s\n' "${lines[@]}" | _ui_fzf "Commands" \
+        "enter=select · ctrl-y=copy · esc=cancel · ctrl-/=toggle preview" \
+        --preview="cat \"$preview_dir/\$(echo {} | awk '{print \$1}')\" 2>/dev/null" \
         --bind="ctrl-y:execute-silent(echo {} | awk '{print \$1}' | $clip_cmd)+abort" \
-        --bind="ctrl-/:toggle-preview" \
-        --bind="enter:accept" \
     )
+
+    rm -rf "$preview_dir" 2>/dev/null
 
     if [[ -n "$selected" ]]; then
         local alias_name

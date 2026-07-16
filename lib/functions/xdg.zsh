@@ -902,7 +902,8 @@ _xdg_resolve_conflict_fzf() {
 
     local preview_text
     preview_text=$(printf '%s\n\n  SOURCE: %s\n    Modified: %s\n    Size:     %s\n    Items:    %s\n\n  TARGET: %s\n    Modified: %s\n    Size:     %s\n    Items:    %s\n\n  %s\n\n  Hint: %s' \
-        "" "$short_src" "$src_mt" "$src_sz" "$src_items" \
+        "${cmd_name}: ${short_src} vs ${short_tgt}" \
+        "$short_src" "$src_mt" "$src_sz" "$src_items" \
         "$short_tgt" "$tgt_mt" "$tgt_sz" "$tgt_items" \
         "$age_note" "$hint_text")
 
@@ -912,17 +913,9 @@ _xdg_resolve_conflict_fzf() {
         "Use target ($short_tgt) — delete stale source" \
         "Skip — keep both, no action" \
         "Skip permanently — never ask again" \
-    | fzf \
-        --ansi \
-        --height=60% \
-        --layout=reverse \
-        --border=rounded \
-        --prompt="Choose action: " \
-        --header="${cmd_name}: ${short_src} vs ${short_tgt}" \
+    | _ui_fzf "XDG Conflicts" \
+        "enter=select · esc=cancel · ctrl-/=toggle preview" \
         --preview="echo '$preview_text'" \
-        --preview-window="right:55%:wrap" \
-        --pointer=">" \
-        --color="fg:#abb2bf,bg:-1,hl:#98c379,fg+:#abb2bf,bg+:#2c323c,hl+:#98c379,info:#e5c07b,prompt:#c678dd,pointer:#61afef,marker:#e5c07b,spinner:#e5c07b,header:#e06c75" \
         --no-multi \
     )
 

@@ -157,51 +157,27 @@ z_alias_browser() {
     local clip_cmd
     clip_cmd="$(_get_clipboard_cmd)"
 
-    selected=$(_als_all_list | fzf \
-        --ansi \
-        --height=100% \
-        --layout=reverse \
-        --border=rounded \
-        --prompt="🔍 Search aliases: " \
-        --header=$'\n' \
-        --info=inline \
-        --color="fg:#abb2bf,bg:-1,hl:#98c379,fg+:#abb2bf,bg+:#2c323c,hl+:#98c379,info:#e5c07b,prompt:#c678dd,pointer:#61afef,marker:#e5c07b,spinner:#e5c07b,header:#e06c75" \
+    selected=$(_als_all_list | _ui_fzf "Aliases" \
+        "enter=select · ctrl-y=copy · esc=cancel · ctrl-/=toggle preview" \
         --delimiter=$'\t' \
         --nth=2,3 \
         --preview="
             line={}
             # Header lines start with ━, alias lines start with tab
             if [[ \"\$line\" == \"━\"* ]]; then
-                echo '📁 Category header'
-                echo ''
-                echo 'Navigate to an alias below'
+                printf '\\033[1;37m%-12s\\033[0m%s\\n' 'Category' 'navigate to an alias below'
             else
                 # Extract alias name (field 2, trim whitespace)
                 name=\$(echo \"\$line\" | cut -f2 | awk '{\$1=\$1};1')
                 [[ -z \"\$name\" ]] && exit
                 cmd=\$(grep \"^\$name=\" \"$cmd_file\" 2>/dev/null | head -1 | cut -d= -f2-)
                 desc=\$(grep \"^\$name=\" \"$desc_file\" 2>/dev/null | head -1 | cut -d= -f2-)
-                echo '📋 Alias details:'
-                echo ''
-                echo -e \"\\033[1;33mAlias:\\033[0m \$name\"
-                echo ''
-                echo -e \"\\033[1;34mCommand:\\033[0m \$cmd\"
-                echo ''
-                if [[ -n \"\$desc\" ]]; then
-                    echo -e \"\\033[1;32mDescription:\\033[0m \$desc\"
-                fi
+                printf '\\033[1;37m%-12s\\033[0m\\033[32m%s\\033[0m\\n' 'Alias' \"\$name\"
+                printf '\\033[1;37m%-12s\\033[0m%s\\n' 'Command' \"\$cmd\"
+                [[ -n \"\$desc\" ]] && printf '\\033[1;37m%-12s\\033[0m%s\\n' 'Description' \"\$desc\"
             fi
         " \
-        --preview-window="down:7:wrap" \
-        --border-label="┤ ⏎ execute · ^Y copy · ESC close · ^/ preview ├" \
-        --border-label-pos="bottom" \
-        --margin=1 \
-        --padding=1 \
-        --pointer="▶" \
-        --marker="✓" \
         --bind="ctrl-y:execute-silent(echo {} | cut -f2 | awk '{\$1=\$1};1' | $clip_cmd)+abort" \
-        --bind="ctrl-/:toggle-preview" \
-        --bind="enter:accept" \
     )
 
     rm -f "$desc_file" "$cmd_file"
