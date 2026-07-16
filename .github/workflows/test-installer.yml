@@ -444,3 +444,34 @@ jobs:
         run: |
           export ZDOTDIR="${HOME}/.config/zsh"
           zsh tests/smoke-test.zsh
+
+  # ─────────────────────────────────────────────────────────
+  # INTEGRATION SUITE (L3) — full end-to-end installer tests
+  # ─────────────────────────────────────────────────────────
+  integration:
+    name: Integration Suite (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Run installer integration tests
+        run: bash tests/installer-integration.sh
+
+  integration-musl:
+    name: Integration Suite (alpine/musl)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build alpine test image
+        run: docker build -f tests/docker/Dockerfile --build-arg BASE_IMAGE=alpine:latest -t zshdot-test-alpine tests/docker
+
+      - name: Run integration tests in alpine
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" zshdot-test-alpine \
+            bash -c 'cp -r /repo "$HOME/repo" && cd "$HOME/repo" && bash tests/installer-integration.sh'

@@ -91,6 +91,33 @@ else
 fi
 
 # ----------------------------------------------------------
+# 4. TOOL CONFIG MANIFEST
+# Every entry: 4 colon-fields, source file exists, valid mode.
+# ----------------------------------------------------------
+config_manifest="$REPO_ROOT/tools/manifest.dat"
+if [ -f "$config_manifest" ]; then
+    bad=0
+    while IFS=: read -r tool src dest mode; do
+        case "$tool" in "#"*|"") continue ;; esac
+        if [ ! -f "$REPO_ROOT/tools/$src" ]; then
+            fail "manifest source missing: tools/$src (for $tool)"
+            bad=1
+        fi
+        case "$mode" in
+            copy|gitinclude) ;;
+            *) fail "manifest mode invalid for $tool: '$mode' (copy|gitinclude)"; bad=1 ;;
+        esac
+        case "$dest" in
+            '$XDG_CONFIG_HOME'*|'~'*) ;;
+            *) fail "manifest dest not templated for $tool: $dest"; bad=1 ;;
+        esac
+    done < "$config_manifest"
+    [ "$bad" -eq 0 ] && pass "tools/manifest.dat entries valid (sources exist, modes/dests ok)"
+else
+    fail "tools/manifest.dat missing"
+fi
+
+# ----------------------------------------------------------
 # SUMMARY
 # ----------------------------------------------------------
 echo "---"

@@ -43,28 +43,15 @@ jobs:
           ignore_names: '*.zsh .zshrc .zshenv .zprofile'
 
   syntax:
-    name: Syntax Check
+    name: Syntax & Structure (just lint)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-      - name: Check ZSH syntax
-        run: |
-          errors=0
-          for file in $(find . -name "*.zsh" -type f) .zshrc .zshenv .zprofile; do
-            [[ -f "$file" ]] || continue
-            if zsh -n "$file" 2>&1; then
-              echo "✓ $file"
-            else
-              echo "✗ $file"
-              errors=$((errors + 1))
-            fi
-          done
-          [[ $errors -eq 0 ]] || exit 1
-      - name: Check Bash syntax
-        run: bash -n install.sh
+      - name: Install zsh, shellcheck, just
+        run: sudo apt-get update && sudo apt-get install -y zsh shellcheck just
+      - name: Run lint layer (L0)
+        run: just lint
 
   # ─────────────────────────────────────────────────────────
   # SECURITY
@@ -128,12 +115,14 @@ jobs:
   # UNIT TESTS
   # ─────────────────────────────────────────────────────────
   unit-tests:
-    name: Unit Tests
+    name: Unit & Smoke Tests (just)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Install zsh
-        run: sudo apt-get update && sudo apt-get install -y zsh
-      - name: Run unit tests
-        run: zsh tests/unit-test.zsh
+      - name: Install zsh, just
+        run: sudo apt-get update && sudo apt-get install -y zsh just
+      - name: Run unit tests (L1)
+        run: just test-unit
+      - name: Run smoke tests (L2)
+        run: just test-smoke
