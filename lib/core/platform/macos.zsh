@@ -51,7 +51,7 @@ export BROWSER="${BROWSER:-open}"
 # ----------------------------------------------------------
 # HOMEBREW DETECTION
 # Detects Homebrew installation and sets HOMEBREW_PREFIX.
-# Actual PATH manipulation is handled by modules/path.zsh.
+# Actual PATH manipulation is handled by modules/01_path.zsh.
 # ----------------------------------------------------------
 
 _detect_homebrew() {

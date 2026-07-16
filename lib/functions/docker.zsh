@@ -8,92 +8,64 @@
 (( ${+_Z_FUNCTIONS_DOCKER_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_DOCKER_LOADED=1
 
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_DOCKER_ENABLED:=true}  # Enable/disable Docker functions (default: true)
-
-# Exit early if Docker functions are disabled
-[[ "$Z_FUNCTIONS_DOCKER_ENABLED" != "true" ]] && return 0
-
 # ----------------------------------------------------------
-# DOCKER CONTAINER MANAGEMENT
+# DOCKER CLEANUP
+# Unified cleanup for containers, images, and volumes.
 # ----------------------------------------------------------
 
-# Stop all running Docker containers
-# Usage: z_docker_stop_all
-z_docker_stop_all() {
+# Clean up Docker resources by type
+# Usage: z_docker_cleanup <stop|rmi|rmv>
+#   stop - Stop all running containers
+#   rmi  - Remove dangling images
+#   rmv  - Remove dangling volumes
+z_docker_cleanup() {
     if ! _has_cmd docker; then
         _ui_error "docker command not found"
         _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
         return 1
     fi
 
-    # Filter empty entries: ${(f)...} on empty string creates ("") not ()
-    local -a containers=("${(@f)$(docker ps -q)}")
-    containers=("${(@)containers:#}")  # Remove empty elements
-    if (( ${#containers} )); then
-        echo "Stopping ${#containers} container(s)..."
-        if docker stop "${containers[@]}"; then
-            echo "✓ All containers stopped"
-        else
-            echo "Warning: Some containers may have failed to stop" >&2
+    local subcmd="${1:?Usage: z_docker_cleanup <stop|rmi|rmv>}"
+    local -a items=()
+    local label docker_cmd
+
+    case "$subcmd" in
+        stop)
+            items=("${(@f)$(docker ps -q)}")
+            label="container"
+            docker_cmd="docker stop"
+            ;;
+        rmi)
+            items=("${(@f)$(docker images -q -f dangling=true)}")
+            label="dangling image"
+            docker_cmd="docker rmi"
+            ;;
+        rmv)
+            items=("${(@f)$(docker volume ls -q -f dangling=true)}")
+            label="dangling volume"
+            docker_cmd="docker volume rm"
+            ;;
+        *)
+            _ui_error "Unknown subcommand: $subcmd"
+            _ui_dim "Usage: z_docker_cleanup <stop|rmi|rmv>"
             return 1
-        fi
-    else
-        echo "No running containers to stop"
-    fi
-}
-
-# ----------------------------------------------------------
-# DOCKER IMAGE MANAGEMENT
-# ----------------------------------------------------------
-
-# Remove dangling Docker images
-# Usage: z_docker_rmi_dangling
-z_docker_rmi_dangling() {
-    if ! _has_cmd docker; then
-        _ui_error "docker command not found"
-        _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
-        return 1
-    fi
+            ;;
+    esac
 
     # Filter empty entries: ${(f)...} on empty string creates ("") not ()
-    local -a images=("${(@f)$(docker images -q -f dangling=true)}")
-    images=("${(@)images:#}")  # Remove empty elements
-    if (( ${#images} )); then
-        echo "Removing ${#images} dangling image(s)..."
-        if docker rmi "${images[@]}"; then
-            echo "✓ Dangling images removed"
-        else
-            echo "⚠ Some images may have failed to remove" >&2
-            return 1
-        fi
-    else
-        echo "No dangling images to remove"
+    items=("${(@)items:#}")
+
+    if (( ${#items} == 0 )); then
+        echo "No ${label}s to clean up"
+        return 0
     fi
-}
 
-# ----------------------------------------------------------
-# DOCKER VOLUME MANAGEMENT
-# ----------------------------------------------------------
-
-# Remove dangling Docker volumes
-# Usage: z_docker_rmv_dangling
-z_docker_rmv_dangling() {
-    if ! _has_cmd docker; then
-        _ui_error "docker command not found"
-        _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
+    echo "Cleaning up ${#items} ${label}(s)..."
+    if ${=docker_cmd} "${items[@]}"; then
+        _ui_ok "${#items} ${label}(s) cleaned up"
+    else
+        _ui_warn "Some ${label}s may have failed to clean up"
         return 1
-    fi
-
-    # Filter empty entries: ${(f)...} on empty string creates ("") not ()
-    local -a volumes=("${(@f)$(docker volume ls -q -f dangling=true)}")
-    volumes=("${(@)volumes:#}")  # Remove empty elements
-    if (( ${#volumes} )); then
-        echo "Removing ${#volumes} dangling volume(s)..."
-        docker volume rm "${volumes[@]}"
-        echo "✓ Dangling volumes removed"
-    else
-        echo "No dangling volumes to remove"
     fi
 }
 

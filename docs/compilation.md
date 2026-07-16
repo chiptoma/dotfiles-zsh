@@ -33,7 +33,7 @@ export Z_COMPILATION_ENABLED=true
 Then restart your shell or run:
 
 ```bash
-source ~/.config/zsh/modules/compilation.zsh
+source ~/.config/zsh/modules/03_compilation.zsh
 ```
 
 ## Commands
@@ -65,7 +65,8 @@ Function directories are compiled into a single archive:
 
 ```
 lib/functions/          →  lib/functions.zwc
-├── system.zsh
+├── utilities.zsh
+├── framework.zsh
 ├── file.zsh
 ├── git.zsh
 └── ...
@@ -124,7 +125,7 @@ Output shows:
 ```
 Compiled files list:
   -> .config/zsh/.zshrc.zwc
-  -> .config/zsh/modules/aliases.zsh.zwc
+  -> .config/zsh/modules/07_aliases.zsh.zwc
   -> .config/zsh/lib/functions.zwc
   -> Total: 15 compiled files
 ```
@@ -137,7 +138,7 @@ If you edit a file but see old behavior:
 
 ```bash
 # Remove compiled version of specific file
-rm ~/.config/zsh/modules/aliases.zsh.zwc
+rm ~/.config/zsh/modules/07_aliases.zsh.zwc
 
 # Or remove all and let them regenerate
 compclean-all

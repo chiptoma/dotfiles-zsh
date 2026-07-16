@@ -74,7 +74,7 @@ You'll see detailed output from all modules.
 log_level_set DEBUG
 
 # Do some operations, see all output
-source ~/.config/zsh/modules/lazy.zsh
+source ~/.config/zsh/modules/04_lazy.zsh
 
 # Restore normal level
 log_level_set WARN
@@ -84,7 +84,7 @@ log_level_set WARN
 
 ```bash
 # Run command with different log level
-with_log_level DEBUG source ~/.config/zsh/modules/aliases.zsh
+log_with_level DEBUG source ~/.config/zsh/modules/07_aliases.zsh
 
 # Level automatically restored after
 ```
@@ -148,13 +148,13 @@ log_level_set WARN     # Only warnings and errors
 log_level_set NONE     # Silence all output
 ```
 
-### `with_log_level <level> <command>`
+### `log_with_level <level> <command>`
 
 Run command with temporary log level.
 
 ```bash
-with_log_level DEBUG source some-script.zsh
-with_log_level NONE noisy_command
+log_with_level DEBUG source some-script.zsh
+log_with_level NONE noisy_command
 ```
 
 ## Color Support
@@ -244,7 +244,7 @@ my_function() {
     if [[ -z "$1" ]]; then
         _log ERROR "my_function: argument required"
         return 1
-    }
+    fi
 
     # Do work
     _log INFO "my_function completed"
@@ -261,16 +261,17 @@ my_function() {
 
 ## UI Output Functions
 
-The logging module also provides UI helper functions for user-facing output:
+User-facing output functions live in a separate file (`lib/core/ui.zsh`):
 
 | Function | Description | Visual |
 |----------|-------------|--------|
 | `_ui_ok` | Success message | ✓ (green checkmark) |
-| `_ui_warn` | Warning message | ⚠ (yellow warning) |
+| `_ui_warn` | Warning message | ~ (yellow indicator) |
 | `_ui_error` | Error message | ✗ (red X) |
-| `_ui_info` | Informational | (no emoji) |
-| `_ui_header` | Section header | Decorated title |
-| `_ui_section` | Subsection | Bullet point |
-| `_ui_kv` | Key-value pair | Aligned output |
+| `_ui_dim` | Secondary text | Dimmed output |
+| `_ui_header` | Major header | Decorated border |
+| `_ui_section` | Section header | Bold title |
+| `_ui_footer` | Footer bar | Decorated border |
+| `_ui_kv` | Key-value pair | Aligned output with state icon |
 
-These functions use emoji indicators for visual feedback in interactive shells. The emoji usage is intentional for quick visual scanning of health checks and status output.
+These functions provide visual feedback for interactive commands like `z_status` and `z_env_show`.

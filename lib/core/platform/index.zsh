@@ -4,6 +4,10 @@
 # Loads platform detection, then platform-specific utilities.
 # ==============================================================================
 
+# Idempotent guard
+(( ${+_Z_PLATFORM_INDEX_LOADED} )) && return 0
+typeset -g _Z_PLATFORM_INDEX_LOADED=1
+
 # Load unified platform detection (all _is_* functions)
 [[ -r "${0:A:h}/detect.zsh" ]] && source "${0:A:h}/detect.zsh"
 

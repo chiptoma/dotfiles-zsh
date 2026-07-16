@@ -1,324 +1,15 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# ZSH SYSTEM FUNCTIONS LIBRARY
-# System utilities and productivity helpers.
+# ZSH FRAMEWORK MANAGEMENT
+# Version, updates, health check, status, benchmark, and diagnostics.
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_Z_FUNCTIONS_SYSTEM_LOADED} )) && return 0
-typeset -g _Z_FUNCTIONS_SYSTEM_LOADED=1
+(( ${+_Z_FUNCTIONS_FRAMEWORK_LOADED} )) && return 0
+typeset -g _Z_FUNCTIONS_FRAMEWORK_LOADED=1
 
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_SYSTEM_ENABLED:=true}  # Enable/disable System functions (default: true)
-
-# Exit early if System functions are disabled
-[[ "$Z_FUNCTIONS_SYSTEM_ENABLED" != "true" ]] && return 0
-
-# ----------------------------------------------------------
-# z_detect_ssh_agent
-# Detects and configures SSH agent socket from various providers.
-# Priority: 1Password > GPG Agent > GNOME Keyring > System default
-# Should be called from .zshrc for interactive sessions.
-#
-# @return (int) : 0 always (graceful - never fails)
-#
-# Notes:
-# - Skips detection if SSH_AUTH_SOCK already points to valid socket
-# - Does not start agents, only detects existing ones
-# - User can override by setting SSH_AUTH_SOCK in .zshlocal
-# ----------------------------------------------------------
-z_detect_ssh_agent() {
-    # Skip if already set to a valid socket
-    [[ -S "${SSH_AUTH_SOCK:-}" ]] && return 0
-
-    # 1Password SSH Agent (macOS)
-    local op_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-
-    # GPG Agent SSH socket
-    local gpg_sock="${XDG_RUNTIME_DIR:-/run/user/$UID}/gnupg/S.gpg-agent.ssh"
-
-    # GNOME Keyring SSH socket
-    local gnome_sock="${XDG_RUNTIME_DIR:-/run/user/$UID}/keyring/ssh"
-
-    if [[ -S "$op_sock" ]]; then
-        export SSH_AUTH_SOCK="$op_sock"
-    elif [[ -S "$gpg_sock" ]]; then
-        export SSH_AUTH_SOCK="$gpg_sock"
-    elif [[ -S "$gnome_sock" ]]; then
-        export SSH_AUTH_SOCK="$gnome_sock"
-    fi
-
-    return 0
-}
-
-# ----------------------------------------------------------
-# WEATHER INFORMATION
-# ----------------------------------------------------------
-
-# Get weather information from wttr.in
-# Usage: z_weather [location]
-# Examples:
-#   z_weather           # Current location (based on IP)
-#   z_weather London    # Weather for London
-#   z_weather "New York" # Weather for New York
-z_weather() {
-    local location="${1:-}"
-
-    if ! _has_cmd curl; then
-        _ui_error "curl command not found"
-        _ui_dim "Install with: brew install curl"
-        return 1
-    fi
-
-    # URL encode the location (spaces -> %20)
-    local encoded_location="${location// /%20}"
-
-    echo "Fetching weather data..."
-    curl -s --connect-timeout 10 "wttr.in/${encoded_location}" || {
-        echo ""
-        _ui_error "Cannot fetch weather data"
-        _ui_dim "Possible causes:"
-        _ui_dim "  - No internet connection"
-        _ui_dim "  - wttr.in service unavailable"
-        _ui_dim "  - Invalid location name"
-        return 1
-    }
-}
-
-# ----------------------------------------------------------
-# CALCULATOR
-# ----------------------------------------------------------
-
-# Safe calculator with input validation
-# Usage: z_calc <expression>
-# Examples:
-#   z_calc "2 + 2"
-#   z_calc "sqrt(16)"
-#   z_calc "3.14 * 10^2"
-z_calc() {
-    if [[ -z "$1" ]]; then
-        echo "Usage: calc <expression>"
-        echo "Examples: calc '2 + 2', calc 'sqrt(16)', calc '3.14 * 10^2'"
-        return 1
-    fi
-
-    # Join all arguments into single expression (allows: calc 2 * 2)
-    local expression="$*"
-
-    # Validate input - strict allowlist to prevent command injection
-    # Step 1: Block dangerous patterns (Python injection attempts)
-    if [[ "$expression" == *"__"* ]] || \
-       [[ "$expression" == *"import"* ]] || \
-       [[ "$expression" == *"eval"* ]] || \
-       [[ "$expression" == *"exec"* ]] || \
-       [[ "$expression" == *"open"* ]] || \
-       [[ "$expression" == *"system"* ]]; then
-        _ui_error "Expression contains blocked pattern"
-        return 1
-    fi
-
-    # Step 2: Allow only safe characters
-    if [[ "$expression" =~ [^0-9a-zA-Z+*/\(\).%^[:space:]-] ]]; then
-        _ui_error "Invalid characters in expression"
-        _ui_dim "Allowed: numbers, +, -, *, /, (, ), ., %, ^, scientific notation (e/E)"
-        _ui_dim "Functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e"
-        return 1
-    fi
-
-    # Step 3: Validate that letter sequences are only known math functions
-    local safe_funcs="sqrt|sin|cos|tan|log|exp|pow|abs|floor|ceil|pi|e|asin|acos|atan"
-    local alpha_only="${expression//[^a-zA-Z]/}"
-    if [[ -n "$alpha_only" ]]; then
-        # Extract all letter sequences and validate against safe function list
-        local word
-        local -a words=("${(@f)$(echo "$expression" | grep -oE '[a-zA-Z]+')}")
-        for word in "${words[@]}"; do
-            if [[ ! "$word" =~ ^($safe_funcs)$ ]]; then
-                _ui_error "Unknown function '$word'"
-                _ui_dim "Allowed functions: sqrt, sin, cos, tan, log, exp, pow, abs, floor, ceil, pi, e"
-                return 1
-            fi
-        done
-    fi
-
-    if _has_cmd bc; then
-        # Use bc with math library for advanced functions
-        echo "$expression" | bc -l 2>/dev/null || {
-            _ui_error "Invalid expression"
-            return 1
-        }
-    elif _has_cmd python3; then
-        # Fallback to Python for calculation
-        python3 -c "from math import *; print($expression)" 2>/dev/null || {
-            _ui_error "Invalid expression"
-            return 1
-        }
-    elif _has_cmd python; then
-        python -c "from math import *; print($expression)" 2>/dev/null || {
-            _ui_error "Invalid expression"
-            return 1
-        }
-    else
-        _ui_error "No calculator available"
-        _ui_dim "Install bc or python"
-        return 1
-    fi
-}
-
-# ----------------------------------------------------------
-# PROCESS MANAGEMENT
-# ----------------------------------------------------------
-
-# ------------------------------------------------------------------------------
-# z_killapp (macOS)
-# Gracefully quit an application using AppleScript, fallback to pkill.
-#
-# @param  $1  (string)  : Application name
-# @return     (int)     : 0 on success, 1 on failure
-# ------------------------------------------------------------------------------
-z_killapp() {
-    if ! _is_macos; then
-        _ui_error "z_killapp is only available on macOS"
-        return 1
-    fi
-    local app="${1:?Usage: killapp <app_name>}"
-    app="${app//\"/}"
-    app="${app//\'/}"
-    osascript -e "tell application \"$app\" to quit" 2>/dev/null || \
-        pkill -x "$app" 2>/dev/null || \
-        { _ui_error "Could not quit $app"; return 1; }
-}
-
-# ------------------------------------------------------------------------------
-# z_timeout
-# Runs a command with a time limit, killing it if it exceeds the timeout.
-#
-# @param  $1  (string)  : Timeout duration (e.g., "5s", "2m", "1h", or seconds)
-# @param  $@  (string)  : Command and arguments to execute
-# @return     (int)     : Command exit code, 124 on timeout, 1 on error
-#
-# Notes:
-# - Uses GNU timeout/gtimeout if available for efficiency.
-# - Falls back to pure ZSH implementation using background jobs.
-# - Supports suffixes: s (seconds), m (minutes), h (hours).
-#
-# Warning: Fallback implementation may not handle all edge cases.
-# ------------------------------------------------------------------------------
-z_timeout() {
-    if [[ $# -lt 2 ]]; then
-        echo "Usage: timeout <duration> <command> [args...]"
-        echo "Duration: number with optional suffix (s=seconds, m=minutes, h=hours)"
-        echo "Examples:"
-        echo "  timeout 5 ping google.com"
-        echo "  timeout 30s curl example.com"
-        echo "  timeout 2m long-running-script"
-        return 1
-    fi
-
-    local duration="$1"
-    shift
-
-    # Parse duration to seconds
-    local seconds
-    case "$duration" in
-        *h) seconds=$(( ${duration%h} * 3600 )) ;;
-        *m) seconds=$(( ${duration%m} * 60 )) ;;
-        *s) seconds="${duration%s}" ;;
-        *)  seconds="$duration" ;;
-    esac
-
-    # Validate seconds is a positive number
-    if ! [[ "$seconds" =~ ^[0-9]+$ ]] || [[ "$seconds" -le 0 ]]; then
-        _ui_error "Invalid timeout duration '$duration'"
-        return 1
-    fi
-
-    # Use GNU timeout if available (most efficient)
-    if _has_cmd timeout; then
-        command timeout "${seconds}s" "$@"
-        return $?
-    elif _has_cmd gtimeout; then
-        gtimeout "${seconds}s" "$@"
-        return $?
-    fi
-
-    # Pure ZSH fallback using background job
-    local pid exit_code
-
-    # Run command in background
-    "$@" &
-    pid=$!
-
-    # Wait with timeout using ZSH's read -t
-    (
-        sleep "$seconds"
-        # Check if process still exists before sending signals
-        if kill -0 "$pid" 2>/dev/null; then
-            kill -TERM "$pid" 2>/dev/null
-            sleep 1
-            kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
-        fi
-    ) &
-    local watchdog_pid=$!
-
-    # Wait for command to complete
-    wait "$pid" 2>/dev/null
-    exit_code=$?
-
-    # Clean up watchdog if command finished before timeout
-    kill "$watchdog_pid" 2>/dev/null
-    wait "$watchdog_pid" 2>/dev/null
-
-    # Check if killed by timeout (128 + signal number)
-    if [[ $exit_code -eq 143 ]] || [[ $exit_code -eq 137 ]]; then
-        echo "Command timed out after ${seconds}s"
-        return 124
-    fi
-
-    return $exit_code
-}
-
-# ------------------------------------------------------------------------------
-# z_pskill
-# Kill process by name with confirmation.
-#
-# @param  $1  (string)  : Process name pattern to match.
-# @return     (int)     : 0 on success, 1 on error or cancelled.
-#
-# Notes:
-# - Uses pgrep to find matching processes.
-# - Shows matched processes before confirmation.
-# ------------------------------------------------------------------------------
-z_pskill() {
-    if [[ -z "$1" ]]; then
-        echo "Usage: pskill <process_name>"
-        return 1
-    fi
-
-    local pids
-    if _is_macos || _is_bsd; then
-        pids=$(pgrep -l "$1" 2>/dev/null)
-    else
-        pids=$(pgrep -a "$1" 2>/dev/null)
-    fi
-
-    if [[ -z "$pids" ]]; then
-        echo "No processes found matching '$1'"
-        return 1
-    fi
-
-    echo "Found processes:"
-    echo "$pids"
-    echo ""
-    read -q "confirm?Kill these processes? [y/N] "
-    echo ""
-
-    if [[ "$confirm" == "y" ]]; then
-        pkill "$1" && echo "Processes killed"
-    else
-        echo "Cancelled"
-    fi
-}
+# Ensure lazy tools map exists (z_lazy_status reads it)
+(( ${+_LAZY_LOADED_TOOLS} )) || typeset -gA _LAZY_LOADED_TOOLS=()
 
 # ----------------------------------------------------------
 # UPDATE MANAGEMENT
@@ -509,6 +200,10 @@ _handle_updates() {
     print -P "%F{yellow}⚡ ZSH config updates available. Run %F{cyan}z_update%F{yellow} to update.%f"
 }
 
+# ----------------------------------------------------------
+# VERSION
+# ----------------------------------------------------------
+
 # ------------------------------------------------------------------------------
 # z_version
 # Shows the current ZSH configuration version.
@@ -538,6 +233,10 @@ z_version() {
         fi
     fi
 }
+
+# ----------------------------------------------------------
+# BENCHMARK
+# ----------------------------------------------------------
 
 # ----------------------------------------------------------
 # z_benchmark
@@ -590,13 +289,13 @@ z_benchmark() {
 
     # Performance rating
     if ((avg < 100)); then
-        echo "  Status:  ✓ Excellent (<100ms)"
+        _ui_ok "Excellent (<100ms)"
     elif ((avg < 200)); then
-        echo "  Status:  ✓ Good (<200ms)"
+        _ui_ok "Good (<200ms)"
     elif ((avg < 500)); then
-        echo "  Status:  ⚠ Acceptable (<500ms)"
+        _ui_warn "Acceptable (<500ms)"
     else
-        echo "  Status:  ✗ Slow (>500ms) - consider profiling with 'zprof'"
+        _ui_error "Slow (>500ms) - consider profiling with 'zprof'"
     fi
 }
 
@@ -802,62 +501,6 @@ z_health() {
 }
 
 # ----------------------------------------------------------
-# QUICK HELP
-# Quick reference for ZSH dotfiles configuration.
-# ----------------------------------------------------------
-
-z_help() {
-    _ui_header "ZSH Dotfiles Quick Reference"
-
-    _ui_section "Customization"
-    echo "  Edit ${_UI_GREEN}~/.config/zsh/.zshlocal${_UI_RESET} ${_UI_DIM}(never edit .zshrc)${_UI_RESET}"
-    echo "  All your aliases, functions, and settings go there."
-    echo ""
-
-    _ui_section "Discovery Commands"
-    echo "  ${_UI_GREEN}als${_UI_RESET}       Browse 200+ aliases interactively"
-    echo "  ${_UI_GREEN}status${_UI_RESET}    Show current configuration status"
-    echo "  ${_UI_GREEN}health${_UI_RESET}    Check for issues and misconfigurations"
-    echo ""
-
-    _ui_section "Key Shortcuts"
-    echo "  ${_UI_YELLOW}Ctrl+R${_UI_RESET}    Search command history ${_UI_DIM}(fzf)${_UI_RESET}"
-    echo "  ${_UI_YELLOW}Ctrl+T${_UI_RESET}    Find files in current directory ${_UI_DIM}(fzf)${_UI_RESET}"
-    echo "  ${_UI_YELLOW}Tab${_UI_RESET}       Smart completion with descriptions"
-    echo "  ${_UI_YELLOW}z <dir>${_UI_RESET}   Jump to frequently used directory ${_UI_DIM}(zoxide)${_UI_RESET}"
-    echo ""
-
-    _ui_section "Common Aliases"
-    echo "  ${_UI_GREEN}ll${_UI_RESET}        List files ${_UI_DIM}(detailed view)${_UI_RESET}"
-    echo "  ${_UI_GREEN}la${_UI_RESET}        List all files including hidden"
-    echo "  ${_UI_GREEN}..${_UI_RESET}        Go up one directory"
-    echo "  ${_UI_GREEN}gs${_UI_RESET}        Git status"
-    echo "  ${_UI_GREEN}gps${_UI_RESET}       Git push"
-    echo "  ${_UI_GREEN}gpl${_UI_RESET}       Git pull"
-    echo ""
-
-    _ui_section "Useful Functions"
-    echo "  ${_UI_GREEN}calc${_UI_RESET}      Calculator ${_UI_DIM}(e.g., calc 2+2)${_UI_RESET}"
-    echo "  ${_UI_GREEN}weather${_UI_RESET}   Show weather forecast"
-    echo "  ${_UI_GREEN}extract${_UI_RESET}   Extract any archive format"
-    echo "  ${_UI_GREEN}ports${_UI_RESET}     Show listening ports"
-    echo ""
-
-    _ui_section "Configuration Toggles"
-    echo "  Set in .zshlocal to disable features:"
-    echo "    ${_UI_DIM}Z_ALIASES_ENABLED=false${_UI_RESET}"
-    echo "    ${_UI_DIM}Z_COMPLETION_ENABLED=false${_UI_RESET}"
-    echo "    ${_UI_DIM}Z_HISTORY_ENABLED=false${_UI_RESET}"
-    echo ""
-
-    _ui_section "Update & Maintenance"
-    echo "  ${_UI_GREEN}zupdate${_UI_RESET}   Update to latest version"
-    echo "  ${_UI_GREEN}health${_UI_RESET}    Run health check"
-    echo "  ${_UI_GREEN}reload${_UI_RESET}    Restart shell"
-    echo ""
-}
-
-# ----------------------------------------------------------
 # STATUS
 # Shows current configuration status.
 # ----------------------------------------------------------
@@ -977,9 +620,9 @@ z_status() {
     echo ""
     _ui_footer
     echo "  Config:  ${_UI_WHITE}${ZDOTDIR:-~/.config/zsh}${_UI_RESET}"
-    echo "  Local:   ${_UI_WHITE}${zshlocal}${_UI_RESET}"
+    echo "  Local:   ${_UI_WHITE}${ZDOTDIR:-~/.config/zsh}/.zshlocal${_UI_RESET}"
     echo ""
-    echo "  Run ${_UI_GREEN}health${_UI_RESET} for detailed diagnostics."
+    echo "  Run ${_UI_GREEN}zhealth${_UI_RESET} for detailed diagnostics."
     echo ""
 }
 
@@ -992,4 +635,94 @@ z_check_tools() {
     _check_tools
 }
 
-_log DEBUG "ZSH System Functions Library loaded"
+# ----------------------------------------------------------
+# LAZY LOADING STATUS
+# Shows which tools have been lazily loaded.
+# ----------------------------------------------------------
+
+z_lazy_status() {
+    _ui_header "Lazy Loading Status"
+
+    _ui_section "Configuration"
+    _ui_kv "Z_LAZY_ENABLED" "${Z_LAZY_ENABLED:-true}" "dim"
+    _ui_kv "Z_LAZY_ZOXIDE" "${Z_LAZY_ZOXIDE:-true}" "dim"
+    _ui_kv "Z_LAZY_NVM" "${Z_LAZY_NVM:-true}" "dim"
+    _ui_kv "Z_LAZY_PYENV" "${Z_LAZY_PYENV:-true}" "dim"
+    _ui_kv "Z_LAZY_RBENV" "${Z_LAZY_RBENV:-true}" "dim"
+
+    echo ""
+    _ui_section "Loaded Tools"
+    if [[ ${#_LAZY_LOADED_TOOLS[@]} -eq 0 ]]; then
+        _ui_dim "  (none yet - tools initialize on first use)"
+    else
+        local tool
+        for tool in "${(k)_LAZY_LOADED_TOOLS[@]}"; do
+            _ui_ok "$tool"
+        done
+    fi
+}
+
+# ----------------------------------------------------------
+# COMPILED FILE CLEANUP
+# Removes stale or all compiled .zwc files.
+# ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# z_cleanup_zwc
+# Removes stale or all compiled .zwc files.
+#
+# @param  $1  (string)  : Mode - "stale" (default) or "all".
+# @return     (int)     : 0 on success.
+#
+# Notes:
+# - "stale" mode: Removes .zwc files where source no longer exists.
+# - "all" mode: Removes ALL .zwc files (nuclear option).
+#
+# Warning: "all" mode is destructive - removes all compiled bytecode.
+# ------------------------------------------------------------------------------
+z_cleanup_zwc() {
+    local mode="${1:-stale}"
+    local zwc_file source_file
+    local count=0
+
+    # Glob patterns for .zwc files (no duplicates: **/* includes root)
+    local -a zwc_patterns=(
+        "${ZSH_CONFIG_HOME}"/**/*.zwc(.N)
+        "${ZDOTDIR:-$HOME}"/.*.zwc(.N)
+        "${HOME}"/.*.zwc(.N)
+    )
+
+    if [[ "$mode" == "all" ]]; then
+        _log INFO "Removing all compiled (.zwc) files..."
+
+        for zwc_file in ${zwc_patterns[@]}; do
+            [[ -f "$zwc_file" ]] || continue
+            rm -f "$zwc_file"
+            ((count++))
+            _log DEBUG "Removed: ${zwc_file#$HOME/}"
+        done
+
+        _log INFO "Removed $count compiled files"
+    else
+        # Remove only stale .zwc files (where source no longer exists)
+        for zwc_file in ${zwc_patterns[@]}; do
+            source_file="${zwc_file%.zwc}"
+            # Check both file and directory (for function dir .zwc)
+            if [[ ! -f "$source_file" && ! -d "$source_file" ]]; then
+                rm -f "$zwc_file"
+                ((count++))
+                _log DEBUG "Removed stale: ${zwc_file#$HOME/}"
+            fi
+        done
+
+        if (( count > 0 )); then
+            _log INFO "Cleaned $count stale compiled files"
+        else
+            _log DEBUG "No stale compiled files found"
+        fi
+    fi
+
+    return 0
+}
+
+_log DEBUG "ZSH Framework Management loaded"

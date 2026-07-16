@@ -46,16 +46,15 @@ See [INSTALL.md](INSTALL.md) for detailed instructions.
 ├── .zshrc                  # Interactive: plugins, modules, keybindings
 ├── .zshlocal               # User customizations (gitignored)
 │
-├── modules/
-│   ├── logging.zsh         # Log levels, colors, caller info
-│   ├── environment.zsh     # ENV vars, XDG dirs, editor detection
-│   ├── path.zsh            # PATH management, platform paths
-│   ├── lazy.zsh            # Deferred tool initialization
-│   ├── completion.zsh      # Tab completion, caching
-│   ├── history.zsh         # History management, security filtering
-│   ├── aliases.zsh         # Command aliases, modern replacements
-│   ├── keybindings.zsh     # Key bindings, atuin/fzf integration
-│   └── compilation.zsh     # Optional .zwc compilation
+├── modules/                # Numbered by load order
+│   ├── 01_path.zsh         # PATH management, platform paths
+│   ├── 02_environment.zsh  # ENV vars, XDG dirs, editor detection
+│   ├── 03_compilation.zsh  # Optional .zwc compilation
+│   ├── 04_lazy.zsh         # Deferred tool initialization
+│   ├── 05_completion.zsh   # Tab completion, caching
+│   ├── 06_history.zsh      # History management, security filtering
+│   ├── 07_aliases.zsh      # Command aliases, modern replacements
+│   └── 08_keybindings.zsh  # Key bindings, atuin/fzf integration
 │
 ├── lib/
 │   ├── utils.zsh           # Core utilities (_has_cmd, _safe_source, etc.)
@@ -64,7 +63,8 @@ See [INSTALL.md](INSTALL.md) for detailed instructions.
 │   │   └── linux.zsh       # Linux-specific (snap, flatpak)
 │   └── functions/
 │       ├── index.zsh       # Auto-discovery barrel
-│       ├── system.zsh      # calc, weather, sysinfo
+│       ├── utilities.zsh   # calc, weather, process mgmt
+│       ├── framework.zsh   # version, health, status, benchmark
 │       ├── file.zsh        # File operations
 │       ├── git.zsh         # Git helpers
 │       ├── docker.zsh      # Docker/container helpers
@@ -98,7 +98,7 @@ Detailed documentation for each module:
 | **Lazy Loading** | [docs/lazy.md](docs/lazy.md) | Deferred init for fast startup |
 | **Platform** | [docs/platform.md](docs/platform.md) | macOS/Linux detection and helpers |
 | **Logging** | [docs/logging.md](docs/logging.md) | Debug levels, colors, caller info |
-| **Utils** | [docs/utils.md](docs/utils.md) | Core helpers (`_has_cmd`, `_cache_eval`) |
+| **Core** | [docs/core.md](docs/core.md) | Core helpers (`_has_cmd`, `_cache_eval`) |
 | **Compilation** | [docs/compilation.md](docs/compilation.md) | Optional .zwc bytecode compilation |
 
 ## Modules
@@ -108,7 +108,7 @@ Detailed documentation for each module:
 | Module | Docs | Purpose |
 |--------|------|---------|
 | Logging | [docs/logging.md](docs/logging.md) | `_log` function with levels, colors, caller info |
-| Utils | [docs/utils.md](docs/utils.md) | Core helpers: `_has_cmd`, `_safe_source`, `_cache_eval` |
+| Core | [docs/core.md](docs/core.md) | Core helpers: `_has_cmd`, `_safe_source`, `_cache_eval` |
 | Platform | [docs/platform.md](docs/platform.md) | OS-specific detection and paths |
 | Functions | [docs/functions.md](docs/functions.md) | User-facing `z_*` functions |
 
@@ -268,9 +268,9 @@ export Z_LAZY_ZOXIDE=false
 | `lazy` | `z_lazy_status` | Show lazy loading status |
 | `zupdate` | `z_update` | Update to latest version |
 | `zversion` | `z_version` | Show current version |
-| `path` | `path_show` | Display PATH entries |
-| `pathdebug` | `path_debug` | PATH diagnostics |
-| `hstats` | `history_stats` | Top commands chart |
+| `zpath` | `z_path_show` | Display PATH entries |
+| `zpathdebug` | `z_path_debug` | PATH diagnostics |
+| `zhiststats` | `z_history_stats` | Top commands chart |
 | `als` | `z_alias_browser` | Interactive alias browser (fzf) |
 
 ### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for all aliases)

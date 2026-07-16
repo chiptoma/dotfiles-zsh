@@ -111,9 +111,9 @@ _log() {
         true)  use_color=true ;;
         false) use_color=false ;;
         auto)
-            if [[ "$FORCE_COLOR" == "1" ]]; then
+            if [[ "${FORCE_COLOR:-}" == "1" ]]; then
                 use_color=true
-            elif [[ -n "$NO_COLOR" ]]; then
+            elif [[ -n "${NO_COLOR:-}" ]]; then
                 use_color=false
             elif [[ -t 1 ]] || [[ -t 2 ]]; then
                 use_color=true
@@ -169,14 +169,13 @@ _log() {
 
 # ----------------------------------------------------------
 # PUBLIC FUNCTIONS
-# User-facing log level management
+# User-facing log level management (log_ namespace)
 # ----------------------------------------------------------
 
 # Change log level at runtime
-z_log_level_set() {
-    # Handle empty input gracefully
+log_level_set() {
     if [[ -z "$1" ]]; then
-        _log WARN "z_log_level_set: No level specified"
+        _log WARN "log_level_set: No level specified"
         return 1
     fi
 
@@ -190,130 +189,25 @@ z_log_level_set() {
 }
 
 # Temporarily run a command with a different log level
-z_with_log_level() {
-    # Error if no arguments provided
+log_with_level() {
     if (( $# == 0 )); then
-        _log ERROR "z_with_log_level: No level or command provided"
+        _log ERROR "log_with_level: No level or command provided"
         return 1
     fi
 
     local lvl="${1:u}"; shift
 
-    # Error if no command provided after level
     if (( $# == 0 )); then
-        _log ERROR "z_with_log_level: No command provided (usage: z_with_log_level LEVEL command...)"
+        _log ERROR "log_with_level: No command provided (usage: log_with_level LEVEL command...)"
         return 1
     fi
 
     local old="$Z_LOG_LEVEL"
-    z_log_level_set "$lvl" || return 1
+    log_level_set "$lvl" || return 1
     "$@"
     local rc=$?
     Z_LOG_LEVEL="$old"
     return $rc
-}
-
-# ----------------------------------------------------------
-# UI OUTPUT FUNCTIONS
-# User-facing colorized output for interactive commands.
-# Complements _log (developer debug) with visual UI output.
-#
-# _log DEBUG "Module loaded"     → Developer debugging
-# _ui_header "Health Check"      → User-facing UI
-# ----------------------------------------------------------
-
-# Export color variables for use by other modules
-# Uses $'\e[...]' syntax for proper ANSI escape handling
-typeset -g _UI_GREEN=$'\e[32m'
-typeset -g _UI_YELLOW=$'\e[33m'
-typeset -g _UI_RED=$'\e[31m'
-typeset -g _UI_CYAN=$'\e[36m'
-typeset -g _UI_WHITE=$'\e[1;37m'
-typeset -g _UI_DIM=$'\e[90m'
-typeset -g _UI_BOLD=$'\e[1m'
-typeset -g _UI_RESET=$'\e[0m'
-
-# Check if UI colors should be disabled
-_ui_is_no_color() {
-    [[ -n "$NO_COLOR" ]] || ! { [[ -t 1 ]] || [[ "$FORCE_COLOR" == "1" ]]; }
-}
-
-# Disable colors if not supported
-if _ui_is_no_color; then
-    _UI_GREEN='' _UI_YELLOW='' _UI_RED='' _UI_CYAN=''
-    _UI_WHITE='' _UI_DIM='' _UI_BOLD='' _UI_RESET=''
-fi
-
-# Print a major header with decorative borders
-# Usage: _ui_header "Title"
-_ui_header() {
-    echo ""
-    echo "${_UI_CYAN}═══════════════════════════════════════════════════════════════${_UI_RESET}"
-    echo "  ${_UI_WHITE}$1${_UI_RESET}"
-    echo "${_UI_CYAN}═══════════════════════════════════════════════════════════════${_UI_RESET}"
-    echo ""
-}
-
-# Print a section header
-# Usage: _ui_section "Section Name"
-_ui_section() {
-    echo "${_UI_WHITE}$1:${_UI_RESET}"
-}
-
-# Print a footer bar
-_ui_footer() {
-    echo "${_UI_CYAN}═══════════════════════════════════════════════════════════════${_UI_RESET}"
-}
-
-# Print success message with green checkmark
-# Usage: _ui_ok "Message"
-_ui_ok() {
-    echo "  ${_UI_GREEN}✓${_UI_RESET} $*"
-}
-
-# Print warning message with yellow indicator
-# Usage: _ui_warn "Message"
-_ui_warn() {
-    echo "  ${_UI_YELLOW}~${_UI_RESET} $*"
-}
-
-# Print error message with red X
-# Usage: _ui_error "Message"
-_ui_error() {
-    echo "  ${_UI_RED}✗${_UI_RESET} $*"
-}
-
-# Print dimmed secondary text
-# Usage: _ui_dim "Message"
-_ui_dim() {
-    echo "  ${_UI_DIM}$*${_UI_RESET}"
-}
-
-# Print a key-value pair with aligned formatting
-# Usage: _ui_kv "key" "description" [state] [note]
-# state: ok (default), warn, error, dim
-_ui_kv() {
-    local key="$1"
-    local desc="$2"
-    local state="${3:-ok}"
-    local note="${4:-}"
-    local width=12
-
-    local icon color
-    case "$state" in
-        ok)    icon="✓"; color="${_UI_GREEN}" ;;
-        warn)  icon="~"; color="${_UI_YELLOW}" ;;
-        error) icon="✗"; color="${_UI_RED}" ;;
-        *)     icon=" "; color="${_UI_DIM}" ;;
-    esac
-
-    local pad=$((width - ${#key}))
-    (( pad < 1 )) && pad=1
-    local spacing="$(printf '%*s' $pad '')"
-
-    local output="  ${color}${icon}${_UI_RESET} ${_UI_WHITE}${key}${_UI_RESET}${spacing}${desc}"
-    [[ -n "$note" ]] && output+=" ${_UI_DIM}(${note})${_UI_RESET}"
-    echo "$output"
 }
 
 # ----------------------------------------------------------

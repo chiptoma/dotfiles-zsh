@@ -63,7 +63,7 @@ plugins=(
 # Tool-dependent plugins (only load if tool is installed)
 (( $+commands[eza] )) && plugins+=(eza)
 (( $+commands[fzf] )) && plugins+=(fzf fzf-tab)
-# zoxide: lazy.zsh handles deferred init (faster than OMZ's eager plugin)
+# zoxide: 04_lazy.zsh handles deferred init (faster than OMZ's eager plugin)
 
 # Platform-specific plugins
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -105,7 +105,7 @@ zstyle ':omz:update' frequency 13
 export ZSH="$XDG_DATA_HOME/oh-my-zsh"
 export ZSH_THEME=""
 
-# Set compdump path before OMZ (OMZ uses this; canonical definition in completion.zsh)
+# Set compdump path before OMZ (OMZ uses this; canonical definition in 05_completion.zsh)
 export ZSH_COMPDUMP="${ZSH_CACHE_HOME}/completion/zcompdump-${ZSH_VERSION}"
 
 # Load Oh My Zsh (optional — shell degrades gracefully without it)
@@ -125,16 +125,16 @@ fi
 # Bytecode compilation disabled - minimal benefit on modern SSDs.
 # ----------------------------------------------------------
 export Z_COMPILATION_ENABLED=false
-source "${ZSH_CONFIG_HOME}/modules/compilation.zsh"
+source "${ZSH_CONFIG_HOME}/modules/03_compilation.zsh"
 
 # ----------------------------------------------------------
 # INTERACTIVE MODULES
 # ----------------------------------------------------------
-source "${ZSH_CONFIG_HOME}/modules/lazy.zsh"
-source "${ZSH_CONFIG_HOME}/modules/completion.zsh"
-source "${ZSH_CONFIG_HOME}/modules/history.zsh"
-source "${ZSH_CONFIG_HOME}/modules/aliases.zsh"
-source "${ZSH_CONFIG_HOME}/modules/keybindings.zsh"
+source "${ZSH_CONFIG_HOME}/modules/04_lazy.zsh"
+source "${ZSH_CONFIG_HOME}/modules/05_completion.zsh"
+source "${ZSH_CONFIG_HOME}/modules/06_history.zsh"
+source "${ZSH_CONFIG_HOME}/modules/07_aliases.zsh"
+source "${ZSH_CONFIG_HOME}/modules/08_keybindings.zsh"
 
 # ----------------------------------------------------------
 # POST-INTERACTIVE HOOKS
@@ -149,11 +149,8 @@ _run_post_interactive_hooks
 # LOCAL CUSTOMIZATION
 # ----------------------------------------------------------
 # Source user's local config (not tracked in git)
-if [[ -r "${ZDOTDIR}/.zshlocal" ]]; then
-    source "${ZDOTDIR}/.zshlocal"
-elif [[ -r "${HOME}/.zshlocal" ]]; then
-    source "${HOME}/.zshlocal"
-fi
+# _safe_source handles readability check + optional ownership verification
+_safe_source "${ZDOTDIR}/.zshlocal" || _safe_source "${HOME}/.zshlocal"
 
 # ----------------------------------------------------------
 # UPDATE CHECK

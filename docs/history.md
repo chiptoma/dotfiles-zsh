@@ -48,13 +48,13 @@ Press `h` or `Ctrl-R` for an elegant fzf-powered search experience:
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `history_search_interactive` | `h` | Interactive fzf search |
+| `z_history_search` | `h`, `zhistsearch` | Interactive fzf search |
 | `history` | `hh` | Raw history output |
 | `history \| less` | `hl` | Browse with pager |
 | `history \| grep` | `hs` | Search with grep |
-| `history_backup` | `hbackup` | Interactive backup |
-| `history_clean` | `hclean` | Remove duplicates & sensitive commands |
-| `history_stats [n]` | `hstats [n]` | Show top N commands (bar chart) |
+| `z_history_backup` | `zhistbackup` | Interactive backup |
+| `z_history_clean` | `zhistclean` | Remove duplicates & sensitive commands |
+| `z_history_stats [n]` | `zhiststats [n]` | Show top N commands (bar chart) |
 
 ## Configuration
 

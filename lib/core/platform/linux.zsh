@@ -68,16 +68,16 @@ export LINUX_FAMILY="$_CACHED_LINUX_FAMILY"
 export LINUX_ARCH="${LINUX_ARCH:-$_CACHED_UNAME_M}"
 
 # Detect display server (Wayland/X11/none)
-if [[ -n "$WAYLAND_DISPLAY" ]]; then
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
     export DISPLAY_SERVER="wayland"
-elif [[ -n "$DISPLAY" ]]; then
+elif [[ -n "${DISPLAY:-}" ]]; then
     export DISPLAY_SERVER="x11"
 else
     export DISPLAY_SERVER="none"
 fi
 
 # XDG runtime directory
-if [[ -z "$XDG_RUNTIME_DIR" ]]; then
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
     if [[ -d "/run/user/$UID" ]]; then
         export XDG_RUNTIME_DIR="/run/user/$UID"
     else
@@ -91,14 +91,14 @@ if [[ -z "$XDG_RUNTIME_DIR" ]]; then
 fi
 
 # D-Bus session bus
-if [[ -z "$DBUS_SESSION_BUS_ADDRESS" && -S "$XDG_RUNTIME_DIR/bus" ]]; then
+if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" && -S "${XDG_RUNTIME_DIR:-}/bus" ]]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 fi
 
 # ----------------------------------------------------------
 # LINUX-SPECIFIC PATHS
 # Snap, flatpak, nix, ccache, games, etc. are handled by
-# modules/path.zsh via Z_PATH_DEFINITIONS (canonical source).
+# lib/registry/_core.zsh via Z_PATH_DEFINITIONS.
 # Only Linuxbrew env vars are set here (needed before path.zsh).
 # ----------------------------------------------------------
 
@@ -177,7 +177,7 @@ _get_install_cmd() {
 # ----------------------------------------------------------
 
 _get_clipboard_cmd() {
-    if [[ -n "$WAYLAND_DISPLAY" ]] && _has_cmd wl-copy; then
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]] && _has_cmd wl-copy; then
         echo "wl-copy"
     elif _has_cmd xclip; then
         echo "xclip -selection clipboard"

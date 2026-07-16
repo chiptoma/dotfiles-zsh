@@ -103,16 +103,17 @@ section "File Structure"
 required_files=(
     ".zshenv"
     ".zshrc"
-    "lib/utils/logging.zsh"
-    "lib/utils/core.zsh"
-    "lib/utils/index.zsh"
+    "lib/core/logging.zsh"
+    "lib/core/helpers.zsh"
+    "lib/core/index.zsh"
     "lib/functions/index.zsh"
-    "lib/functions/system.zsh"
-    "modules/environment.zsh"
-    "modules/path.zsh"
-    "modules/lazy.zsh"
-    "modules/history.zsh"
-    "modules/aliases.zsh"
+    "lib/functions/utilities.zsh"
+    "lib/functions/framework.zsh"
+    "modules/02_environment.zsh"
+    "modules/01_path.zsh"
+    "modules/04_lazy.zsh"
+    "modules/06_history.zsh"
+    "modules/07_aliases.zsh"
 )
 
 for file in "${required_files[@]}"; do
@@ -299,7 +300,7 @@ section "User Functions (from .zshrc)"
 user_functions=(
     "z_version"
     "z_lazy_status"
-    "path_show"
+    "z_path_show"
 )
 
 for func in "${user_functions[@]}"; do

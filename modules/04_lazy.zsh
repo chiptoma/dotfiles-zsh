@@ -344,34 +344,6 @@ _lazy_init_rbenv() {
 }
 
 # ----------------------------------------------------------
-# INTROSPECTION
-# Show lazy loading status
-# ----------------------------------------------------------
-
-# Show which tools have been lazily loaded
-z_lazy_status() {
-    echo "Lazy Loading Status:"
-    echo "===================="
-    echo ""
-    echo "Configuration:"
-    echo "  Z_LAZY_ENABLED:   $Z_LAZY_ENABLED"
-    echo "  Z_LAZY_ZOXIDE:    $Z_LAZY_ZOXIDE"
-    echo "  Z_LAZY_NVM:       $Z_LAZY_NVM"
-    echo "  Z_LAZY_PYENV:     $Z_LAZY_PYENV"
-    echo "  Z_LAZY_RBENV:     $Z_LAZY_RBENV"
-    echo ""
-    echo "Lazy Loaded Tools:"
-    if [[ ${#_LAZY_LOADED_TOOLS[@]} -eq 0 ]]; then
-        echo "  (none yet - tools initialize on first use)"
-    else
-        local tool
-        for tool in "${(k)_LAZY_LOADED_TOOLS[@]}"; do
-            echo "  ✓ $tool"
-        done
-    fi
-}
-
-# ----------------------------------------------------------
 # AUTO-INITIALIZATION
 # Register lazy loaders for command-based tools.
 # ----------------------------------------------------------

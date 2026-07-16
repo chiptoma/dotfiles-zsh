@@ -59,11 +59,7 @@ _log DEBUG "Configuring history storage..."
 _ensure_dir "$Z_HISTORY_DIR" 700
 
 # Ensure the history file exists with correct permissions
-if [[ -f "$HISTFILE" ]]; then
-    chmod 600 "$HISTFILE" 2>/dev/null
-else
-    touch "$HISTFILE" 2>/dev/null && chmod 600 "$HISTFILE" 2>/dev/null
-fi
+_ensure_file "$HISTFILE" 600
 
 # ----------------------------------------------------------
 # SECURITY FILTER PATTERNS
@@ -180,7 +176,7 @@ _should_ignore_history_cmd() {
 }
 
 # Helper function to create a history file backup
-_create_history_backup() {
+_create_z_history_backup() {
     local backup_file_path="$1"
     if [[ -z "$backup_file_path" ]]; then
         echo "Error: No backup path provided." >&2
@@ -195,8 +191,8 @@ _create_history_backup() {
     return 0
 }
 
-# Widget wrapper for history_search_interactive
-_history_search_interactive_widget() {
+# Widget wrapper for z_history_search
+_z_history_search_widget() {
     # Save and clear current buffer
     local saved_buffer="$BUFFER"
     BUFFER=""
@@ -204,7 +200,7 @@ _history_search_interactive_widget() {
     # Temporarily redirect to call the function
     zle -I
     {
-        history_search_interactive
+        z_history_search
     } </dev/tty
 
     # If nothing was selected and we had a saved buffer, restore it
@@ -220,7 +216,7 @@ _history_search_interactive_widget() {
 # User-facing history management commands
 # ----------------------------------------------------------
 
-history_backup() {
+z_history_backup() {
     # Check if HISTFILE exists and is a readable file
     if [[ ! -f "$HISTFILE" || ! -r "$HISTFILE" ]]; then
         echo "Error: History file ($HISTFILE) not found or not readable." >&2
@@ -280,7 +276,7 @@ history_backup() {
     local backup_file_path="${target_backup_dir}/${final_backup_filename}"
 
     # Perform the backup by calling the core function
-    if _create_history_backup "$backup_file_path"; then
+    if _create_z_history_backup "$backup_file_path"; then
         echo "✓ History file backed up to: $backup_file_path"
         return 0
     else
@@ -290,7 +286,7 @@ history_backup() {
 }
 
 # Public function to clean history by removing duplicates and sensitive commands.
-history_clean() {
+z_history_clean() {
     if [[ ! -f "$HISTFILE" || ! -r "$HISTFILE" ]]; then
         echo "Error: History file ($HISTFILE) not found or not readable." >&2
         return 1
@@ -340,7 +336,7 @@ history_clean() {
     fi
 
     # 2. Create a temporary backup using the core function
-    if ! _create_history_backup "$temp_backup_file"; then
+    if ! _create_z_history_backup "$temp_backup_file"; then
         echo "Aborting clean." >&2
         return 1
     fi
@@ -426,7 +422,7 @@ history_clean() {
 }
 
 # Public function to show history statistics
-history_stats() {
+z_history_stats() {
     local top_n="$1"
 
     if [[ ! -f "$HISTFILE" || ! -r "$HISTFILE" ]]; then
@@ -495,7 +491,7 @@ history_stats() {
 }
 
 # Public function for interactive history search with fzf
-history_search_interactive() {
+z_history_search() {
     # Check if fzf is available
     if ! _has_cmd fzf; then
         echo "Error: fzf is not installed. Install it with: brew install fzf" >&2
@@ -583,37 +579,14 @@ function zshaddhistory() {
 # FZF-specific features (only if fzf is available)
 if _has_cmd fzf; then
     # Create the widget for interactive history search
-    zle -N _history_search_interactive_widget
+    zle -N _z_history_search_widget
 
     # Bind CTRL-R to fzf only if atuin is not installed
     # (atuin handles ^R when installed)
     if ! _has_cmd atuin; then
-        bindkey '^R' _history_search_interactive_widget
+        bindkey '^R' _z_history_search_widget
     fi
 
-    # FZF-powered alias
-    alias h="history_search_interactive"
-else
-    # fzf not installed - provide useful fallback with clear message
-    _log WARN "fzf not installed - history search limited. Install: brew install fzf"
-    alias h="history -100"                # Fallback: show last 100 commands
-    # Alternative aliases still work: hl (pager), hs (grep)
 fi
 
-# ----------------------------------------------------------
-# ALIASES
-# Convenient shortcuts for history operations
-# ----------------------------------------------------------
-
-# History search and display (non-fzf)
-alias hh="history"                    # Show raw history output
-alias hl="history | less"             # Show history with less
-alias hs="history | grep"             # Show history with grep
-
-# History management
-alias hbackup="history_backup"        # Backup history file
-alias hclean="history_clean"          # Clean history file
-alias hstats="history_stats"          # Show history statistics
-
-# ----------------------------------------------------------
 _log DEBUG "ZSH History Module loaded"

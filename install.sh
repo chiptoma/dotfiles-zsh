@@ -66,8 +66,8 @@ INSTALL_WARNINGS=()
 ESSENTIAL_FILES=(
     ".zshenv"
     ".zshrc"
-    "lib/utils/index.zsh"
-    "lib/utils/logging.zsh"
+    "lib/core/index.zsh"
+    "lib/core/logging.zsh"
     "modules/aliases.zsh"
     "modules/environment.zsh"
     "modules/path.zsh"

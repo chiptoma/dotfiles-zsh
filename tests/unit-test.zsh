@@ -164,34 +164,28 @@ load_module() {
     fi
 
     # Reset guards to allow reload
-    unset _Z_UTILS_LOADED _Z_UTILS_INDEX_LOADED _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
+    unset _Z_HELPERS_LOADED _Z_CORE_INDEX_LOADED _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
 
     # Source minimal dependencies (new paths after refactor)
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
     source "$module_path"
 }
 
 # ----------------------------------------------------------
-# TESTS: lib/utils.zsh
+# TESTS: lib/core/helpers.zsh
 # ----------------------------------------------------------
 
 test_utils() {
-    section "lib/utils/core.zsh"
+    section "lib/core/helpers.zsh"
 
     # Load module
-    unset _Z_UTILS_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/core.zsh" || { skip "core.zsh not loadable"; return; }
+    unset _Z_HELPERS_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/helpers.zsh" || { skip "core.zsh not loadable"; return; }
 
     # Test _has_cmd
     assert_true "_has_cmd finds 'ls'" _has_cmd ls
     assert_false "_has_cmd rejects nonexistent" _has_cmd __nonexistent_cmd_12345__
-
-    # Test _is_empty / _is_not_empty
-    assert_true "_is_empty with empty string" _is_empty ""
-    assert_false "_is_empty with non-empty" _is_empty "hello"
-    assert_true "_is_not_empty with content" _is_not_empty "hello"
-    assert_false "_is_not_empty with empty" _is_not_empty ""
 
     # Test _ensure_dir
     local test_dir="$TEST_TMP/ensure_dir_test"
@@ -213,7 +207,7 @@ test_utils() {
     assert_false "_is_ssh_session false when not in SSH" _is_ssh_session
 
     # Test _is_ci (should be false unless in CI)
-    if [[ -z "$CI" && -z "$GITHUB_ACTIONS" ]]; then
+    if [[ -z "${CI:-}" && -z "${GITHUB_ACTIONS:-}" ]]; then
         assert_false "_is_ci false in local env" _is_ci
     else
         assert_true "_is_ci true in CI env" _is_ci
@@ -235,11 +229,11 @@ test_utils() {
 # ----------------------------------------------------------
 
 test_logging() {
-    section "lib/utils/logging.zsh"
+    section "lib/core/logging.zsh"
 
     # Load module
     unset _Z_LOGGING_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/logging.zsh" || { skip "logging.zsh not loadable"; return; }
+    source "$ZDOTDIR/lib/core/logging.zsh" || { skip "logging.zsh not loadable"; return; }
 
     # Test log levels exist
     assert_eq "${Z_LOG_LEVELS[DEBUG]}" "0" "DEBUG level is 0"
@@ -248,14 +242,14 @@ test_logging() {
     assert_eq "${Z_LOG_LEVELS[ERROR]}" "3" "ERROR level is 3"
     assert_eq "${Z_LOG_LEVELS[NONE]}" "4" "NONE level is 4"
 
-    # Test z_log_level_set
+    # Test log_level_set
     local old_level="$Z_LOG_LEVEL"
-    z_log_level_set DEBUG
-    assert_eq "$Z_LOG_LEVEL" "DEBUG" "z_log_level_set changes level"
-    z_log_level_set "$old_level"
+    log_level_set DEBUG
+    assert_eq "$Z_LOG_LEVEL" "DEBUG" "log_level_set changes level"
+    log_level_set "$old_level"
 
     # Test invalid log level
-    assert_false "z_log_level_set rejects invalid level" z_log_level_set INVALID_LEVEL
+    assert_false "log_level_set rejects invalid level" log_level_set INVALID_LEVEL
 
     # Test _log output (capture stderr for WARN/ERROR)
     local output
@@ -271,17 +265,17 @@ test_logging() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/path.zsh (Functions Only)
+# TESTS: modules/01_path.zsh (Functions Only)
 # ----------------------------------------------------------
 
 test_path_functions() {
-    section "modules/path.zsh (functions)"
+    section "modules/01_path.zsh (functions)"
 
     # We test path functions in isolation without running path_init
     # Load only the function definitions
 
     unset _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
-    source "$ZDOTDIR/modules/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
 
     # Define minimal stubs for dependencies
     _is_macos() { [[ "$OSTYPE" == darwin* ]]; }
@@ -293,7 +287,7 @@ test_path_functions() {
 
     # Source path module (will run path_init, but we'll test functions after)
     typeset -g Z_PATH_ENABLED=true
-    source "$ZDOTDIR/modules/path.zsh" 2>/dev/null || { skip "path.zsh not loadable"; return; }
+    source "$ZDOTDIR/modules/01_path.zsh" 2>/dev/null || { skip "path.zsh not loadable"; return; }
 
     # Test _path_add prepend
     local test_path_dir="$TEST_TMP/path_test_bin"
@@ -329,24 +323,24 @@ test_path_functions() {
     done
     assert_false "_path_clean removes non-existent dirs" $found
 
-    # Test path_contains (suppress debug output)
+    # Test z_path_contains (suppress debug output)
     local output
-    Z_LOG_LEVEL=ERROR output=$(path_contains /usr/bin 2>&1)
-    assert_contains "$output" "IS in PATH" "path_contains finds /usr/bin"
+    Z_LOG_LEVEL=ERROR output=$(z_path_contains /usr/bin 2>&1)
+    assert_contains "$output" "IS in PATH" "z_path_contains finds /usr/bin"
 
-    Z_LOG_LEVEL=ERROR output=$(path_contains /nonexistent/path 2>&1)
-    assert_contains "$output" "IS NOT in PATH" "path_contains rejects nonexistent"
+    Z_LOG_LEVEL=ERROR output=$(z_path_contains /nonexistent/path 2>&1)
+    assert_contains "$output" "IS NOT in PATH" "z_path_contains rejects nonexistent"
 
     # Restore original path
     path=("${original_path[@]}")
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/path.zsh (Condition Evaluation)
+# TESTS: modules/01_path.zsh (Condition Evaluation)
 # ----------------------------------------------------------
 
 test_path_conditions() {
-    section "modules/path.zsh (conditions)"
+    section "modules/01_path.zsh (conditions)"
 
     # Skip if path module isn't loaded
     (( $+functions[_is_path_condition_met] )) || { skip "_is_path_condition_met not defined"; return; }
@@ -382,14 +376,14 @@ test_path_conditions() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/lazy.zsh
+# TESTS: modules/04_lazy.zsh
 # ----------------------------------------------------------
 
 test_lazy() {
-    section "modules/lazy.zsh"
+    section "modules/04_lazy.zsh"
 
     # Check if lazy module can be loaded
-    [[ -f "$ZDOTDIR/modules/lazy.zsh" ]] || { skip "lazy.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/modules/04_lazy.zsh" ]] || { skip "lazy.zsh not found"; return; }
 
     # Test lazy status function exists after loading
     unset _Z_LAZY_LOADED 2>/dev/null
@@ -399,14 +393,11 @@ test_lazy() {
     typeset -g Z_LAZY_PYENV=false
     typeset -g Z_LAZY_RBENV=false
 
-    source "$ZDOTDIR/modules/lazy.zsh" 2>/dev/null || { skip "lazy.zsh not loadable"; return; }
+    source "$ZDOTDIR/modules/04_lazy.zsh" 2>/dev/null || { skip "lazy.zsh not loadable"; return; }
 
-    # Test z_lazy_status function exists
-    if typeset -f z_lazy_status > /dev/null 2>&1; then
-        pass "z_lazy_status function defined"
-    else
-        fail "z_lazy_status function defined"
-    fi
+    # z_lazy_status now lives in lib/functions/framework.zsh
+    # Just verify the lazy module loads without it
+    pass "Lazy module loads successfully"
 
     # Test _LAZY_LOADED_TOOLS array exists
     if [[ -n "${(t)_LAZY_LOADED_TOOLS}" ]]; then
@@ -466,13 +457,8 @@ test_input_validation() {
 
     # Test that functions handle empty inputs gracefully
 
-    # _is_empty with no args (should not crash)
-    local result
-    result=$(_is_empty 2>&1) || true
-    pass "_is_empty handles no args"
-
-    # z_log_level_set with empty arg
-    assert_false "z_log_level_set rejects empty input" z_log_level_set ""
+    # log_level_set with empty arg
+    assert_false "log_level_set rejects empty input" log_level_set ""
 
     # _path_add with non-existent directory (should not add)
     local path_before=${#path[@]}
@@ -482,19 +468,19 @@ test_input_validation() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/history.zsh
+# TESTS: modules/06_history.zsh
 # ----------------------------------------------------------
 
 test_history() {
-    section "modules/history.zsh"
+    section "modules/06_history.zsh"
 
     # Load dependencies first
     unset _Z_HISTORY_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     # Load history module
-    source "$ZDOTDIR/modules/history.zsh" 2>/dev/null || { skip "history.zsh not loadable"; return; }
+    source "$ZDOTDIR/modules/06_history.zsh" 2>/dev/null || { skip "history.zsh not loadable"; return; }
 
     # Test _should_ignore_history_cmd function exists
     if ! typeset -f _should_ignore_history_cmd > /dev/null 2>&1; then
@@ -521,45 +507,45 @@ test_history() {
     assert_false "allows brew install" _should_ignore_history_cmd "brew install fzf"
 
     # Test history functions exist
-    if typeset -f history_stats > /dev/null 2>&1; then
-        pass "history_stats function defined"
+    if typeset -f z_history_stats > /dev/null 2>&1; then
+        pass "z_history_stats function defined"
     else
-        fail "history_stats function defined"
+        fail "z_history_stats function defined"
     fi
 
-    if typeset -f history_backup > /dev/null 2>&1; then
-        pass "history_backup function defined"
+    if typeset -f z_history_backup > /dev/null 2>&1; then
+        pass "z_history_backup function defined"
     else
-        fail "history_backup function defined"
+        fail "z_history_backup function defined"
     fi
 
-    if typeset -f history_clean > /dev/null 2>&1; then
-        pass "history_clean function defined"
+    if typeset -f z_history_clean > /dev/null 2>&1; then
+        pass "z_history_clean function defined"
     else
-        fail "history_clean function defined"
+        fail "z_history_clean function defined"
     fi
 
     # Test history edge cases
     # Test with empty HISTFILE path
     local old_histfile="$HISTFILE"
     unset HISTFILE
-    assert_false "history_backup handles missing HISTFILE" history_backup 2>/dev/null
+    assert_false "z_history_backup handles missing HISTFILE" z_history_backup 2>/dev/null
     HISTFILE="$old_histfile"
 }
 
 # ----------------------------------------------------------
-# TESTS: lib/utils/platform/detect.zsh
+# TESTS: lib/core/platform/detect.zsh
 # ----------------------------------------------------------
 
 test_platform_detection() {
-    section "lib/utils/platform/detect.zsh"
+    section "lib/core/platform/detect.zsh"
 
     # Check if platform detection module exists
-    [[ -f "$ZDOTDIR/lib/utils/platform/detect.zsh" ]] || { skip "detect.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/lib/core/platform/detect.zsh" ]] || { skip "detect.zsh not found"; return; }
 
     # Load module
     unset _Z_PLATFORM_DETECT_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/platform/detect.zsh" 2>/dev/null || { skip "detect.zsh not loadable"; return; }
+    source "$ZDOTDIR/lib/core/platform/detect.zsh" 2>/dev/null || { skip "detect.zsh not loadable"; return; }
 
     # Test primary platform detection functions exist
     if typeset -f _is_macos > /dev/null 2>&1; then
@@ -733,8 +719,8 @@ test_python() {
     [[ -f "$ZDOTDIR/lib/functions/python.zsh" ]] || { skip "python.zsh not found"; return; }
 
     # Load dependencies first
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     # Load module
     unset _Z_FUNCTIONS_PYTHON_LOADED 2>/dev/null
@@ -781,30 +767,18 @@ test_docker() {
     [[ -f "$ZDOTDIR/lib/functions/docker.zsh" ]] || { skip "docker.zsh not found"; return; }
 
     # Load dependencies first
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     # Load module
     unset _Z_FUNCTIONS_DOCKER_LOADED 2>/dev/null
     source "$ZDOTDIR/lib/functions/docker.zsh" 2>/dev/null || { skip "docker.zsh not loadable"; return; }
 
-    # Test function existence
-    if typeset -f z_docker_stop_all > /dev/null 2>&1; then
-        pass "z_docker_stop_all function defined"
+    # Test consolidated function existence
+    if typeset -f z_docker_cleanup > /dev/null 2>&1; then
+        pass "z_docker_cleanup function defined"
     else
-        fail "z_docker_stop_all function defined"
-    fi
-
-    if typeset -f z_docker_rmi_dangling > /dev/null 2>&1; then
-        pass "z_docker_rmi_dangling function defined"
-    else
-        fail "z_docker_rmi_dangling function defined"
-    fi
-
-    if typeset -f z_docker_rmv_dangling > /dev/null 2>&1; then
-        pass "z_docker_rmv_dangling function defined"
-    else
-        fail "z_docker_rmv_dangling function defined"
+        fail "z_docker_cleanup function defined"
     fi
 
     # Test idempotent guard
@@ -816,32 +790,43 @@ test_docker() {
 
     # Test docker command check (should fail gracefully if docker not installed)
     if ! command -v docker > /dev/null 2>&1; then
-        # Docker not installed - verify functions handle this gracefully
+        # Docker not installed - verify function handles this gracefully
         local result
-        result=$(z_docker_stop_all 2>&1)
+        result=$(z_docker_cleanup stop 2>&1)
         if [[ "$result" == *"docker command not found"* ]]; then
-            pass "z_docker_stop_all handles missing docker gracefully"
+            pass "z_docker_cleanup handles missing docker gracefully"
         else
-            fail "z_docker_stop_all handles missing docker gracefully" "error message" "$result"
+            fail "z_docker_cleanup handles missing docker gracefully" "error message" "$result"
         fi
     else
         skip "Docker is installed, skipping missing-docker test"
     fi
+
+    # Test invalid subcommand
+    if typeset -f z_docker_cleanup > /dev/null 2>&1; then
+        local result
+        result=$(z_docker_cleanup bogus 2>&1)
+        if [[ "$result" == *"Unknown subcommand"* ]]; then
+            pass "z_docker_cleanup rejects invalid subcommand"
+        else
+            fail "z_docker_cleanup rejects invalid subcommand" "error message" "$result"
+        fi
+    fi
 }
 
 # ----------------------------------------------------------
-# TESTS: lib/utils/core.zsh (_get_mtime)
+# TESTS: lib/core/helpers.zsh (_get_mtime)
 # ----------------------------------------------------------
 
 test_get_mtime() {
-    section "lib/utils/core.zsh (_get_mtime)"
+    section "lib/core/helpers.zsh (_get_mtime)"
 
-    [[ -f "$ZDOTDIR/lib/utils/core.zsh" ]] || { skip "core.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/lib/core/helpers.zsh" ]] || { skip "core.zsh not found"; return; }
 
     # Load dependencies
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    unset _Z_UTILS_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    unset _Z_HELPERS_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     if ! typeset -f _get_mtime > /dev/null 2>&1; then
         skip "_get_mtime not available"
@@ -877,18 +862,18 @@ test_get_mtime() {
 }
 
 # ----------------------------------------------------------
-# TESTS: lib/utils/core.zsh (_cache_eval)
+# TESTS: lib/core/helpers.zsh (_cache_eval)
 # ----------------------------------------------------------
 
 test_cache_eval() {
-    section "lib/utils/core.zsh (_cache_eval)"
+    section "lib/core/helpers.zsh (_cache_eval)"
 
-    [[ -f "$ZDOTDIR/lib/utils/core.zsh" ]] || { skip "core.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/lib/core/helpers.zsh" ]] || { skip "core.zsh not found"; return; }
 
     # Load dependencies
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    unset _Z_UTILS_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    unset _Z_HELPERS_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     if ! typeset -f _cache_eval > /dev/null 2>&1; then
         skip "_cache_eval not available"
@@ -932,13 +917,13 @@ test_cache_eval() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/environment.zsh
+# TESTS: modules/02_environment.zsh
 # ----------------------------------------------------------
 
 test_environment() {
-    section "modules/environment.zsh"
+    section "modules/02_environment.zsh"
 
-    [[ -f "$ZDOTDIR/modules/environment.zsh" ]] || { skip "environment.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/modules/02_environment.zsh" ]] || { skip "environment.zsh not found"; return; }
 
     # Test XDG base directory defaults are defined
     local env_output
@@ -977,31 +962,31 @@ test_environment() {
         skip "EDITOR detection (no editor found)"
     fi
 
-    # Test env_show function exists
+    # Test z_env_show function exists
     local func_check
     func_check=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
         source \$ZDOTDIR/.zshenv 2>/dev/null
-        (( \$+functions[env_show] )) && echo 'DEFINED' || echo 'MISSING'
+        (( \$+functions[z_env_show] )) && echo 'DEFINED' || echo 'MISSING'
     " 2>&1)
 
     if [[ "$func_check" == *"DEFINED"* ]]; then
-        pass "env_show function defined"
+        pass "z_env_show function defined"
     else
-        fail "env_show function defined"
+        fail "z_env_show function defined"
     fi
 
-    # Test env_reload function exists
+    # Test z_env_reload function exists
     func_check=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
         source \$ZDOTDIR/.zshenv 2>/dev/null
-        (( \$+functions[env_reload] )) && echo 'DEFINED' || echo 'MISSING'
+        (( \$+functions[z_env_reload] )) && echo 'DEFINED' || echo 'MISSING'
     " 2>&1)
 
     if [[ "$func_check" == *"DEFINED"* ]]; then
-        pass "env_reload function defined"
+        pass "z_env_reload function defined"
     else
-        fail "env_reload function defined"
+        fail "z_env_reload function defined"
     fi
 
     # Test tool detection skips uninstalled tools
@@ -1028,9 +1013,9 @@ test_platform_extended() {
     section "Platform Detection (extended)"
 
     # Load platform detection
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
-    source "$ZDOTDIR/lib/utils/platform/detect.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/platform/detect.zsh" 2>/dev/null || true
 
     # Test _is_docker (should be false on dev machine)
     if typeset -f _is_docker > /dev/null 2>&1; then
@@ -1045,7 +1030,7 @@ test_platform_extended() {
 
     # Test _is_ci (should be false locally)
     if typeset -f _is_ci > /dev/null 2>&1; then
-        if [[ -z "$CI" ]]; then
+        if [[ -z "${CI:-}" ]]; then
             assert_false "_is_ci returns false locally" _is_ci
         else
             skip "_is_ci test (running in CI)"
@@ -1088,11 +1073,11 @@ test_platform_extended() {
 # ----------------------------------------------------------
 
 test_ensure_file_perms() {
-    section "lib/utils/core.zsh (_ensure_file perms)"
+    section "lib/core/helpers.zsh (_ensure_file perms)"
 
-    source "$ZDOTDIR/lib/utils/logging.zsh" 2>/dev/null || true
-    unset _Z_UTILS_LOADED 2>/dev/null
-    source "$ZDOTDIR/lib/utils/core.zsh" 2>/dev/null || true
+    source "$ZDOTDIR/lib/core/logging.zsh" 2>/dev/null || true
+    unset _Z_HELPERS_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     if ! typeset -f _ensure_file > /dev/null 2>&1; then
         skip "_ensure_file not available"
@@ -1176,7 +1161,7 @@ test_omz_fallback() {
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
         (( \$+functions[z_lazy_status] )) && echo 'LAZY_OK'
-        (( \$+functions[history_stats] )) && echo 'HISTORY_OK'
+        (( \$+functions[z_history_stats] )) && echo 'HISTORY_OK'
     " 2>&1)
 
     if [[ "$modules_result" == *"LAZY_OK"* ]]; then
@@ -1193,11 +1178,11 @@ test_omz_fallback() {
 }
 
 # ----------------------------------------------------------
-# lib/functions/system.zsh
+# lib/functions/utilities.zsh + lib/functions/framework.zsh
 # ----------------------------------------------------------
 
 test_system_functions() {
-    section "lib/functions/system.zsh"
+    section "lib/functions/utilities.zsh + framework.zsh"
 
     # z_calc
     if (( $+functions[z_calc] )); then
@@ -1272,11 +1257,11 @@ test_system_functions() {
         skip "z_timeout not defined"
     fi
 
-    # z_detect_ssh_agent
-    if (( $+functions[z_detect_ssh_agent] )); then
-        pass "z_detect_ssh_agent function defined"
+    # _detect_ssh_agent (infrastructure function in lib/core/platform/detect.zsh)
+    if (( $+functions[_detect_ssh_agent] )); then
+        pass "_detect_ssh_agent function defined"
     else
-        fail "z_detect_ssh_agent not defined"
+        fail "_detect_ssh_agent not defined"
     fi
 
     # z_check_tools
@@ -1572,13 +1557,6 @@ test_introspection_functions() {
         skip "_als_build_cache not defined"
     fi
 
-    # _als_get_desc
-    if (( $+functions[_als_get_desc] )); then
-        pass "_als_get_desc function defined"
-    else
-        skip "_als_get_desc not defined"
-    fi
-
     # z_alias_browser (existence only — requires fzf + tty)
     if (( $+functions[z_alias_browser] )); then
         pass "z_alias_browser function defined"
@@ -1588,11 +1566,11 @@ test_introspection_functions() {
 }
 
 # ----------------------------------------------------------
-# modules/lazy.zsh (extended)
+# modules/04_lazy.zsh (extended)
 # ----------------------------------------------------------
 
 test_lazy_loading_extended() {
-    section "modules/lazy.zsh (extended)"
+    section "modules/04_lazy.zsh (extended)"
 
     # _lazy_create_wrapper existence
     if (( $+functions[_lazy_create_wrapper] )); then
@@ -1660,22 +1638,22 @@ test_lazy_loading_extended() {
 }
 
 # ----------------------------------------------------------
-# modules/history.zsh (history_clean)
+# modules/06_history.zsh (z_history_clean)
 # ----------------------------------------------------------
 
-test_history_clean() {
-    section "modules/history.zsh (history_clean)"
+test_z_history_clean() {
+    section "modules/06_history.zsh (z_history_clean)"
 
     local original_histfile="$HISTFILE"
 
-    # history_clean function exists
-    if (( $+functions[history_clean] )); then
-        pass "history_clean function defined"
+    # z_history_clean function exists
+    if (( $+functions[z_history_clean] )); then
+        pass "z_history_clean function defined"
     else
-        fail "history_clean not defined"
+        fail "z_history_clean not defined"
     fi
 
-    # Test the awk dedup+filter logic directly (history_clean uses fc -R which hangs in non-interactive)
+    # Test the awk dedup+filter logic directly (z_history_clean uses fc -R which hangs in non-interactive)
     local test_histfile="$TEST_TMP/awk_test_history"
     cat > "$test_histfile" <<'HIST'
 : 1700000001:0;ls -la
@@ -1687,7 +1665,7 @@ test_history_clean() {
 : 1700000007:0;echo hello
 HIST
 
-    # Build the awk pattern the same way history_clean does
+    # Build the awk pattern the same way z_history_clean does
     local awk_patterns=()
     local pattern
     for pattern in "${Z_HISTORY_IGNORE_PATTERNS[@]}"; do
@@ -1757,30 +1735,30 @@ HIST
         fail "history awk logic produced empty output"
     fi
 
-    # _create_history_backup
-    if (( $+functions[_create_history_backup] )); then
+    # _create_z_history_backup
+    if (( $+functions[_create_z_history_backup] )); then
         local backup_src="$TEST_TMP/backup_src_hist"
         local backup_dst="$TEST_TMP/backup_dst_hist.bak"
         echo ": 1700000001:0;test command" > "$backup_src"
         HISTFILE="$backup_src"
 
-        _create_history_backup "$backup_dst" 2>/dev/null
+        _create_z_history_backup "$backup_dst" 2>/dev/null
         if [[ -f "$backup_dst" ]]; then
-            pass "_create_history_backup creates file"
+            pass "_create_z_history_backup creates file"
         else
-            fail "_create_history_backup failed to create backup"
+            fail "_create_z_history_backup failed to create backup"
         fi
 
         # Verify backup has correct permissions
         local backup_perms
         backup_perms=$(stat -f %Lp "$backup_dst" 2>/dev/null || stat -c %a "$backup_dst" 2>/dev/null)
         if [[ "$backup_perms" == "600" ]]; then
-            pass "_create_history_backup sets 600 permissions"
+            pass "_create_z_history_backup sets 600 permissions"
         else
-            skip "_create_history_backup permissions ($backup_perms)"
+            skip "_create_z_history_backup permissions ($backup_perms)"
         fi
     else
-        skip "_create_history_backup not defined"
+        skip "_create_z_history_backup not defined"
     fi
 
     # zshaddhistory hook
@@ -1809,11 +1787,11 @@ HIST
 }
 
 # ----------------------------------------------------------
-# lib/utils/core.zsh (extended coverage)
+# lib/core/helpers.zsh (extended coverage)
 # ----------------------------------------------------------
 
 test_core_utils_extended() {
-    section "lib/utils/core.zsh (extended)"
+    section "lib/core/helpers.zsh (extended)"
 
     # _is_login_shell — test runner is NOT a login shell
     if (( $+functions[_is_login_shell] )); then
@@ -1824,28 +1802,6 @@ test_core_utils_extended() {
         fi
     else
         fail "_is_login_shell not defined"
-    fi
-
-    # _require_omz — true when $ZSH points to existing dir
-    if (( $+functions[_require_omz] )); then
-        local saved_zsh="$ZSH"
-        ZSH="$TEST_TMP"
-        if _require_omz; then
-            pass "_require_omz true when dir exists"
-        else
-            fail "_require_omz false when dir exists"
-        fi
-
-        # false for missing dir
-        ZSH="/tmp/nonexistent-omz-test-$$"
-        if ! _require_omz; then
-            pass "_require_omz false for missing dir"
-        else
-            fail "_require_omz true for missing dir"
-        fi
-        ZSH="$saved_zsh"
-    else
-        fail "_require_omz not defined"
     fi
 
     # _run_post_interactive_hooks — runs registered hook
@@ -1951,11 +1907,11 @@ test_extract_errors() {
 }
 
 # ----------------------------------------------------------
-# modules/path.zsh (processing & cache)
+# modules/01_path.zsh (processing & cache)
 # ----------------------------------------------------------
 
 test_path_processing() {
-    section "modules/path.zsh (processing)"
+    section "modules/01_path.zsh (processing)"
 
     # _path_cache_rebuild
     if (( $+functions[_path_cache_rebuild] )); then
@@ -2001,6 +1957,454 @@ test_path_processing() {
     fi
 }
 
+test_help_system() {
+    section "lib/functions/help.zsh"
+
+    # z_help function defined
+    if (( $+functions[z_help] )); then
+        pass "z_help function defined"
+    else
+        fail "z_help function not defined"
+    fi
+
+    # _HELP_REGISTRY populated with >30 entries
+    if (( ${#_HELP_REGISTRY} > 30 )); then
+        pass "_HELP_REGISTRY populated (${#_HELP_REGISTRY} entries)"
+    else
+        fail "_HELP_REGISTRY has only ${#_HELP_REGISTRY} entries (expected >30)"
+    fi
+
+    # z_help produces output (static mode)
+    local help_output
+    help_output="$(z_help 2>&1)"
+    if [[ -n "$help_output" ]]; then
+        pass "z_help produces output"
+    else
+        fail "z_help produces no output"
+    fi
+
+    # help detail for known command
+    local detail_output
+    detail_output="$(z_help calc 2>&1)"
+    if [[ $? -eq 0 && "$detail_output" == *"calc"* ]]; then
+        pass "z_help calc shows command detail"
+    else
+        fail "z_help calc did not show expected detail"
+    fi
+
+    # help detail rejects unknown command
+    local unknown_output
+    unknown_output="$(z_help nonexistent_xyz_test 2>&1)"
+    if [[ $? -ne 0 ]]; then
+        pass "z_help rejects unknown command"
+    else
+        fail "z_help accepted unknown command"
+    fi
+
+    # _help_show_state produces output
+    if (( $+functions[_help_show_state] )); then
+        local state_output
+        state_output="$(_help_show_state 2>&1)"
+        if [[ -n "$state_output" ]]; then
+            pass "_help_show_state produces output"
+        else
+            fail "_help_show_state produces no output"
+        fi
+    else
+        skip "_help_show_state not defined"
+    fi
+}
+
+# ----------------------------------------------------------
+# TESTS: XDG Guardian
+# ----------------------------------------------------------
+
+test_xdg_guardian() {
+    section "lib/functions/xdg.zsh (XDG Guardian)"
+
+    # -- Configuration defaults --
+
+    # Z_XDG_GUARDIAN_ENABLED defaults to true
+    assert_eq "${Z_XDG_GUARDIAN_ENABLED:-}" "true" "Z_XDG_GUARDIAN_ENABLED defaults to true"
+
+    # Z_XDG_GUARDIAN_INTERVAL defaults to 86400
+    assert_eq "${Z_XDG_GUARDIAN_INTERVAL:-}" "86400" "Z_XDG_GUARDIAN_INTERVAL defaults to 86400"
+
+    # Z_XDG_GUARDIAN_AUTO_FIX defaults to false
+    assert_eq "${Z_XDG_GUARDIAN_AUTO_FIX:-}" "false" "Z_XDG_GUARDIAN_AUTO_FIX defaults to false"
+
+    # Z_XDG_GUARDIAN_QUIET defaults to false
+    assert_eq "${Z_XDG_GUARDIAN_QUIET:-}" "false" "Z_XDG_GUARDIAN_QUIET defaults to false"
+
+    # -- Z_XDG_MIGRATIONS array --
+
+    if (( ${+Z_XDG_MIGRATIONS} )); then
+        pass "Z_XDG_MIGRATIONS declared"
+    else
+        fail "Z_XDG_MIGRATIONS not declared"
+    fi
+
+    if (( ${#Z_XDG_MIGRATIONS} > 0 )); then
+        pass "Z_XDG_MIGRATIONS populated (${#Z_XDG_MIGRATIONS} entries)"
+    else
+        fail "Z_XDG_MIGRATIONS is empty"
+    fi
+
+    # Validate entry format: value should have pipe-delimited fields
+    local _xk _xv _valid_count=0
+    for _xk _xv in ${(kv)Z_XDG_MIGRATIONS}; do
+        if [[ "$_xv" == *"|"* ]]; then
+            (( _valid_count++ ))
+        fi
+    done
+    if (( _valid_count == ${#Z_XDG_MIGRATIONS} )); then
+        pass "Z_XDG_MIGRATIONS entries all have pipe-delimited format"
+    else
+        fail "Some Z_XDG_MIGRATIONS entries lack pipe delimiters" "${#Z_XDG_MIGRATIONS}" "$_valid_count"
+    fi
+
+    # -- Core functions exist --
+
+    local -a xdg_funcs=(
+        _xdg_ninja_db_path _xdg_is_skipped _xdg_format_size _xdg_format_date
+        _xdg_format_date_short _xdg_format_relative_time
+        _xdg_scan_ninja _xdg_scan_registry _xdg_scan_orphans
+        _xdg_check_conflict _xdg_migrate_one _xdg_classify
+        _xdg_guardian_hook _xdg_clean_old_backups
+        _xdg_resolve_conflict_fzf _xdg_resolve_conflict_menu
+        z_xdg_check z_xdg_fix z_xdg_status
+    )
+    local _fn
+    for _fn in "${xdg_funcs[@]}"; do
+        if (( $+functions[$_fn] )); then
+            pass "$_fn function defined"
+        else
+            fail "$_fn function not defined"
+        fi
+    done
+
+    # -- _xdg_ninja_db_path: returns valid path or 1 --
+
+    local _ninja_path
+    _ninja_path=$(_xdg_ninja_db_path 2>/dev/null)
+    if [[ $? -eq 0 && -d "$_ninja_path" ]]; then
+        pass "_xdg_ninja_db_path returns valid directory"
+    else
+        skip "_xdg_ninja_db_path: xdg-ninja not installed"
+    fi
+
+    # -- _xdg_is_skipped: default skip list --
+
+    if _xdg_is_skipped "$HOME/.zshenv"; then
+        pass "_xdg_is_skipped recognizes .zshenv"
+    else
+        fail "_xdg_is_skipped did not skip .zshenv"
+    fi
+
+    if _xdg_is_skipped "$HOME/.ssh"; then
+        pass "_xdg_is_skipped recognizes .ssh"
+    else
+        fail "_xdg_is_skipped did not skip .ssh"
+    fi
+
+    if ! _xdg_is_skipped "$HOME/.random_test_path_xyz"; then
+        pass "_xdg_is_skipped allows non-skipped paths"
+    else
+        fail "_xdg_is_skipped incorrectly skipped random path"
+    fi
+
+    # -- _xdg_format_size --
+
+    assert_contains "$(_xdg_format_size 500)" "KB" "_xdg_format_size: KB for small"
+    assert_contains "$(_xdg_format_size 2048)" "MB" "_xdg_format_size: MB for medium"
+    assert_contains "$(_xdg_format_size 2097152)" "GB" "_xdg_format_size: GB for large"
+
+    # -- _xdg_check_conflict with temp files --
+
+    local _xdg_src="$TEST_TMP/xdg_src" _xdg_tgt="$TEST_TMP/xdg_tgt"
+
+    # CLEAR: target doesn't exist
+    echo "test" > "$_xdg_src"
+    local _cdata
+    _cdata=$(_xdg_check_conflict "$_xdg_src" "$_xdg_tgt")
+    local _crc=$?
+    if (( _crc == 0 )) && [[ "$_cdata" == CLEAR* ]]; then
+        pass "_xdg_check_conflict: CLEAR when target absent"
+    else
+        fail "_xdg_check_conflict: expected CLEAR" "0/CLEAR" "$_crc/$_cdata"
+    fi
+
+    # ERROR: source doesn't exist
+    rm -f "$_xdg_src"
+    _cdata=$(_xdg_check_conflict "$_xdg_src" "$_xdg_tgt")
+    _crc=$?
+    if (( _crc == 2 )); then
+        pass "_xdg_check_conflict: ERROR when source absent"
+    else
+        fail "_xdg_check_conflict: expected ERROR (rc=2)" "2" "$_crc"
+    fi
+
+    # TYPE_MISMATCH: file vs dir
+    echo "file" > "$_xdg_src"
+    mkdir -p "$_xdg_tgt"
+    _cdata=$(_xdg_check_conflict "$_xdg_src" "$_xdg_tgt")
+    _crc=$?
+    if (( _crc == 1 )) && [[ "$_cdata" == TYPE_MISMATCH* ]]; then
+        pass "_xdg_check_conflict: TYPE_MISMATCH (file vs dir)"
+    else
+        fail "_xdg_check_conflict: expected TYPE_MISMATCH" "1/TYPE_MISMATCH" "$_crc/$_cdata"
+    fi
+    rm -rf "$_xdg_src" "$_xdg_tgt"
+
+    # -- _xdg_migrate_one with temp dirs --
+
+    # Simple successful migration
+    local _mig_src="$TEST_TMP/mig_source" _mig_tgt="$TEST_TMP/mig_dest/config"
+    mkdir -p "$_mig_src"
+    echo "data" > "$_mig_src/file.txt"
+
+    local _old_state="$ZSH_STATE_HOME"
+    export ZSH_STATE_HOME="$TEST_TMP/state"
+    mkdir -p "$ZSH_STATE_HOME"
+
+    _xdg_migrate_one "$_mig_src" "$_mig_tgt"
+    _crc=$?
+    if (( _crc == 0 )) && [[ -d "$_mig_tgt" ]] && [[ ! -e "$_mig_src" ]]; then
+        pass "_xdg_migrate_one: successful migration"
+    else
+        fail "_xdg_migrate_one: migration failed" "rc=0, tgt exists, src gone" "rc=$_crc"
+    fi
+
+    # Verify migrated content
+    if [[ -f "$_mig_tgt/file.txt" ]]; then
+        pass "_xdg_migrate_one: content preserved"
+    else
+        fail "_xdg_migrate_one: content not preserved"
+    fi
+
+    # Verify log file written
+    if [[ -f "$ZSH_STATE_HOME/xdg-guardian.log" ]]; then
+        pass "_xdg_migrate_one: log file written"
+    else
+        fail "_xdg_migrate_one: log file not written"
+    fi
+
+    # Non-existent source returns 1
+    _xdg_migrate_one "$TEST_TMP/nonexistent_src_xyz" "$TEST_TMP/nonexistent_tgt_xyz"
+    if (( $? == 1 )); then
+        pass "_xdg_migrate_one: returns 1 for non-existent source"
+    else
+        fail "_xdg_migrate_one: did not return 1 for non-existent source"
+    fi
+
+    # Conflict returns 2 (target newer than source)
+    local _csrc="$TEST_TMP/conflict_src" _ctgt="$TEST_TMP/conflict_tgt"
+    echo "old" > "$_csrc"
+    sleep 1
+    echo "new" > "$_ctgt"
+    _xdg_migrate_one "$_csrc" "$_ctgt"
+    if (( $? == 2 )); then
+        pass "_xdg_migrate_one: returns 2 for conflict (target newer)"
+    else
+        # This may not always trigger depending on mtime resolution
+        skip "_xdg_migrate_one: conflict detection timing-dependent"
+    fi
+
+    # Skip list respected
+    local _skip_src="$HOME/.zshenv"
+    if [[ -f "$_skip_src" ]]; then
+        _xdg_migrate_one "$_skip_src" "$TEST_TMP/should_not_move"
+        if (( $? == 0 )) && [[ -f "$_skip_src" ]]; then
+            pass "_xdg_migrate_one: skip list prevents migration of .zshenv"
+        else
+            fail "_xdg_migrate_one: did not respect skip list for .zshenv"
+        fi
+    else
+        skip "_xdg_migrate_one: .zshenv not present to test skip list"
+    fi
+
+    # Restore state dir
+    export ZSH_STATE_HOME="$_old_state"
+
+    # -- _xdg_format_relative_time --
+
+    local _now="$EPOCHSECONDS"
+    local _5min_ago=$(( _now - 300 ))
+    local _3hours_ago=$(( _now - 10800 ))
+    local _2days_ago=$(( _now - 172800 ))
+    local _3months_ago=$(( _now - 7776000 ))
+
+    assert_contains "$(_xdg_format_relative_time "$_5min_ago")" "minutes" "_xdg_format_relative_time: minutes"
+    assert_contains "$(_xdg_format_relative_time "$_3hours_ago")" "hours" "_xdg_format_relative_time: hours"
+    assert_contains "$(_xdg_format_relative_time "$_2days_ago")" "days" "_xdg_format_relative_time: days"
+    assert_contains "$(_xdg_format_relative_time "$_3months_ago")" "months" "_xdg_format_relative_time: months"
+
+    # -- _xdg_scan_orphans --
+
+    local _old_migrations_orphan
+    typeset -A _old_migrations_orphan
+    local k v
+    for k v in ${(kv)Z_XDG_MIGRATIONS}; do
+        _old_migrations_orphan[$k]="$v"
+    done
+
+    # Create a fake orphan: target exists, tool NOT installed
+    local _orphan_tgt="$TEST_TMP/orphan_xdg_dir"
+    mkdir -p "$_orphan_tgt"
+    echo "leftover" > "$_orphan_tgt/data"
+    Z_XDG_MIGRATIONS+=(
+        '$HOME/.fake_orphan_tool_xyz' "${_orphan_tgt}|Test orphan|true|fake_orphan_tool_xyz_nonexistent"
+    )
+    typeset -gA _Z_XDG_ORPHANS=()
+    _xdg_scan_orphans
+    if (( ${#_Z_XDG_ORPHANS} > 0 )) && [[ -n "${_Z_XDG_ORPHANS[$_orphan_tgt]:-}" ]]; then
+        pass "_xdg_scan_orphans: detects orphaned XDG directory"
+    else
+        fail "_xdg_scan_orphans: did not detect orphan" "found in _Z_XDG_ORPHANS" "not found"
+    fi
+    rm -rf "$_orphan_tgt"
+
+    # Restore original migrations
+    typeset -gA Z_XDG_MIGRATIONS=()
+    for k v in ${(kv)_old_migrations_orphan}; do
+        Z_XDG_MIGRATIONS[$k]="$v"
+    done
+
+    # -- _xdg_migrate_one: atomic backup created and cleaned --
+
+    local _abk_src="$TEST_TMP/atomic_src" _abk_tgt="$TEST_TMP/atomic_dest/config"
+    mkdir -p "$_abk_src"
+    echo "atomic_data" > "$_abk_src/file.txt"
+
+    local _old_state_abk="$ZSH_STATE_HOME"
+    export ZSH_STATE_HOME="$TEST_TMP/atomic_state"
+    mkdir -p "$ZSH_STATE_HOME"
+
+    _xdg_migrate_one "$_abk_src" "$_abk_tgt"
+    _crc=$?
+    if (( _crc == 0 )); then
+        pass "_xdg_migrate_one: atomic migration succeeded"
+        # Backup should be cleaned on success
+        local _backup_dir="$ZSH_STATE_HOME/xdg-guardian-backups"
+        if [[ ! -d "$_backup_dir" ]] || (( $(ls -A "$_backup_dir" 2>/dev/null | wc -l | tr -d ' ') == 0 )); then
+            pass "_xdg_migrate_one: backup cleaned after success"
+        else
+            fail "_xdg_migrate_one: backup not cleaned"
+        fi
+    else
+        fail "_xdg_migrate_one: atomic migration failed" "0" "$_crc"
+    fi
+    export ZSH_STATE_HOME="$_old_state_abk"
+
+    # -- _xdg_classify: target exists → always conflict --
+
+    typeset -gA _Z_XDG_FINDINGS=()
+    local _cls_src="$TEST_TMP/cls_stray"
+    local _cls_tgt="$TEST_TMP/cls_target"
+    mkdir -p "$_cls_src" "$_cls_tgt"
+    echo "old" > "$_cls_src/data"
+    echo "new" > "$_cls_tgt/data"
+    # Simulate a managed finding with existing target
+    _Z_XDG_FINDINGS[$_cls_src]="${_cls_tgt}|some hint|true|sometool||managed"
+    typeset -gA _Z_XDG_ORPHANS=()
+    _xdg_classify
+    if (( ${#_Z_XDG_CONFLICTS} > 0 )) && (( ${#_Z_XDG_READY} == 0 )); then
+        pass "_xdg_classify: target exists -> conflict (not ready)"
+    else
+        fail "_xdg_classify: target exists should be conflict" \
+            "conflicts>0,ready=0" "conflicts=${#_Z_XDG_CONFLICTS},ready=${#_Z_XDG_READY}"
+    fi
+    rm -rf "$_cls_src" "$_cls_tgt"
+
+    # -- _xdg_migrate_one --force: backs up existing target --
+
+    local _ft_src="$TEST_TMP/force_src" _ft_tgt="$TEST_TMP/force_dest/config"
+    mkdir -p "$_ft_src" "$_ft_tgt"
+    echo "src_data" > "$_ft_src/file.txt"
+    echo "tgt_data" > "$_ft_tgt/existing.txt"
+
+    local _old_state_ft="$ZSH_STATE_HOME"
+    export ZSH_STATE_HOME="$TEST_TMP/force_state"
+    mkdir -p "$ZSH_STATE_HOME"
+
+    _xdg_migrate_one "$_ft_src" "$_ft_tgt" "--force"
+    _crc=$?
+    if (( _crc == 0 )); then
+        pass "_xdg_migrate_one --force: migration succeeded"
+        # Target should have source content
+        if [[ -f "$_ft_tgt/file.txt" ]]; then
+            pass "_xdg_migrate_one --force: source content at target"
+        else
+            fail "_xdg_migrate_one --force: source content missing from target"
+        fi
+        # Both source and target backups should be cleaned on success
+        local _ft_bk="$ZSH_STATE_HOME/xdg-guardian-backups"
+        local _ft_bk_count=0
+        for _d in "$_ft_bk"/*(N/); do
+            (( _ft_bk_count++ ))
+        done
+        if (( _ft_bk_count == 0 )); then
+            pass "_xdg_migrate_one --force: all backups cleaned on success"
+        else
+            fail "_xdg_migrate_one --force: backups not cleaned" "0" "$_ft_bk_count"
+        fi
+    else
+        fail "_xdg_migrate_one --force: migration failed" "0" "$_crc"
+    fi
+    export ZSH_STATE_HOME="$_old_state_ft"
+
+    # -- _xdg_guardian_hook respects ENABLED=false --
+
+    local _old_enabled="$Z_XDG_GUARDIAN_ENABLED"
+    Z_XDG_GUARDIAN_ENABLED=false
+    _xdg_guardian_hook 2>/dev/null
+    if (( $? == 0 )); then
+        pass "_xdg_guardian_hook: returns 0 when disabled"
+    else
+        fail "_xdg_guardian_hook: unexpected return when disabled"
+    fi
+    Z_XDG_GUARDIAN_ENABLED="$_old_enabled"
+
+    # -- z_xdg_status output format --
+
+    local _old_state2="$ZSH_STATE_HOME"
+    export ZSH_STATE_HOME="$TEST_TMP/status_state"
+    mkdir -p "$ZSH_STATE_HOME"
+
+    # No findings file -> "unknown"
+    local _status_out
+    _status_out="$(z_xdg_status 2>/dev/null)"
+    if [[ "$_status_out" == XDG:* ]]; then
+        pass "z_xdg_status: outputs XDG: prefix"
+    else
+        fail "z_xdg_status: missing XDG: prefix" "XDG:*" "$_status_out"
+    fi
+    assert_contains "$_status_out" "unknown" "z_xdg_status: unknown when no findings"
+
+    # With findings -> reports count
+    {
+        echo "# scan"
+        echo "STRAY|/tmp/fake1|data"
+        echo "STRAY|/tmp/fake2|data"
+    } > "$ZSH_STATE_HOME/xdg-guardian.findings"
+    _status_out="$(z_xdg_status 2>/dev/null)"
+    assert_contains "$_status_out" "2 stray" "z_xdg_status: reports stray count"
+
+    export ZSH_STATE_HOME="$_old_state2"
+
+    # -- Hook registered in Z_POST_INTERACTIVE_HOOKS (fresh shell) --
+    # NOTE: Other tests re-source core.zsh which resets the hooks array,
+    # so we verify registration in a clean subshell instead.
+
+    local _hook_check
+    _hook_check=$(zsh -c 'echo ${Z_POST_INTERACTIVE_HOOKS[@]}' 2>/dev/null)
+    if [[ "$_hook_check" == *"_xdg_guardian_hook"* ]]; then
+        pass "_xdg_guardian_hook registered in Z_POST_INTERACTIVE_HOOKS"
+    else
+        fail "_xdg_guardian_hook not registered in Z_POST_INTERACTIVE_HOOKS" "*_xdg_guardian_hook*" "$_hook_check"
+    fi
+}
+
 # ----------------------------------------------------------
 # TEST RUNNER
 # ----------------------------------------------------------
@@ -2036,11 +2440,13 @@ main() {
     test_network_functions
     test_introspection_functions
     test_lazy_loading_extended
-    test_history_clean
+    test_z_history_clean
     test_core_utils_extended
     test_portcheck_valid
     test_extract_errors
     test_path_processing
+    test_help_system
+    test_xdg_guardian
 
     teardown_test_env
 

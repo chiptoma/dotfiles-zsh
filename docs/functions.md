@@ -6,7 +6,8 @@ User-facing utility functions organized by category. All functions use the `z_` 
 
 | Category | File | Description |
 |----------|------|-------------|
-| System | [lib/functions/system.zsh](../lib/functions/system.zsh) | Calculator, weather, process management |
+| Utilities | [lib/functions/utilities.zsh](../lib/functions/utilities.zsh) | Calculator, weather, process management |
+| Framework | [lib/functions/framework.zsh](../lib/functions/framework.zsh) | Version, updates, health, status, benchmark |
 | File | [lib/functions/file.zsh](../lib/functions/file.zsh) | File operations, archives, navigation |
 | Git | [lib/functions/git.zsh](../lib/functions/git.zsh) | Repository maintenance |
 | Docker | [lib/functions/docker.zsh](../lib/functions/docker.zsh) | Container cleanup |
@@ -337,7 +338,7 @@ als git                # Pre-filter to git aliases
 | `z_killapp` | `killapp` | Quit application by name |
 | `z_wifi_name` | `wifi` | Show current Wi-Fi network |
 | `z_wifi_password` | `wifipass` | Show Wi-Fi password |
-| `z_macos_check_tools` | `checktools` | Check recommended tools |
+| `z_check_tools` | `check-tools` | Check recommended tools |
 
 ```bash
 killapp Safari         # Quit Safari gracefully
@@ -346,12 +347,6 @@ wifipass               # Password for current network
 wifipass "Other Net"   # Password for specific network
 checktools             # Shows installed/missing tools
 ```
-
-### Linux Only
-
-| Function | Alias | Description |
-|----------|-------|-------------|
-| `z_linux_check_tools` | `checktools` | Check recommended tools |
 
 ## Dependencies
 

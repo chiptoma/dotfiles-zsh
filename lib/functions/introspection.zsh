@@ -5,18 +5,12 @@
 # Parses inline comments from aliases.zsh for descriptions
 # ==============================================================================
 
-# Idempotent guard - prevent multiple loads
+# Idempotent guard
 (( ${+_Z_FUNCTIONS_INTROSPECTION_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_INTROSPECTION_LOADED=1
 
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_INTROSPECTION_ENABLED:=true}
-
-# Exit early if disabled
-[[ "$Z_FUNCTIONS_INTROSPECTION_ENABLED" != "true" ]] && return 0
-
 # Path to aliases file (parsed for descriptions)
-typeset -g _ALS_SOURCE_FILE="${ZSH_CONFIG_HOME}/modules/aliases.zsh"
+typeset -g _ALS_SOURCE_FILE="${ZSH_CONFIG_HOME}/modules/07_aliases.zsh"
 
 # ----------------------------------------------------------
 # DESCRIPTION CACHE
@@ -50,12 +44,6 @@ _als_build_cache() {
 
 # Initialize cache on load
 _als_build_cache
-
-# Get description for an alias (from cache or empty)
-_als_get_desc() {
-    local name="$1"
-    echo "${_ALIAS_DESC_CACHE[$name]:-}"
-}
 
 # ----------------------------------------------------------
 # CATEGORY DEFINITIONS
@@ -165,7 +153,7 @@ z_alias_browser() {
 
     local selected
 
-    # Use platform-specific clipboard command (defined in lib/utils/platform/*.zsh)
+    # Use platform-specific clipboard command (defined in lib/core/platform/*.zsh)
     local clip_cmd
     clip_cmd="$(_get_clipboard_cmd)"
 

@@ -62,9 +62,9 @@ typeset -g _CACHED_BSD_PKG_MANAGER="${_CACHED_BSD_PKG_MANAGER:-$(_bsd_detect_pkg
 # ----------------------------------------------------------
 
 _get_clipboard_cmd() {
-    if [[ -n "$DISPLAY" ]] && _has_cmd xclip; then
+    if [[ -n "${DISPLAY:-}" ]] && _has_cmd xclip; then
         echo "xclip -selection clipboard"
-    elif [[ -n "$DISPLAY" ]] && _has_cmd xsel; then
+    elif [[ -n "${DISPLAY:-}" ]] && _has_cmd xsel; then
         echo "xsel --clipboard --input"
     else
         echo "cat"  # Fallback: no clipboard

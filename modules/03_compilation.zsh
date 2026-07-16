@@ -115,64 +115,6 @@ _compile_function_dir() {
     return 0
 }
 
-# ------------------------------------------------------------------------------
-# z_cleanup_zwc
-# Removes stale or all compiled .zwc files.
-#
-# @param  $1  (string)  : Mode - "stale" (default) or "all".
-# @return     (int)     : 0 on success.
-#
-# Notes:
-# - "stale" mode: Removes .zwc files where source no longer exists.
-# - "all" mode: Removes ALL .zwc files (nuclear option).
-#
-# Warning: "all" mode is destructive - removes all compiled bytecode.
-# ------------------------------------------------------------------------------
-z_cleanup_zwc() {
-    local mode="${1:-stale}"
-    local zwc_file source_file
-    local count=0
-
-    # Glob patterns for .zwc files (no duplicates: **/* includes root)
-    local -a zwc_patterns=(
-        "${ZSH_CONFIG_HOME}"/**/*.zwc(.N)
-        "${ZDOTDIR:-$HOME}"/.*.zwc(.N)
-        "${HOME}"/.*.zwc(.N)
-    )
-
-    if [[ "$mode" == "all" ]]; then
-        _log INFO "Removing all compiled (.zwc) files..."
-
-        for zwc_file in ${zwc_patterns[@]}; do
-            [[ -f "$zwc_file" ]] || continue
-            rm -f "$zwc_file"
-            ((count++))
-            _log DEBUG "Removed: ${zwc_file#$HOME/}"
-        done
-
-        _log INFO "Removed $count compiled files"
-    else
-        # Remove only stale .zwc files (where source no longer exists)
-        for zwc_file in ${zwc_patterns[@]}; do
-            source_file="${zwc_file%.zwc}"
-            # Check both file and directory (for function dir .zwc)
-            if [[ ! -f "$source_file" && ! -d "$source_file" ]]; then
-                rm -f "$zwc_file"
-                ((count++))
-                _log DEBUG "Removed stale: ${zwc_file#$HOME/}"
-            fi
-        done
-
-        if (( count > 0 )); then
-            _log INFO "Cleaned $count stale compiled files"
-        else
-            _log DEBUG "No stale compiled files found"
-        fi
-    fi
-
-    return 0
-}
-
 # ----------------------------------------------------------
 # COMPILE CORE ZSH FILES
 # Main dotfiles: .zshrc, .zshenv, .zprofile, .zlogin, .zlogout, .p10k.zsh
@@ -273,14 +215,6 @@ if [[ "$Z_COMPILATION_DEBUG" == "true" ]]; then
         _log INFO ""
     }
 fi
-
-# ----------------------------------------------------------
-# ALIASES
-# User-facing commands for compilation management
-# ----------------------------------------------------------
-
-alias compclean='z_cleanup_zwc'          # Remove stale .zwc files
-alias compclean-all='z_cleanup_zwc all'  # Remove ALL .zwc files
 
 # ----------------------------------------------------------
 _log DEBUG "ZSH Compilation Module loaded successfully"

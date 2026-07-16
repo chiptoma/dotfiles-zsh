@@ -4,15 +4,9 @@
 # Git workflow and repository management utilities.
 # ==============================================================================
 
-# Idempotent guard - prevent multiple loads
+# Idempotent guard
 (( ${+_Z_FUNCTIONS_GIT_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_GIT_LOADED=1
-
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_GIT_ENABLED:=true}  # Enable/disable Git functions (default: true)
-
-# Exit early if Git functions are disabled
-[[ "$Z_FUNCTIONS_GIT_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
 # GIT BRANCH MANAGEMENT
@@ -61,9 +55,9 @@ z_git_cleanup() {
 
         echo ""
         if (( failed > 0 )); then
-            echo "✓ Cleaned up $deleted branch(es), $failed failed"
+            _ui_ok "Cleaned up $deleted branch(es), $failed failed"
         else
-            echo "✓ Merged branches cleaned up ($deleted deleted)"
+            _ui_ok "Merged branches cleaned up ($deleted deleted)"
         fi
     else
         echo "No merged branches to clean up"

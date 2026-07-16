@@ -4,15 +4,9 @@
 # File management and information utilities.
 # ==============================================================================
 
-# Idempotent guard - prevent multiple loads
+# Idempotent guard
 (( ${+_Z_FUNCTIONS_FILE_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_FILE_LOADED=1
-
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_FILE_ENABLED:=true}  # Enable/disable File functions (default: true)
-
-# Exit early if File functions are disabled
-[[ "$Z_FUNCTIONS_FILE_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
 # FILE INFORMATION

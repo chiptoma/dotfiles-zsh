@@ -109,7 +109,7 @@ wifipass              # Password for current network
 wifipass "OtherNet"   # Password for specific network
 ```
 
-#### `z_macos_check_tools`
+#### `z_check_tools`
 
 Check recommended development tools.
 
@@ -200,17 +200,6 @@ _get_install_cmd fzf
 # Output: sudo pacman -S fzf    (on Arch)
 ```
 
-### Linux Functions
-
-#### `z_linux_check_tools`
-
-Check recommended development tools.
-
-```bash
-checktools
-# Shows installed/missing tools with install command
-```
-
 ### Clipboard Detection (Linux)
 
 Automatically selects clipboard command:
@@ -273,24 +262,9 @@ _get_install_cmd fzf
 | X11 (xclip) | `xclip -selection clipboard` |
 | X11 (xsel) | `xsel --clipboard --input` |
 
-## Cross-Platform Stubs
+## Cross-Platform Safety
 
-Each platform defines stubs for the other platform's functions:
-
-**On macOS:**
-```bash
-_is_linux() { return 1 }
-_is_wsl() { return 1 }
-```
-
-**On Linux:**
-```bash
-_is_macos() { return 1 }
-_is_bsd() { return 1 }
-_is_apple_silicon() { return 1 }
-```
-
-This allows code to safely call any platform function without checking first.
+All platform detection functions are defined in `detect.zsh` (loaded unconditionally) using `$OSTYPE` checks. They naturally return non-zero on the wrong platform — no stubs needed. Any code can safely call any `_is_*` function regardless of which platform is active.
 
 ## Usage in Modules
 
@@ -316,9 +290,9 @@ fi
 
 | Platform | File |
 |----------|------|
-| Detection | [lib/utils/platform/detect.zsh](../lib/utils/platform/detect.zsh) |
-| macOS | [lib/utils/platform/macos.zsh](../lib/utils/platform/macos.zsh) |
-| Linux | [lib/utils/platform/linux.zsh](../lib/utils/platform/linux.zsh) |
-| BSD | [lib/utils/platform/bsd.zsh](../lib/utils/platform/bsd.zsh) |
+| Detection | [lib/core/platform/detect.zsh](../lib/core/platform/detect.zsh) |
+| macOS | [lib/core/platform/macos.zsh](../lib/core/platform/macos.zsh) |
+| Linux | [lib/core/platform/linux.zsh](../lib/core/platform/linux.zsh) |
+| BSD | [lib/core/platform/bsd.zsh](../lib/core/platform/bsd.zsh) |
 
 Only one file is loaded based on `$OSTYPE`.

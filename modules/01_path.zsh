@@ -24,195 +24,12 @@ fi
 
 # ----------------------------------------------------------
 # DATA-DRIVEN PATH MANAGEMENT
+# Path definitions are populated by lib/registry/*.zsh files.
+# Format: name => "path_to_add:position:condition_tag[:condition_value]"
 # ----------------------------------------------------------
 
-# Global associative array for path definitions
-# Format: name => "path_to_add:position:condition_tag[:condition_value]"
-typeset -gA Z_PATH_DEFINITIONS
-
-
-# Initialize path definitions with system and user paths
-Z_PATH_DEFINITIONS=(
-    # Core system paths
-    'sys_usr_bin'           '/usr/bin:prepend:always'
-    'sys_bin'               '/bin:prepend:always'
-    'sys_usr_sbin'          '/usr/sbin:prepend:always'
-    'sys_sbin'              '/sbin:prepend:always'
-    'sys_usr_local_bin'     '/usr/local/bin:prepend:if_command_exists:/usr/local/bin/brew'
-    'sys_usr_local_sbin'    '/usr/local/sbin:prepend:if_command_exists:/usr/local/bin/brew'
-
-    # Core user paths
-    'user_xdg_bin'          '$HOME/.local/bin:prepend:exists'
-    'user_home_bin'         '$HOME/bin:prepend:exists'
-    'user_dot_bin'          '$HOME/.bin:prepend:exists'
-    'user_scripts'          '$HOME/scripts:prepend:exists'
-
-    # Node.js / JavaScript
-    'js_volta'              '$VOLTA_HOME/bin:prepend:if_var_set:VOLTA_HOME'
-    'js_volta_default'      '$HOME/.local/share/volta/bin:prepend:exists'
-    'js_nvm'                '$NVM_DIR/versions/node/*/bin:append:if_var_set:NVM_DIR'
-    'js_nvm_default'        '$HOME/.nvm/versions/node/*/bin:append:exists'
-    'js_npm_prefix'         '$NPM_CONFIG_PREFIX/bin:append:if_var_set:NPM_CONFIG_PREFIX'
-    'js_npm_global'         '$HOME/.npm-global/bin:append:exists'
-    'js_yarn_folder'        '$YARN_GLOBAL_FOLDER/node_modules/.bin:append:if_var_set:YARN_GLOBAL_FOLDER'
-    'js_yarn_default'       '$HOME/.yarn/bin:append:exists'
-    'js_pnpm'               '$PNPM_HOME:append:if_var_set:PNPM_HOME'
-    'js_pnpm_default'       '$HOME/.pnpm:append:exists'
-    'js_bun'                '$BUN_INSTALL/bin:append:if_var_set:BUN_INSTALL'
-    'js_bun_default'        '$HOME/.bun/bin:append:exists'
-    'js_deno'               '$DENO_INSTALL/bin:append:if_var_set:DENO_INSTALL'
-    'js_deno_default'       '$HOME/.deno/bin:append:exists'
-
-    # Python
-    'py_pyenv_root'         '$PYENV_ROOT/bin:append:if_var_set:PYENV_ROOT'
-    'py_pyenv_shims'        '$PYENV_ROOT/shims:append:if_var_set:PYENV_ROOT'
-    'py_pyenv_default'      '$HOME/.pyenv/bin:append:exists'
-    'py_pyenv_shims_def'    '$HOME/.pyenv/shims:append:exists'
-    'py_poetry'             '$POETRY_HOME/bin:append:if_var_set:POETRY_HOME'
-    'py_poetry_default'     '$HOME/.poetry/bin:append:exists'
-    'py_rye'                '$RYE_HOME/shims:append:if_var_set:RYE_HOME'
-    'py_rye_default'        '$HOME/.rye/shims:append:exists'
-    'py_pipx'               '$PIPX_HOME/venvs/*/bin:append:if_var_set:PIPX_HOME'
-    'py_pipx_default'       '$HOME/.pipx/venvs/*/bin:append:exists'
-
-    # Ruby
-    'rb_rbenv_root'         '$RBENV_ROOT/bin:append:if_var_set:RBENV_ROOT'
-    'rb_rbenv_shims'        '$RBENV_ROOT/shims:append:if_var_set:RBENV_ROOT'
-    'rb_rbenv_default'      '$HOME/.rbenv/bin:append:exists'
-    'rb_rbenv_shims_def'    '$HOME/.rbenv/shims:append:exists'
-    'rb_rvm'                '$rvm_path/bin:append:if_var_set:rvm_path'
-    'rb_rvm_default'        '$HOME/.rvm/bin:append:exists'
-    'rb_gem'                '$HOME/.gem/ruby/*/bin:append:exists'
-
-    # Go
-    'go_path'               '$GOPATH/bin:append:if_var_set:GOPATH'
-    'go_default'            '$HOME/go/bin:append:exists'
-    'go_local_share'        '$HOME/.local/share/go/bin:append:exists'
-
-    # Rust
-    'rust_cargo'            '$CARGO_HOME/bin:append:if_var_set:CARGO_HOME'
-    'rust_cargo_default'    '$HOME/.cargo/bin:append:exists'
-
-    # Java/JVM
-    'java_home'             '$JAVA_HOME/bin:append:if_var_set:JAVA_HOME'
-    'java_sdkman_cand'      '$SDKMAN_DIR/candidates/*/current/bin:append:if_var_set:SDKMAN_DIR'
-    'java_sdkman_def'       '$HOME/.sdkman/candidates/*/current/bin:append:exists'
-    'java_jbang'            '$JBANG_DIR/bin:append:if_var_set:JBANG_DIR'
-    'java_jbang_default'    '$HOME/.jbang/bin:append:exists'
-
-    # PHP
-    'php_composer'          '$COMPOSER_HOME/vendor/bin:append:if_var_set:COMPOSER_HOME'
-    'php_composer_def1'     '$HOME/.composer/vendor/bin:append:exists'
-    'php_composer_def2'     '$HOME/.config/composer/vendor/bin:append:exists'
-    'php_phpenv_root'       '$PHPENV_ROOT/bin:append:if_var_set:PHPENV_ROOT'
-    'php_phpenv_shims'      '$PHPENV_ROOT/shims:append:if_var_set:PHPENV_ROOT'
-    'php_phpenv_default'    '$HOME/.phpenv/bin:append:exists'
-    'php_phpenv_shims_def'  '$HOME/.phpenv/shims:append:exists'
-
-    # Other languages
-    'lang_julia'            '$HOME/.juliaup/bin:append:exists'
-    'lang_haskell_xdg'      '$XDG_BIN_HOME:append:if_var_true:GHCUP_USE_XDG_DIRS'
-    'lang_haskell_ghcup'    '$HOME/.ghcup/bin:append:exists'
-    'lang_haskell_cabal'    '$CABAL_DIR/bin:append:if_var_set:CABAL_DIR'
-    'lang_haskell_cabal_def' '$HOME/.cabal/bin:append:exists'
-    'lang_nim'              '$HOME/.nimble/bin:append:exists'
-    'lang_dotnet'           '$HOME/.dotnet/tools:append:exists'
-    'lang_dart_cache'       '$PUB_CACHE/bin:append:if_var_set:PUB_CACHE'
-    'lang_dart_default'     '$HOME/.pub-cache/bin:append:exists'
-    'lang_zig'              '$HOME/.zig:append:exists'
-    'lang_zig_alt'          '$HOME/.local/bin/zig:append:exists'
-
-    # CLI Tools
-    'tool_atuin'            '$HOME/.atuin/bin:prepend:exists'
-
-    # Homebrew (uses HOMEBREW_PREFIX set by platform lib)
-    'brew_bin'              '$HOMEBREW_PREFIX/bin:prepend:if_var_set:HOMEBREW_PREFIX'
-    'brew_sbin'             '$HOMEBREW_PREFIX/sbin:prepend:if_var_set:HOMEBREW_PREFIX'
-    'brew_gnu_coreutils'    '$HOMEBREW_GNU_COREUTILS:prepend:if_var_set:HOMEBREW_GNU_COREUTILS'
-)
-
-# Additional non-minimal mode paths (will be added conditionally)
-Z_PATH_DEFINITIONS+=(
-    # macOS specific paths
-    # Homebrew paths are handled via HOMEBREW_PREFIX (see brew_bin, brew_sbin above)
-    'mac_ports_bin'         '/opt/local/bin:prepend:os_is_darwin'
-    'mac_ports_sbin'        '/opt/local/sbin:prepend:os_is_darwin'
-    'mac_cryptexes'         '/System/Cryptexes/App/usr/bin:append:os_is_darwin'
-    'mac_apple'             '/Library/Apple/usr/bin:append:os_is_darwin'
-    'mac_mono'              '/Library/Frameworks/Mono.framework/Versions/Current/bin:append:os_is_darwin'
-    'mac_xcode'             '/Applications/Xcode.app/Contents/Developer/usr/bin:append:os_is_darwin'
-    'mac_cmdline_tools'     '/Library/Developer/CommandLineTools/usr/bin:append:os_is_darwin'
-
-    # Linux specific paths
-    'linux_snap'            '/snap/bin:append:os_is_linux'
-    'linux_flatpak_sys'     '/var/lib/flatpak/exports/bin:append:os_is_linux'
-    'linux_flatpak_user'    '$HOME/.local/share/flatpak/exports/bin:append:os_is_linux'
-    'linux_appimage'        '$HOME/Applications:append:os_is_linux'
-    'linux_appimage_alt'    '$HOME/.local/bin/appimages:append:os_is_linux'
-    'linux_nix_profile'     '$NIX_USER_PROFILE_DIR/profile/bin:append:if_var_set:NIX_USER_PROFILE_DIR'
-    'linux_nix_default'     '$HOME/.nix-profile/bin:append:os_is_linux'
-    'linux_nix_system'      '/nix/var/nix/profiles/default/bin:append:os_is_linux'
-    'linux_brew'            '/home/linuxbrew/.linuxbrew/bin:append:os_is_linux'
-    'linux_brew_user'       '$HOME/.linuxbrew/bin:append:os_is_linux'
-    'linux_games'           '/usr/games:append:os_is_linux'
-    'linux_ccache'          '/usr/lib/ccache:append:os_is_linux'
-
-    # Development tools (non-minimal)
-    'dev_asdf'              '$ASDF_DIR/bin:append:if_var_set:ASDF_DIR'
-    'dev_asdf_default'      '$HOME/.asdf/bin:append:not_minimal_mode'
-    'dev_asdf_shims'        '$ASDF_DATA_DIR/shims:append:if_var_set:ASDF_DATA_DIR'
-    'dev_asdf_shims_def'    '$HOME/.asdf/shims:append:not_minimal_mode'
-    'dev_sdkman'            '$SDKMAN_DIR/bin:append:if_var_set:SDKMAN_DIR'
-    'dev_sdkman_default'    '$HOME/.sdkman/bin:append:not_minimal_mode'
-    'dev_jenv'              '$JENV_ROOT/bin:append:if_var_set:JENV_ROOT'
-    'dev_jenv_default'      '$HOME/.jenv/bin:append:not_minimal_mode'
-    'dev_tfenv'             '$TFENV_ROOT/bin:append:if_var_set:TFENV_ROOT'
-    'dev_tfenv_default'     '$HOME/.tfenv/bin:append:not_minimal_mode'
-
-    # Container tools (non-minimal)
-    'cont_docker'           '$HOME/.docker/bin:append:not_minimal_mode'
-    'cont_podman'           '$HOME/.local/bin/podman:append:not_minimal_mode'
-    'cont_colima'           '$HOME/.colima/bin:append:not_minimal_mode'
-    'cont_rancher'          '$HOME/.rancher-desktop/bin:append:not_minimal_mode'
-
-    # Cloud CLIs (non-minimal)
-    'cloud_amplify'         '$HOME/.amplify/bin:append:not_minimal_mode'
-    'cloud_gcp'             '$CLOUDSDK_INSTALL_DIR/bin:append:if_var_set:CLOUDSDK_INSTALL_DIR'
-    'cloud_gcp_default'     '$HOME/google-cloud-sdk/bin:append:not_minimal_mode'
-    'cloud_azure'           '$HOME/.azure/bin:append:not_minimal_mode'
-    'cloud_oci'             '$HOME/.oci/bin:append:not_minimal_mode'
-    'cloud_ibm'             '$HOME/.ibmcloud/bin:append:not_minimal_mode'
-
-    # Kubernetes tools (non-minimal)
-    'k8s_krew'              '$KREW_ROOT/bin:append:if_var_set:KREW_ROOT'
-    'k8s_krew_default'      '$HOME/.krew/bin:append:not_minimal_mode'
-    'k8s_kubectx'           '$HOME/.kubectx:append:not_minimal_mode'
-    'k8s_kube_bin'          '$HOME/.kube/bin:append:not_minimal_mode'
-
-    # Infrastructure tools (non-minimal)
-    'infra_pulumi'          '$HOME/.pulumi/bin:append:not_minimal_mode'
-    'infra_terraform'       '$HOME/.terraform.d/bin:append:not_minimal_mode'
-
-    # macOS IDE/Editor CLI tools
-    'ide_vscode'            '/Applications/Visual Studio Code.app/Contents/Resources/app/bin:append:os_is_darwin'
-    'ide_vscode_insiders'   '/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/bin:append:os_is_darwin'
-    'ide_vscodium'          '/Applications/VSCodium.app/Contents/Resources/app/bin:append:os_is_darwin'
-    'ide_cursor'            '/Applications/Cursor.app/Contents/Resources/app/bin:append:os_is_darwin'
-    'ide_windsurf'          '$HOME/.codeium/windsurf/bin:append:os_is_darwin'
-    'ide_sublime'           '/Applications/Sublime Text.app/Contents/SharedSupport/bin:append:os_is_darwin'
-    'ide_bbedit'            '/Applications/BBEdit.app/Contents/Helpers:append:os_is_darwin'
-    'ide_tower'             '/Applications/Tower.app/Contents/MacOS:append:os_is_darwin'
-    'ide_sourcetree'        '/Applications/Sourcetree.app/Contents/Resources:append:os_is_darwin'
-    'ide_github_desktop'    '/Applications/GitHub Desktop.app/Contents/Resources/app/bin:append:os_is_darwin'
-
-    # Cross-platform development tools
-    'dev_jetbrains'         '$HOME/.local/share/JetBrains/Toolbox/scripts:append:not_minimal_mode'
-    'dev_vscode_remote'     '$HOME/.config/Code/User/globalStorage/ms-vscode-remote.remote-containers/cli-bin:append:not_minimal_mode'
-
-    # BSD specific paths
-    'bsd_pkg_bin'           '/usr/pkg/bin:append:os_is_bsd'
-    'bsd_pkg_sbin'          '/usr/pkg/sbin:append:os_is_bsd'
-)
+# Ensure array exists (registry may have already populated it)
+(( ${+Z_PATH_DEFINITIONS} )) || typeset -gA Z_PATH_DEFINITIONS
 
 # ----------------------------------------------------------
 # PATH CACHE
@@ -368,10 +185,10 @@ _is_path_condition_met() {
             command -v "$condition_value" &>/dev/null && return 0
             ;;
         if_var_set)
-            [[ -n "${(P)condition_value}" ]] && return 0
+            [[ -n "${(P)condition_value:-}" ]] && return 0
             ;;
         if_var_true)
-            [[ "${(P)condition_value}" == "true" ]] && return 0
+            [[ "${(P)condition_value:-}" == "true" ]] && return 0
             ;;
         *)
             ;;
@@ -399,22 +216,8 @@ _process_path_definitions() {
 
         _log "DEBUG" "Processing path definition: $name -> $value"
 
-        # Evaluate condition
+        # Evaluate condition then delegate to _path_add (which checks -d)
         if _is_path_condition_met "$condition_tag" "$condition_value" "$path_to_add"; then
-            # Special handling for 'exists' and 'if_command_exists' conditions
-            if [[ "$condition_tag" == "exists" ]]; then
-                local expanded_path="${(e)path_to_add}"
-                if [[ ! -d "$expanded_path" ]]; then
-                    _log "DEBUG" "Path '$path_to_add' from definition '$name' does not exist (required by condition). Skipping."
-                    continue
-                fi
-            elif [[ "$condition_tag" == "if_command_exists" ]]; then
-                local expanded_path="${(e)path_to_add}"
-                if [[ ! -d "$expanded_path" ]]; then
-                    _log "DEBUG" "Path '$path_to_add' from definition '$name' does not exist (required by condition). Skipping."
-                    continue
-                fi
-            fi
             _path_add "$path_to_add" "$position"
         else
             _log "DEBUG" "Condition for '$name' not met. Skipping '$path_to_add'."
@@ -590,20 +393,20 @@ fi
 # PUBLIC FUNCTIONS
 # ----------------------------------------------------------
 
-# path_show - Display all PATH entries with line numbers
-# Usage: path_show
-path_show() {
+# z_path_show - Display all PATH entries with line numbers
+# Usage: z_path_show
+z_path_show() {
     echo "=== Current PATH ==="
     local count=${#path[@]}
     local width=${#count}
     echo "$PATH" | tr ':' '\n' | awk -v w=$width '{printf "%*d %s\n", w, NR, $0}'
 }
 
-# path_which - Find which PATH entry provides a command
-# Usage: path_which <command>
+# z_path_which - Find which PATH entry provides a command
+# Usage: z_path_which <command>
 # Parameters:
 #   command: Name of the command to locate
-path_which() {
+z_path_which() {
     local cmd="$1"
     local full_path=$(command -v "$cmd" 2>/dev/null)
 
@@ -616,9 +419,9 @@ path_which() {
     fi
 }
 
-# path_debug - Display detailed PATH debugging information
-# Usage: path_debug
-path_debug() {
+# z_path_debug - Display detailed PATH debugging information
+# Usage: z_path_debug
+z_path_debug() {
     echo "=== PATH Debug Information ==="
     echo "Total entries: ${#path[@]}"
     # Unique count requires dedup; use associative array for O(n)
@@ -637,9 +440,9 @@ path_debug() {
     echo "$PATH" | tr ':' '\n' | tail -5 | awk '{printf "%d %s\n", NR, $0}'
 }
 
-# path_invalid - Check for non-existent PATH entries
-# Usage: path_invalid
-path_invalid() {
+# z_path_invalid - Check for non-existent PATH entries
+# Usage: z_path_invalid
+z_path_invalid() {
     echo "Checking for invalid PATH entries..."
 
     local entry
@@ -657,16 +460,16 @@ path_invalid() {
     fi
 }
 
-# path_contains - Check if a directory is in PATH
-# Usage: path_contains <directory>
+# z_path_contains - Check if a directory is in PATH
+# Usage: z_path_contains <directory>
 # Parameters:
 #   directory: Directory to check for in PATH
 # Returns: 0 if found, 1 if not found
-path_contains() {
+z_path_contains() {
     local dir_to_check="$1"
 
     if [[ -z "$dir_to_check" ]]; then
-        echo "Usage: path_contains <directory>"
+        echo "Usage: z_path_contains <directory>"
         return 2
     fi
 
@@ -710,43 +513,20 @@ path_contains() {
     return 1
 }
 
-# path_reload - Reload the path.zsh module
-# Usage: path_reload
-path_reload() {
+# z_path_reload - Reload the path.zsh module
+# Usage: z_path_reload
+z_path_reload() {
     echo "Reloading path.zsh module..."
-
-    # Try to determine the script path
-    local script_path
-
-    # Method 1: If ZDOTDIR is set, use it
-    if [[ -n "$ZDOTDIR" ]]; then
-        script_path="$ZDOTDIR/modules/path.zsh"
-    # Method 2: Fallback to common location
-    else
-        script_path="${HOME}/.config/zsh/modules/path.zsh"
-    fi
+    local script_path="$(_resolve_module_path modules/01_path.zsh)"
 
     if [[ -f "$script_path" ]]; then
         unset _Z_PATH_LOADED
         source "$script_path"
-        echo "path.zsh module reloaded."
+        _ui_ok "path.zsh module reloaded"
     else
-        echo "ERROR: Could not find path.zsh at: $script_path" >&2
+        echo "✗ Could not find path.zsh at: $script_path" >&2
         return 1
     fi
 }
-
-# ----------------------------------------------------------
-# ALIASES
-# ----------------------------------------------------------
-
-alias path="path_show"
-alias pathshow="path_show"
-alias pathwhich="path_which"
-alias pathdebug="path_debug"
-alias pathclean="_path_clean && echo '✓ PATH cleaned'"
-alias pathinvalid="path_invalid"
-alias pathcontains="path_contains"
-alias pathreload="path_reload"
 
 _log DEBUG "ZSH PATH Module loaded successfully"

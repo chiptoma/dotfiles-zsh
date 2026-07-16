@@ -440,10 +440,10 @@ if _has_cmd docker; then
     alias dimg='docker images'            # Docker list images
     alias dvol='docker volume ls'         # Docker list volumes
     alias dnet='docker network ls'        # Docker list networks
-    alias dstop='z_docker_stop_all'  # Docker stop all containers
+    alias dstop='z_docker_cleanup stop'   # Docker stop all containers
     alias dclean='read -k 1 "REPLY?Prune all stopped containers/images? [y/N] " && [[ $REPLY =~ ^[Yy]$ ]] && docker system prune -af'  # Docker prune everything
-    alias drmi='z_docker_rmi_dangling'  # Docker remove dangling images
-    alias drmv='z_docker_rmv_dangling'  # Docker remove dangling volumes
+    alias drmi='z_docker_cleanup rmi'    # Docker remove dangling images
+    alias drmv='z_docker_cleanup rmv'    # Docker remove dangling volumes
 
     if _has_cmd lazydocker; then
         alias lzd='lazydocker'      # Lazydocker TUI
@@ -543,18 +543,6 @@ if _is_macos; then
     alias wifi-name='z_wifi_name'       # Current WiFi name
     alias wifi-pass='z_wifi_password'   # WiFi password
     alias eject='diskutil eject'   # Eject disk
-
-    # Utilities
-    alias check-tools='z_check_tools'  # Check recommended tools
-fi
-
-# ----------------------------------------------------------
-# BSD SPECIFIC
-# Platform-specific aliases for BSD variants (FreeBSD, OpenBSD, etc.)
-# ----------------------------------------------------------
-
-if _is_bsd && ! _is_macos; then
-    alias check-tools='z_check_tools'  # Check recommended tools
 fi
 
 # ----------------------------------------------------------
@@ -609,9 +597,6 @@ if _is_linux; then
         alias wifion='nmcli radio wifi on'     # Enable WiFi
     fi
 
-    # Utilities
-    alias check-tools='z_check_tools'  # Check recommended tools
-
     # WSL (Windows Subsystem for Linux)
     if _is_wsl; then
         alias explorer='explorer.exe'        # Windows Explorer
@@ -639,9 +624,42 @@ alias zupdate='z_update'     # Update ZSH config to latest
 alias zversion='z_version'   # Show ZSH config version
 alias zcheck='${ZDOTDIR}/install.sh --check'  # Verify installation
 alias zhealth='z_health'      # ZSH configuration health check
-alias zhelp='z_help'          # Quick reference guide
+alias help='z_help'           # Help system (overview, interactive, per-command)
+alias zhelp='z_help'          # Help system (alias)
 alias zstatus='z_status'      # Show current configuration status
 alias zbench='z_benchmark'   # Benchmark ZSH startup time
+alias check-tools='z_check_tools'  # Check recommended tools
+alias lazy='z_lazy_status'             # Lazy loading status
+alias compclean='z_cleanup_zwc'        # Remove stale .zwc files
+alias compclean-all='z_cleanup_zwc all'  # Remove ALL .zwc files
+
+# ─── PATH MANAGEMENT ───
+alias zpath='z_path_show'              # Show all PATH entries
+alias zpathwhich='z_path_which'        # Find which PATH provides a command
+alias zpathdebug='z_path_debug'        # PATH debug information
+alias zpathinvalid='z_path_invalid'    # Check for non-existent PATH entries
+alias zpathcontains='z_path_contains'  # Check if directory is in PATH
+alias zpathreload='z_path_reload'      # Reload path module
+alias zpathclean='_path_clean'         # Clean non-existent PATH entries
+
+# ─── ENVIRONMENT ───
+alias zenv='z_env_show'                # Show environment settings
+alias zenvstatus='z_env_status'        # Environment detection status
+alias zenvreload='z_env_reload'        # Reload environment module
+
+# ─── HISTORY ───
+if _has_cmd fzf; then
+    alias h='z_history_search'             # Interactive history search (fzf)
+    alias zhistsearch='z_history_search'   # Interactive history search (fzf)
+else
+    alias h='history -100'                 # Show last 100 commands
+fi
+alias hh='history'                         # Show raw history output
+alias hl='history | less'                  # Show history with pager
+alias hs='history | grep'                  # Search history with grep
+alias zhistbackup='z_history_backup'       # Backup history file
+alias zhistclean='z_history_clean'         # Clean history file
+alias zhiststats='z_history_stats'         # History statistics
 
 alias now='date +"%Y-%m-%d %H:%M:%S"'  # Current datetime
 alias nowdate='date +"%Y-%m-%d"'       # Current date
@@ -709,10 +727,12 @@ if _has_cmd jq; then
 fi
 
 # ----------------------------------------------------------
-# LAZY LOADING STATUS
+# XDG COMPLIANCE
 # ----------------------------------------------------------
 
-alias lazy='z_lazy_status'   # Show lazy loading status
+alias xdg-check='z_xdg_check'    # XDG compliance scan report
+alias xdg-fix='z_xdg_fix'        # Interactive XDG migration
+alias xdg-status='z_xdg_status'  # One-line XDG compliance status
 
 # ----------------------------------------------------------
 # INTROSPECTION

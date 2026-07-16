@@ -137,13 +137,15 @@ cd dotfiles-zsh
 ├── install.sh              # Main installer script
 ├── .zshrc                  # Shell entry point (interactive)
 ├── .zshenv                 # Environment variables (all shells)
-├── modules/                # Feature modules
-│   ├── aliases.zsh         # Command aliases
-│   ├── completion.zsh      # Tab completion
-│   ├── environment.zsh     # Environment setup
-│   ├── history.zsh         # History configuration
-│   ├── lazy.zsh            # Deferred tool initialization
-│   └── keybindings.zsh     # Key mappings
+├── modules/                # Feature modules (numbered by load order)
+│   ├── 01_path.zsh         # PATH management
+│   ├── 02_environment.zsh  # Environment setup
+│   ├── 03_compilation.zsh  # Bytecode compilation
+│   ├── 04_lazy.zsh         # Deferred tool initialization
+│   ├── 05_completion.zsh   # Tab completion
+│   ├── 06_history.zsh      # History configuration
+│   ├── 07_aliases.zsh      # Command aliases
+│   └── 08_keybindings.zsh  # Key mappings
 ├── lib/                    # Shared libraries
 │   ├── utils/              # Utility functions
 │   │   ├── core.zsh        # _has_cmd, _cache_eval, etc.
@@ -162,23 +164,23 @@ Understanding the load order is critical for contributors:
 ┌─────────────────────────────────────────────────────────────┐
 │                    LOAD ORDER (.zshenv)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  1. lib/utils/logging.zsh     ← No dependencies             │
-│  2. lib/utils/core.zsh        ← Depends on: logging         │
-│  3. lib/utils/platform/       ← Depends on: logging, core   │
-│  4. modules/environment.zsh   ← Depends on: utils, platform │
-│  5. modules/path.zsh          ← Depends on: utils, platform │
+│  1. lib/core/logging.zsh      ← No dependencies             │
+│  2. lib/core/helpers.zsh      ← Depends on: logging         │
+│  3. lib/core/platform/        ← Depends on: logging, helpers│
+│  4. modules/01_path.zsh       ← Depends on: core, platform  │
+│  5. modules/02_environment.zsh ← Depends on: core, platform │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │                    LOAD ORDER (.zshrc)                       │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Oh My Zsh (if enabled)                                  │
-│  2. modules/completion.zsh    ← Depends on: utils           │
-│  3. modules/history.zsh       ← Depends on: utils           │
-│  4. modules/lazy.zsh          ← Depends on: utils, core     │
-│  5. modules/aliases.zsh       ← Depends on: utils, platform │
-│  6. lib/functions/            ← Depends on: all utils       │
-│  7. modules/keybindings.zsh   ← Depends on: utils           │
+│  2. modules/03_compilation.zsh ← Depends on: core          │
+│  3. modules/04_lazy.zsh       ← Depends on: core, core    │
+│  4. modules/05_completion.zsh ← Depends on: core           │
+│  5. modules/06_history.zsh    ← Depends on: core           │
+│  6. modules/07_aliases.zsh    ← Depends on: core, platform │
+│  7. modules/08_keybindings.zsh ← Depends on: core          │
 │  8. .zshlocal                 ← User customizations (last)  │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -187,7 +189,7 @@ Understanding the load order is critical for contributors:
 
 1. **No circular dependencies**: Lower-level modules never import higher-level ones
 2. **Idempotent loading**: All modules use `(( ${+_GUARD} )) && return 0` pattern
-3. **Platform isolation**: Platform-specific code lives in `lib/utils/platform/`
+3. **Platform isolation**: Platform-specific code lives in `lib/core/platform/`
 4. **Toggle pattern**: Modules check `Z_*_ENABLED` before loading
 5. **Security first**: `_lazy_validate_cmd` validates all eval inputs; history filters sensitive patterns
 

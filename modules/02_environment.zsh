@@ -36,30 +36,35 @@ typeset -ga Z_POST_ENV_INIT_HOOKS=()
 
 # ----------------------------------------------------------
 # DATA-DRIVEN ENVIRONMENT CONFIGURATION
-# Declarative definitions using format: 'VAR' 'value|command'
+# Tool data is populated by lib/registry/*.zsh files.
+# Format: 'VAR' 'value|command'
 # ----------------------------------------------------------
 
 # Global associative arrays for environment definitions
 typeset -gA ZSH_ENV_XDG_BASE
 typeset -gA ZSH_ENV_CORE
 
-# Categorized tool environment variables
-typeset -gA ZSH_ENV_TOOLS_JS       # JavaScript Ecosystem
-typeset -gA ZSH_ENV_TOOLS_GO       # Go
-typeset -gA ZSH_ENV_TOOLS_PYTHON   # Python
-typeset -gA ZSH_ENV_TOOLS_DOCKER   # Docker
-typeset -gA ZSH_ENV_TOOLS_K8S      # Kubernetes
-typeset -gA ZSH_ENV_TOOLS_JVM      # JVM
-typeset -gA ZSH_ENV_TOOLS_ANSIBLE   # Ansible
-typeset -gA ZSH_ENV_TOOLS_CLOUD     # Cloud SDKs
-typeset -gA ZSH_ENV_TOOLS_IAC       # Infrastructure as Code
-typeset -gA ZSH_ENV_TOOLS_DB        # Databases
-typeset -gA ZSH_ENV_TOOLS_VIRT      # Virtualization & Containers
-typeset -gA ZSH_ENV_TOOLS_SECURITY  # Security
-typeset -gA ZSH_ENV_TOOLS_BUILD     # Build Tools
-typeset -gA ZSH_ENV_TOOLS_LANGS     # Misc Languages
-typeset -gA ZSH_ENV_TOOLS_GENERAL  # General Tools
-typeset -gA ZSH_ENV_TOOLS_ZSH       # ZSH
+# Ensure tool arrays exist (registry may have already populated them)
+# NOTE: Fallback for standalone sourcing. Keep in sync with lib/registry/index.zsh.
+(( ${+ZSH_ENV_TOOLS_ZSH} ))      || typeset -gA ZSH_ENV_TOOLS_ZSH
+(( ${+ZSH_ENV_TOOLS_JS} ))       || typeset -gA ZSH_ENV_TOOLS_JS
+(( ${+ZSH_ENV_TOOLS_GO} ))       || typeset -gA ZSH_ENV_TOOLS_GO
+(( ${+ZSH_ENV_TOOLS_PYTHON} ))   || typeset -gA ZSH_ENV_TOOLS_PYTHON
+(( ${+ZSH_ENV_TOOLS_DOCKER} ))   || typeset -gA ZSH_ENV_TOOLS_DOCKER
+(( ${+ZSH_ENV_TOOLS_K8S} ))      || typeset -gA ZSH_ENV_TOOLS_K8S
+(( ${+ZSH_ENV_TOOLS_JVM} ))      || typeset -gA ZSH_ENV_TOOLS_JVM
+(( ${+ZSH_ENV_TOOLS_ANSIBLE} ))  || typeset -gA ZSH_ENV_TOOLS_ANSIBLE
+(( ${+ZSH_ENV_TOOLS_CLOUD} ))    || typeset -gA ZSH_ENV_TOOLS_CLOUD
+(( ${+ZSH_ENV_TOOLS_IAC} ))      || typeset -gA ZSH_ENV_TOOLS_IAC
+(( ${+ZSH_ENV_TOOLS_DB} ))       || typeset -gA ZSH_ENV_TOOLS_DB
+(( ${+ZSH_ENV_TOOLS_VIRT} ))     || typeset -gA ZSH_ENV_TOOLS_VIRT
+(( ${+ZSH_ENV_TOOLS_SECURITY} )) || typeset -gA ZSH_ENV_TOOLS_SECURITY
+(( ${+ZSH_ENV_TOOLS_BUILD} ))    || typeset -gA ZSH_ENV_TOOLS_BUILD
+(( ${+ZSH_ENV_TOOLS_LANGS} ))    || typeset -gA ZSH_ENV_TOOLS_LANGS
+(( ${+ZSH_ENV_TOOLS_RUBY} ))    || typeset -gA ZSH_ENV_TOOLS_RUBY
+(( ${+ZSH_ENV_TOOLS_RUST} ))    || typeset -gA ZSH_ENV_TOOLS_RUST
+(( ${+ZSH_ENV_TOOLS_GENERAL} ))  || typeset -gA ZSH_ENV_TOOLS_GENERAL
+(( ${+Z_ENV_CONFIG_FILE_CHECKS} )) || typeset -gA Z_ENV_CONFIG_FILE_CHECKS
 
 # Master list of tool categories
 typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
@@ -78,6 +83,8 @@ typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
     ZSH_ENV_TOOLS_SECURITY
     ZSH_ENV_TOOLS_BUILD
     ZSH_ENV_TOOLS_LANGS
+    ZSH_ENV_TOOLS_RUBY
+    ZSH_ENV_TOOLS_RUST
     ZSH_ENV_TOOLS_GENERAL
 )
 
@@ -99,7 +106,7 @@ typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
 # XDG Base Directories - Defaults (set only if not already defined)
 # NOTE: These duplicate .zshenv definitions intentionally.
 # .zshenv sets them early (before utils/platform load); this table drives
-# env_show display and ensures standalone sourcing of this module works.
+# z_env_show display and ensures standalone sourcing of this module works.
 ZSH_ENV_XDG_BASE=(
     'XDG_CONFIG_HOME'   "$HOME/.config"
     'XDG_CACHE_HOME'    "$HOME/.cache"
@@ -114,192 +121,7 @@ ZSH_ENV_CORE=(
     'GPG_TTY'       '$(tty)'
 )
 
-# ZSH
-ZSH_ENV_TOOLS_ZSH=(
-    # HISTFILE is set in history.zsh
-    # ZSH_COMPDUMP is set in completion.zsh
-    'ZSH_AUTOSUGGEST_HISTORY_FILE'  '$XDG_STATE_HOME/zsh/autosuggestions.history|zsh'
-)
-
 export HOMEBREW_NO_ENV_HINTS=1
-
-# JavaScript Ecosystem
-ZSH_ENV_TOOLS_JS=(
-    'VOLTA_HOME'                '$XDG_DATA_HOME/volta|volta'
-    'NPM_CONFIG_USERCONFIG'     '$XDG_CONFIG_HOME/npm/npmrc|npm'
-    'NPM_CONFIG_CACHE'          '$XDG_CACHE_HOME/npm|npm'
-    'NPM_CONFIG_INIT_MODULE'    '$XDG_CONFIG_HOME/npm/npm-init.js|npm'
-    'YARN_CACHE_FOLDER'         '$XDG_CACHE_HOME/yarn|yarn'
-    'YARN_CONFIG_FILE'          '$XDG_CONFIG_HOME/yarn/config|yarn'
-    'YARN_ENABLE_GLOBAL_CACHE'  'false|yarn'
-    'PNPM_HOME'                 '$XDG_DATA_HOME/pnpm|pnpm'
-    'PNPM_STATE_DIR'            '$XDG_STATE_HOME/pnpm|pnpm'
-    'PNPM_CACHE_DIR'            '$XDG_CACHE_HOME/pnpm|pnpm'
-    'NODE_REPL_HISTORY'         '$XDG_STATE_HOME/node_repl_history|node'
-    'NODE_ENV'                  'development|node'
-    'TS_NODE_HISTORY'           '$XDG_STATE_HOME/ts_node_repl_history|ts-node'
-    'NVM_DIR'                   '$XDG_DATA_HOME/nvm|nvm'
-    'FNM_DIR'                   '$XDG_DATA_HOME/fnm|fnm'
-    'N_PREFIX'                  '$XDG_DATA_HOME/n|n'
-    'BUN_INSTALL'               '$XDG_DATA_HOME/bun|bun'
-)
-
-# Go
-ZSH_ENV_TOOLS_GO=(
-    'GOPATH'        '$XDG_DATA_HOME/go|go'
-    'GOCACHE'       '$XDG_CACHE_HOME/go|go'
-    'GOMODCACHE'    '$XDG_CACHE_HOME/go-mod|go'
-)
-
-# Python
-ZSH_ENV_TOOLS_PYTHON=(
-    'PYTHONSTARTUP'      '$XDG_CONFIG_HOME/python/python_startup.py|python'
-    'PYTHON_HISTORY'     '$XDG_STATE_HOME/python_history|python'
-    'PIP_CACHE_DIR'      '$XDG_CACHE_HOME/pip|pip'
-    'PIPENV_CACHE_DIR'   '$XDG_CACHE_HOME/pipenv|pipenv'
-    'POETRY_HOME'        '$XDG_DATA_HOME/poetry|poetry'
-    'POETRY_CACHE_DIR'   '$XDG_CACHE_HOME/poetry|poetry'
-    'PYENV_ROOT'         '$XDG_DATA_HOME/pyenv|pyenv'
-    'WORKON_HOME'        '$XDG_DATA_HOME/virtualenvs|virtualenv'
-    'VIRTUALENV_CONFIG_FILE' '$XDG_CONFIG_HOME/virtualenv/virtualenv.ini|virtualenv'
-    'JUPYTER_RUNTIME_DIR' '$XDG_RUNTIME_DIR/jupyter|jupyter'
-    'IPYTHONDIR'         '$XDG_CONFIG_HOME/ipython|ipython'
-)
-
-# Docker
-ZSH_ENV_TOOLS_DOCKER=(
-    'DOCKER_CONFIG' '$XDG_CONFIG_HOME/docker|docker'
-)
-
-# Kubernetes
-ZSH_ENV_TOOLS_K8S=(
-    'KUBECONFIG'    '$XDG_CONFIG_HOME/kube/config|kubectl'
-)
-
-# JVM
-ZSH_ENV_TOOLS_JVM=(
-    'GRADLE_USER_HOME'    '$XDG_DATA_HOME/gradle|gradle'
-    'M2_HOME'             '$XDG_DATA_HOME/m2|mvn'
-    '_JAVA_OPTIONS'       '-Djava.util.prefs.userRoot=$XDG_CONFIG_HOME/java|java'
-    'LEIN_HOME'           '$XDG_DATA_HOME/lein|lein'
-    'BOOT_HOME'           '$XDG_DATA_HOME/boot|boot'
-    'BOOT_LOCAL_REPO'     '$XDG_CACHE_HOME/boot|boot'
-)
-
-# Ansible
-ZSH_ENV_TOOLS_ANSIBLE=(
-    'ANSIBLE_CONFIG'    '$XDG_CONFIG_HOME/ansible/ansible.cfg|ansible'
-    'ANSIBLE_HOME'      '$XDG_DATA_HOME/ansible|ansible'
-)
-
-# Cloud SDKs
-ZSH_ENV_TOOLS_CLOUD=(
-    'AWS_CONFIG_FILE'             '$XDG_CONFIG_HOME/aws/config|aws'
-    'AWS_SHARED_CREDENTIALS_FILE' '$XDG_CONFIG_HOME/aws/credentials|aws'
-    'AWS_CLI_HISTORY_FILE'        '$XDG_STATE_HOME/aws_history|aws'
-    'BOTO_CONFIG'                 '$XDG_CONFIG_HOME/boto/config|boto'
-    'CLOUDSDK_CONFIG'             '$XDG_CONFIG_HOME/gcloud|gcloud'
-    'CLOUDSDK_ACTIVE_CONFIG_NAME' 'default|gcloud'
-    'AZURE_CONFIG_DIR'            '$XDG_CONFIG_HOME/azure|az'
-    'DIGITALOCEAN_CONFIG'         '$XDG_CONFIG_HOME/doctl/config.yaml|doctl'
-    'OCI_CLI_CONFIG_FILE'         '$XDG_CONFIG_HOME/oci/config|oci'
-    'IBMCLOUD_HOME'               '$XDG_CONFIG_HOME/ibmcloud|ibmcloud'
-)
-
-# Infrastructure as Code
-ZSH_ENV_TOOLS_IAC=(
-    'TF_DATA_DIR'         '$XDG_DATA_HOME/terraform|terraform'
-    'TF_CLI_CONFIG_FILE'  '$XDG_CONFIG_HOME/terraform/terraformrc|terraform'
-    'TERRAFORM_CONFIG'    '$XDG_CONFIG_HOME/terraform|terraform'
-    'TERRAGRUNT_CONFIG'   '$XDG_CONFIG_HOME/terragrunt|terragrunt'
-    'TERRAGRUNT_CACHE'    '$XDG_CACHE_HOME/terragrunt|terragrunt'
-    'HELM_CONFIG_HOME'    '$XDG_CONFIG_HOME/helm|helm'
-    'HELM_CACHE_HOME'     '$XDG_CACHE_HOME/helm|helm'
-    'HELM_DATA_HOME'      '$XDG_DATA_HOME/helm|helm'
-    'KUSTOMIZE_PLUGIN_HOME' '$XDG_DATA_HOME/kustomize/plugins|kustomize'
-    'PULUMI_HOME'         '$XDG_DATA_HOME/pulumi|pulumi'
-    'PULUMI_CONFIG_PASSPHRASE_FILE' '$XDG_CONFIG_HOME/pulumi/passphrase|pulumi'
-)
-
-# Databases
-ZSH_ENV_TOOLS_DB=(
-    'PSQL_HISTORY'        '$XDG_STATE_HOME/psql_history|psql'
-    'PSQLRC'              '$XDG_CONFIG_HOME/pg/psqlrc|psql'
-    'PGPASSFILE'          '$XDG_CONFIG_HOME/pg/pgpass|psql'
-    'PGSERVICEFILE'       '$XDG_CONFIG_HOME/pg/pg_service.conf|psql'
-    'MYSQL_HISTFILE'      '$XDG_STATE_HOME/mysql_history|mysql'
-    'MYCLI_HISTFILE'      '$XDG_STATE_HOME/mycli_history|mycli'
-    'REDISCLI_HISTFILE'   '$XDG_STATE_HOME/redis_history|redis-cli'
-    'REDISCLI_RCFILE'     '$XDG_CONFIG_HOME/redis/redisclirc|redis-cli'
-    'SQLITE_HISTORY'      '$XDG_STATE_HOME/sqlite_history|sqlite3'
-    'MONGOSH_HOME'        '$XDG_CONFIG_HOME/mongosh|mongosh'
-    'INFLUX_CLI_CONFIG'   '$XDG_CONFIG_HOME/influxdb/influx-cli.conf|influx'
-)
-
-# Virtualization & Containers
-ZSH_ENV_TOOLS_VIRT=(
-    'VAGRANT_HOME'  '$XDG_DATA_HOME/vagrant|vagrant'
-    'MINIKUBE_HOME' '$XDG_DATA_HOME/minikube|minikube'
-)
-
-# Security
-ZSH_ENV_TOOLS_SECURITY=(
-    'GNUPGHOME'           '$XDG_DATA_HOME/gnupg|gpg'
-    'PASSWORD_STORE_DIR'  '$XDG_DATA_HOME/pass|pass'
-    'GOPASS_CONFIG'       '$XDG_CONFIG_HOME/gopass/config.yml|gopass'
-    'GOPASS_HOMEDIR'      '$XDG_DATA_HOME/gopass|gopass'
-)
-
-# Build Tools
-ZSH_ENV_TOOLS_BUILD=(
-    'CCACHE_DIR'         '$XDG_CACHE_HOME/ccache|ccache'
-    'CCACHE_CONFIGPATH'  '$XDG_CONFIG_HOME/ccache/config|ccache'
-    'CMAKE_CONFIG_DIR'   '$XDG_CONFIG_HOME/cmake|cmake'
-    'CMAKE_CACHE_DIR'    '$XDG_CACHE_HOME/cmake|cmake'
-    'PKG_CONFIG_PATH'    '$XDG_DATA_HOME/pkgconfig:$XDG_DATA_HOME/lib/pkgconfig|pkg-config'
-)
-
-# Misc Languages
-ZSH_ENV_TOOLS_LANGS=(
-    'NUGET_PACKAGES'      '$XDG_CACHE_HOME/nuget/packages|dotnet'
-    'DOTNET_CLI_HOME'     '$XDG_DATA_HOME/dotnet|dotnet'
-    'ELM_HOME'            '$XDG_DATA_HOME/elm|elm'
-    'DENO_DIR'            '$XDG_CACHE_HOME/deno|deno'
-    'JULIA_DEPOT_PATH'    '$XDG_DATA_HOME/julia|julia'
-    'JULIA_HISTORY'       '$XDG_STATE_HOME/julia_history|julia'
-    'R_ENVIRON_USER'      '$XDG_CONFIG_HOME/R/Renviron|R'
-    'R_PROFILE_USER'      '$XDG_CONFIG_HOME/R/Rprofile|R'
-    'R_MAKEVARS_USER'     '$XDG_CONFIG_HOME/R/Makevars|R'
-    'R_HISTFILE'          '$XDG_STATE_HOME/Rhistory|R'
-    'GHCUP_USE_XDG_DIRS'  'true|ghcup'
-    'STACK_ROOT'          '$XDG_DATA_HOME/stack|stack'
-    'CABAL_CONFIG'        '$XDG_CONFIG_HOME/cabal/config|cabal'
-    'CABAL_DIR'           '$XDG_DATA_HOME/cabal|cabal'
-)
-
-# General Tools
-ZSH_ENV_TOOLS_GENERAL=(
-    'CARGO_HOME'          '$XDG_DATA_HOME/cargo|cargo'
-    'RUSTUP_HOME'         '$XDG_DATA_HOME/rustup|rustup'
-    'GEM_HOME'            '$XDG_DATA_HOME/gem|gem'
-    'GEM_SPEC_CACHE'      '$XDG_CACHE_HOME/gem|gem'
-    'BUNDLE_USER_CONFIG'  '$XDG_CONFIG_HOME/bundle|bundle'
-    'BUNDLE_USER_CACHE'   '$XDG_CACHE_HOME/bundle|bundle'
-    'BUNDLE_USER_PLUGIN'  '$XDG_DATA_HOME/bundle|bundle'
-    'JUPYTER_CONFIG_DIR'  '$XDG_CONFIG_HOME/jupyter|jupyter'
-    # INPUTRC and WGETRC are handled separately in _env_setup_tools()
-    'CURL_HOME'           '$XDG_CONFIG_HOME/curl|curl'
-    'COMPOSER_HOME'       '$XDG_CONFIG_HOME/composer|composer'
-    'COMPOSER_CACHE_DIR'  '$XDG_CACHE_HOME/composer|composer'
-    'HTOPRC'              '$XDG_CONFIG_HOME/htop/htoprc|htop'
-    'TMUX_TMPDIR'         '$XDG_RUNTIME_DIR/tmux|tmux'
-    'SCREENRC'            '$XDG_CONFIG_HOME/screen/screenrc|screen'
-    'PARALLEL_HOME'       '$XDG_CONFIG_HOME/parallel|parallel'
-    # Config files that must exist are handled separately in _env_setup_tools()
-    # RIPGREP_CONFIG_PATH, BAT_CONFIG_PATH, WGETRC, INPUTRC
-    # FZF_DEFAULT_OPTS_FILE causes errors if file doesn't exist
-    # Better to set FZF_DEFAULT_OPTS directly in shell config
-)
 
 # Terminal configuration (non-SSH only)
 typeset -gA ZSH_ENV_TERMINAL
@@ -344,17 +166,17 @@ _env_has_gui() {
     fi
 
     # X11 display available
-    if _is_not_empty "$DISPLAY"; then
+    if [[ -n "${DISPLAY:-}" ]]; then
         return 0
     fi
 
     # macOS with WindowServer running (not headless)
     if _is_macos; then
         # Check if we're in a GUI session (Aqua)
-        if [[ "$TERM_PROGRAM" == "Apple_Terminal" || "$TERM_PROGRAM" == "iTerm.app" || \
-              "$TERM_PROGRAM" == "vscode" || "$TERM_PROGRAM" == "Hyper" || \
-              "$TERM_PROGRAM" == "WarpTerminal" || "$TERM_PROGRAM" == "Alacritty" || \
-              -n "$__CFBundleIdentifier" ]]; then
+        if [[ "${TERM_PROGRAM:-}" == "Apple_Terminal" || "${TERM_PROGRAM:-}" == "iTerm.app" || \
+              "${TERM_PROGRAM:-}" == "vscode" || "${TERM_PROGRAM:-}" == "Hyper" || \
+              "${TERM_PROGRAM:-}" == "WarpTerminal" || "${TERM_PROGRAM:-}" == "Alacritty" || \
+              -n "${__CFBundleIdentifier:-}" ]]; then
             return 0
         fi
         # If we're on macOS and not in SSH, assume GUI is available
@@ -363,7 +185,7 @@ _env_has_gui() {
     fi
 
     # Wayland
-    if _is_not_empty "$WAYLAND_DISPLAY"; then
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
         return 0
     fi
 
@@ -502,15 +324,16 @@ _env_setup_tools() {
             value="${value_and_command%%|*}"
             command="${value_and_command#*|}"
 
-            # Check if tool exists BEFORE setting env var (PATH is now available)
+            # Check if tool exists — clean up early-pass vars for missing tools
             if (( ! $+commands[$command] )); then
+                [[ -n "${(P)var:-}" ]] && unset "$var"
                 _log "DEBUG" "Skipping $var - command '$command' not in PATH"
                 continue
             fi
 
             # Expand the value string using ZSH parameter expansion
             # Safer than eval but still expands $(...) command substitution
-            # SECURITY: Values MUST come from hardcoded arrays, NEVER user input
+            # SECURITY: Values MUST come from registry files (lib/registry/*.zsh), NEVER user input
             # If value contains $(cmd), that command WILL execute
             expanded_value="${(e)value}"
 
@@ -519,19 +342,14 @@ _env_setup_tools() {
         done
     done
 
-    # Special handling for HISTFILE - only set for bash
-    if [[ -n "$BASH_VERSION" ]] && [[ "$Z_ENVIRONMENT_XDG_STRICT" == "true" ]]; then
-        export HISTFILE="$XDG_STATE_HOME/bash/history"
-    fi
-
     # Special handling for MAVEN_OPTS - append XDG settings, don't replace
     # User may have existing JVM options (heap size, GC settings, etc.)
     if (( $+commands[mvn] )); then
         local maven_xdg="-Dmaven.repo.local=$XDG_DATA_HOME/m2/repository"
-        if [[ -n "$MAVEN_OPTS" ]]; then
+        if [[ -n "${MAVEN_OPTS:-}" ]]; then
             # Only append if not already present
-            if [[ "$MAVEN_OPTS" != *"maven.repo.local"* ]]; then
-                export MAVEN_OPTS="$MAVEN_OPTS $maven_xdg"
+            if [[ "${MAVEN_OPTS:-}" != *"maven.repo.local"* ]]; then
+                export MAVEN_OPTS="${MAVEN_OPTS:-} $maven_xdg"
                 _log "DEBUG" "Appended XDG settings to existing MAVEN_OPTS"
             fi
         else
@@ -540,27 +358,21 @@ _env_setup_tools() {
         fi
     fi
 
-    # Special handling for config files that cause errors when they don't exist
-    # These will be checked and only set if the files actually exist
-    local config_file
-    local config_files_to_check=(
-        "RIPGREP_CONFIG_PATH:$XDG_CONFIG_HOME/ripgrep/config"
-        "BAT_CONFIG_PATH:$XDG_CONFIG_HOME/bat/config"
-        "WGETRC:$XDG_CONFIG_HOME/wgetrc"
-        "INPUTRC:$XDG_CONFIG_HOME/readline/inputrc"
-    )
+    # Config files that cause errors when they don't exist
+    # Data comes from Z_ENV_CONFIG_FILE_CHECKS (populated by registry files)
+    # Format: 'VAR' 'path|command' — only set if file exists AND command installed
+    local config_file config_var config_val_cmd config_path config_cmd
+    for config_var config_val_cmd in ${(kv)Z_ENV_CONFIG_FILE_CHECKS}; do
+        config_path="${config_val_cmd%%|*}"
+        config_cmd="${config_val_cmd#*|}"
+        config_file="${(e)config_path}"
 
-    for entry in "${config_files_to_check[@]}"; do
-        local var="${entry%%:*}"
-        config_file="${entry#*:}"
-        config_file="${(e)config_file}"  # Expand variables (safer than eval)
-
-        if [[ -f "$config_file" ]]; then
-            export "$var"="$config_file"
-            _log "DEBUG" "Set $var=$config_file (config file exists)"
+        if (( $+commands[$config_cmd] )) && [[ -f "$config_file" ]]; then
+            export "$config_var"="$config_file"
+            _log "DEBUG" "Set $config_var=$config_file (config file exists)"
         else
-            unset "$var"  # Unset if it was set earlier
-            _log "DEBUG" "Skipping $var - config file does not exist at $config_file"
+            unset "$config_var"
+            _log "DEBUG" "Skipping $config_var - file missing or command '$config_cmd' not found"
         fi
     done
 }
@@ -642,11 +454,11 @@ _environment_init() {
     # ----------------------------------------------------------
 
     if [[ "$Z_ENVIRONMENT_SSH_AGENT" == "true" ]]; then
-        if typeset -f z_detect_ssh_agent >/dev/null 2>&1; then
-            z_detect_ssh_agent
+        if typeset -f _detect_ssh_agent >/dev/null 2>&1; then
+            _detect_ssh_agent
             _log "DEBUG" "SSH agent detection completed"
         else
-            _log "DEBUG" "z_detect_ssh_agent not available, skipping"
+            _log "DEBUG" "_detect_ssh_agent not available, skipping"
         fi
     fi
 
@@ -670,7 +482,7 @@ _environment_init() {
 # ----------------------------------------------------------
 
 # Show all managed environment variables
-env_show() {
+z_env_show() {
     # This function is monolithic to avoid bugs from passing arrays between functions.
 
     # --- Color Setup ---
@@ -787,6 +599,8 @@ env_show() {
                     SECURITY) header_name="Security Tools" ;;
                     BUILD) header_name="Build Tools" ;;
                     LANGS) header_name="Misc Languages" ;;
+                    RUBY) header_name="Ruby Environment" ;;
+                    RUST) header_name="Rust Environment" ;;
                     GENERAL) header_name="General Tools" ;;
                     *) header_name="${tool_name} Environment" ;;
                 esac
@@ -814,59 +628,39 @@ env_show() {
 }
 
 # Check installation status of configured tools
-env_status() {
+# Derives tool list from registry data (ZSH_ENV_TOOL_CATEGORIES)
+z_env_status() {
     echo "=== Tool Installation Status ==="
     echo ""
 
-    # Check major tools
-    local -a tools=(
-        "docker:Docker"
-        "kubectl:Kubernetes"
-        "node:Node.js"
-        "npm:NPM"
-        "yarn:Yarn"
-        "pnpm:PNPM"
-        "volta:Volta"
-        "python:Python"
-        "pip:Pip"
-        "pyenv:Pyenv"
-        "ruby:Ruby"
-        "gem:Gem"
-        "go:Go"
-        "cargo:Rust/Cargo"
-        "java:Java"
-        "composer:PHP Composer"
-    )
+    local -A seen_commands
+    local category var value_and_command command
 
-    local cmd name
-    for tool in "${tools[@]}"; do
-        cmd="${tool%%:*}"
-        name="${tool#*:}"
+    for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
+        for var value_and_command in ${(kvP)category}; do
+            command="${value_and_command#*|}"
+            # Skip duplicates (many vars share the same command)
+            (( ${+seen_commands[$command]} )) && continue
+            seen_commands[$command]=1
 
-        if _has_cmd "$cmd"; then
-            echo "✓ $name is installed"
-        else
-            echo "✗ $name is not installed"
-        fi
+            if _has_cmd "$command"; then
+                echo "  ✓ $command"
+            else
+                echo "  ✗ $command"
+            fi
+        done
     done
 }
 
 # Reload the environment module
-env_reload() {
+z_env_reload() {
     echo "Reloading environment module..."
-
-    # Try to determine the script path
-    local script_path
-    if [[ -n "$ZDOTDIR" ]]; then
-        script_path="$ZDOTDIR/modules/environment.zsh"
-    else
-        script_path="${HOME}/.config/zsh/modules/environment.zsh"
-    fi
+    local script_path="$(_resolve_module_path modules/02_environment.zsh)"
 
     if [[ -f "$script_path" ]]; then
         unset _Z_ENVIRONMENT_LOADED
         source "$script_path"
-        echo "✓ Environment module reloaded"
+        _ui_ok "Environment module reloaded"
     else
         echo "✗ Could not find environment.zsh at: $script_path" >&2
         return 1
@@ -908,14 +702,6 @@ _env_init_starship() {
 
 # Register starship for deferred execution (after /etc/zshrc)
 Z_POST_INTERACTIVE_HOOKS+=('_env_init_starship')
-
-# ----------------------------------------------------------
-# ALIASES
-# ----------------------------------------------------------
-
-alias envshow="env_show"
-alias envstatus="env_status"
-alias envreload="env_reload"
 
 # ----------------------------------------------------------
 # MODULE INITIALIZATION

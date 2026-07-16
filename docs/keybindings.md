@@ -125,7 +125,7 @@ Common escape sequences:
 
 1. Verify atuin is installed: `which atuin`
 2. Check widget exists: `bindkey | grep atuin`
-3. Source keybindings manually: `source ~/.config/zsh/modules/keybindings.zsh`
+3. Source keybindings manually: `source ~/.config/zsh/modules/08_keybindings.zsh`
 
 **Bindings overridden after shell start:**
 

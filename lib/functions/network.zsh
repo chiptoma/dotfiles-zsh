@@ -4,15 +4,9 @@
 # Network diagnostics and information utilities.
 # ==============================================================================
 
-# Idempotent guard - prevent multiple loads
+# Idempotent guard
 (( ${+_Z_FUNCTIONS_NETWORK_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_NETWORK_LOADED=1
-
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_NETWORK_ENABLED:=true}  # Enable/disable Network functions (default: true)
-
-# Exit early if Network functions are disabled
-[[ "$Z_FUNCTIONS_NETWORK_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
 # PORT INFORMATION

@@ -391,11 +391,11 @@ zsh -f
 source ~/.config/zsh/.zshenv
 
 # Now test a specific module
-source ~/.config/zsh/modules/history.zsh
+source ~/.config/zsh/modules/06_history.zsh
 echo $HISTFILE   # Should be set
 
 # Or test a function library
-source ~/.config/zsh/lib/functions/system.zsh
+source ~/.config/zsh/lib/functions/utilities.zsh
 z_calc 2+2       # Should output 4
 ```
 

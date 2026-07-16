@@ -1,0 +1,63 @@
+# ==============================================================================
+# ZSH TOOL INSTALL MANIFEST
+# Shared tool definitions readable by both Bash installer and ZSH framework.
+# ==============================================================================
+#
+# Format: name:binary:description:category:replaces:brew:apt
+#
+# Fields:
+#   name      - Human-readable tool name
+#   binary    - Command name to check if installed
+#   description - Short description
+#   category  - essential, recommended, or extra
+#   replaces  - Classic command this replaces (empty = supplement)
+#   brew      - Homebrew package name (SCRIPT = needs custom install)
+#   apt       - APT package name (SCRIPT = needs custom install)
+#
+# Lines starting with # are comments. Empty lines are ignored.
+# ==============================================================================
+
+# --- Prompt & History ---
+starship:starship:Cross-shell prompt with git integration:essential::starship:SCRIPT
+atuin:atuin:Searchable shell history synced across machines:essential::atuin:SCRIPT
+
+# --- File Operations ---
+eza:eza:Colorful file listing with icons and git status:recommended:ls:eza:eza
+bat:bat:File viewer with syntax highlighting and git diffs:recommended:cat:bat:bat
+fd:fd:Fast and friendly file finder:recommended::fd:fd-find
+ripgrep:rg:Extremely fast text search in files:recommended::ripgrep:ripgrep
+sd:sd:Intuitive find-and-replace (simpler than sed):recommended::sd:sd
+
+# --- Navigation ---
+fzf:fzf:Fuzzy finder for files, history, and everything:recommended::fzf:SCRIPT
+zoxide:zoxide:Smart directory jumper that learns your habits:recommended:cd:zoxide:zoxide
+yazi:yazi:Terminal file manager with image preview:recommended::yazi:SCRIPT
+
+# --- Disk & System ---
+dust:dust:Intuitive disk usage viewer with visual bars:recommended:du:dust:dust
+duf:duf:Pretty disk free output with colors:recommended:df:duf:duf
+btm:btm:Visual system monitor dashboard:recommended:top:bottom:SCRIPT
+procs:procs:Modern process viewer with color and tree:extra::procs:SCRIPT
+fastfetch:fastfetch:Fast system information display:extra::fastfetch:fastfetch
+
+# --- Git ---
+delta:delta:Beautiful side-by-side git diffs:recommended::git-delta:git-delta
+lazygit:lazygit:Simple terminal UI for git commands:recommended::lazygit:lazygit
+gh:gh:GitHub CLI for PRs, issues, repos:recommended::gh:gh
+
+# --- Network ---
+gping:gping:Ping with a real-time graph:extra:ping:gping:gping
+trippy:trip:Visual network path analyzer:extra:traceroute:trippy:SCRIPT
+xh:xh:Friendly HTTP client with colors and JSON:extra::xh:xh
+bandwhich:bandwhich:Per-process bandwidth monitor:extra::bandwhich:SCRIPT
+
+# --- Productivity ---
+tldr:tldr:Practical command examples (simpler than man):recommended::tealdeer:SCRIPT
+hyperfine:hyperfine:Accurate command benchmarking tool:extra::hyperfine:hyperfine
+topgrade:topgrade:Upgrade all tools with one command:recommended::topgrade:SCRIPT
+direnv:direnv:Per-directory environment variables:extra::direnv:direnv
+yq:yq:YAML/JSON/XML processor (like jq for YAML):extra::yq:yq
+just:just:Simple command runner (Makefile alternative):extra::just:just
+
+# --- macOS only ---
+mas:mas:Mac App Store CLI:extra::mas:

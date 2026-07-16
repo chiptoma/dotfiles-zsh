@@ -1,10 +1,10 @@
-# Utils Library
+# Core Library
 
-Core utility functions used by all modules. All functions use the `_` prefix (internal helpers).
+Foundational infrastructure used by all modules. All functions use the `_` prefix (internal).
 
 ## Overview
 
-The utils library provides foundational functions that other modules depend on:
+The core library provides foundational functions that other modules depend on:
 
 - Command existence checking
 - Environment detection
@@ -89,7 +89,7 @@ Check if shell is interactive.
 ```bash
 if _is_interactive; then
     # Only run in interactive shells
-    source ~/.config/zsh/modules/keybindings.zsh
+    source ~/.config/zsh/modules/08_keybindings.zsh
 fi
 ```
 
@@ -127,27 +127,7 @@ _ensure_file "$HOME/.zsh_history"
 _ensure_file "$HOME/.config/secrets" 600  # Restricted permissions
 ```
 
-## String Utilities
-
-### `_is_empty <string>`
-
-Check if string is empty.
-
-```bash
-if _is_empty "$VAR"; then
-    VAR="default"
-fi
-```
-
-### `_is_not_empty <string>`
-
-Check if string is not empty.
-
-```bash
-_is_not_empty "$API_KEY" && use_api
-```
-
-## Caching Helpers
+## Caching
 
 ### `_cache_eval <name> <command> [binary]`
 
@@ -200,18 +180,6 @@ When enabled, `_safe_source` will:
 - Log warning for untrusted files
 
 **Default:** Disabled (most users don't need this)
-
-## Dependency Checks
-
-### `_require_omz`
-
-Check if Oh My Zsh is installed.
-
-```bash
-_require_omz || return 1
-```
-
-Shows helpful error with installation instructions if missing.
 
 ## Logging Fallback
 
@@ -271,9 +239,9 @@ _log DEBUG "My module loaded"
 | `_is_interactive` | Check interactive shell |
 | `_is_login_shell` | Check login shell |
 | `_ensure_dir` | Create directory |
-| `_ensure_file` | Create file |
-| `_is_empty` | Check empty string |
-| `_is_not_empty` | Check non-empty string |
+| `_ensure_file` | Create file with permissions |
+| `_resolve_module_path` | Resolve relative to absolute path |
+| `_get_mtime` | Get file modification time |
 | `_cache_eval` | Cache command output |
 | `_safe_source` | Source with checks |
-| `_require_omz` | Verify Oh My Zsh |
+| `_run_post_interactive_hooks` | Run deferred hooks |

@@ -1,13 +1,13 @@
 #!/usr/bin/env zsh
 # ==============================================================================
-# ZSH UTILS LIBRARY
-# Common utility functions used by all modules.
-# All functions use _ prefix (internal helpers).
+# ZSH CORE HELPERS
+# Foundational utility functions used by all modules.
+# All functions use _ prefix (internal infrastructure).
 # ==============================================================================
 
 # Idempotent guard - prevent multiple loads
-(( ${+_Z_UTILS_LOADED} )) && return 0
-typeset -g _Z_UTILS_LOADED=1
+(( ${+_Z_HELPERS_LOADED} )) && return 0
+typeset -g _Z_HELPERS_LOADED=1
 
 # ----------------------------------------------------------
 # COMMAND CHECKS
@@ -32,13 +32,13 @@ _require_cmd() {
 }
 
 # ----------------------------------------------------------
-# ENVIRONMENT DETECTION
+# RUNTIME CONTEXT
 # Non-platform-specific environment checks
 # ----------------------------------------------------------
 
 # Check if in an SSH session
 _is_ssh_session() {
-    [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" || -n "$SSH_CONNECTION" ]]
+    [[ -n "${SSH_CLIENT:-}" || -n "${SSH_TTY:-}" || -n "${SSH_CONNECTION:-}" ]]
 }
 
 # Check if running inside a Docker container
@@ -51,8 +51,12 @@ _is_docker() {
 
 # Check if running in CI/CD environment
 _is_ci() {
-    [[ -n "$CI" || -n "$GITHUB_ACTIONS" || -n "$GITLAB_CI" || -n "$JENKINS_URL" || -n "$TRAVIS" ]]
+    [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" || -n "${GITLAB_CI:-}" || -n "${JENKINS_URL:-}" || -n "${TRAVIS:-}" ]]
 }
+
+# ----------------------------------------------------------
+# SHELL STATE
+# ----------------------------------------------------------
 
 # Check if shell is interactive
 _is_interactive() {
@@ -98,11 +102,11 @@ _ensure_dir() {
     return 0
 }
 
-# Ensure a file exists, create if not
+# Ensure a file exists with correct permissions
 # Usage: _ensure_file <file> [permissions]
 # Parameters:
 #   file: Path to file
-#   permissions: Optional chmod permissions (e.g., 600)
+#   permissions: Optional chmod permissions (e.g., 600) — enforced on both new and existing files
 _ensure_file() {
     local file="$1"
     local perms="${2:-}"
@@ -113,49 +117,27 @@ _ensure_file() {
             return 1
         fi
         _log DEBUG "Created file: $file"
+    fi
 
-        if [[ -n "$perms" ]]; then
-            if ! chmod "$perms" "$file" 2>/dev/null; then
-                _log WARN "Failed to set permissions $perms on: $file"
-            else
-                _log DEBUG "Set permissions $perms on: $file"
-            fi
+    if [[ -n "$perms" ]]; then
+        if ! chmod "$perms" "$file" 2>/dev/null; then
+            _log WARN "Failed to set permissions $perms on: $file"
         fi
     fi
     return 0
 }
 
-# ----------------------------------------------------------
-# STRING UTILITIES
-# ----------------------------------------------------------
-
-# Check if a string is empty
-_is_empty() {
-    [[ -z "$1" ]]
-}
-
-# Check if a string is not empty
-_is_not_empty() {
-    [[ -n "$1" ]]
-}
-
-# ----------------------------------------------------------
-# COMMAND VALIDATION
-# Validates command names before use in eval to prevent injection.
-# ----------------------------------------------------------
-
-# Validate command name for safe use in eval
-# Usage: _validate_safe_cmd <cmd_name>
-# Returns: 0 if safe, 1 if contains unsafe characters
-# Only allows alphanumeric, underscore, and hyphen
-_validate_safe_cmd() {
-    local cmd="$1"
-    # Allow only safe characters: a-z, A-Z, 0-9, underscore, hyphen
-    if [[ "$cmd" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-        return 0
+# Resolve a relative module path to an absolute path
+# Usage: _resolve_module_path <relative_path>
+# Example: _resolve_module_path "modules/02_environment.zsh"
+# Returns: Absolute path via stdout
+_resolve_module_path() {
+    local relative="$1"
+    if [[ -n "$ZDOTDIR" ]]; then
+        echo "$ZDOTDIR/$relative"
+    else
+        echo "${HOME}/.config/zsh/$relative"
     fi
-    _log ERROR "Unsafe characters in command: $cmd"
-    return 1
 }
 
 # ----------------------------------------------------------
@@ -177,7 +159,7 @@ _get_mtime() {
 }
 
 # ----------------------------------------------------------
-# CACHING HELPERS
+# CACHING
 # ----------------------------------------------------------
 
 # Cache and source the output of a command
@@ -260,17 +242,6 @@ _safe_source() {
 }
 
 # ----------------------------------------------------------
-# DEPENDENCY CHECKS
-# ----------------------------------------------------------
-
-# Check if Oh-My-Zsh is installed
-# Usage: _require_omz
-# Returns: 0 if installed, 1 if not (caller handles messaging)
-_require_omz() {
-    [[ -d "$ZSH" ]]
-}
-
-# ----------------------------------------------------------
 # HOOK SYSTEM
 # Allows modules to register callbacks for deferred execution.
 # POST_INTERACTIVE hooks run at end of .zshrc (after /etc/zshrc).
@@ -317,4 +288,4 @@ if ! typeset -f _log >/dev/null 2>&1; then
     }
 fi
 
-_log DEBUG "ZSH Utils Library loaded"
+_log DEBUG "ZSH Core Helpers loaded"

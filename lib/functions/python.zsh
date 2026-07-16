@@ -4,15 +4,9 @@
 # Python development and virtual environment utilities.
 # ==============================================================================
 
-# Idempotent guard - prevent multiple loads
+# Idempotent guard
 (( ${+_Z_FUNCTIONS_PYTHON_LOADED} )) && return 0
 typeset -g _Z_FUNCTIONS_PYTHON_LOADED=1
-
-# Configuration variables with defaults
-: ${Z_FUNCTIONS_PYTHON_ENABLED:=true}  # Enable/disable Python functions (default: true)
-
-# Exit early if Python functions are disabled
-[[ "$Z_FUNCTIONS_PYTHON_ENABLED" != "true" ]] && return 0
 
 # ----------------------------------------------------------
 # VIRTUAL ENVIRONMENT MANAGEMENT
@@ -36,7 +30,7 @@ z_activate_venv() {
         if [[ -f "$venv_path" ]]; then
             echo "Activating virtual environment: $venv_path"
             source "$venv_path"
-            echo "✓ Virtual environment activated"
+            _ui_ok "Virtual environment activated"
             return 0
         fi
     done

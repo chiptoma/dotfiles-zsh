@@ -60,13 +60,13 @@ Automatically adds CLI tools from:
 
 | Command | Alias | Description |
 |---------|-------|-------------|
-| `path_show` | `path`, `pathshow` | Display numbered PATH entries |
-| `path_which <cmd>` | `pathwhich` | Find which PATH entry provides a command |
-| `path_debug` | `pathdebug` | Show PATH statistics and diagnostics |
-| `_path_clean` | `pathclean` | Remove non-existent directories |
-| `path_invalid` | `pathinvalid` | Show non-existent PATH entries |
-| `path_contains <dir>` | `pathcontains` | Check if PATH contains directory |
-| `path_reload` | `pathreload` | Reload PATH from definitions |
+| `z_path_show` | `zpath` | Display numbered PATH entries |
+| `z_path_which <cmd>` | `zpathwhich` | Find which PATH entry provides a command |
+| `z_path_debug` | `zpathdebug` | Show PATH statistics and diagnostics |
+| `_path_clean` | `zpathclean` | Remove non-existent directories |
+| `z_path_invalid` | `zpathinvalid` | Show non-existent PATH entries |
+| `z_path_contains <dir>` | `zpathcontains` | Check if PATH contains directory |
+| `z_path_reload` | `zpathreload` | Reload PATH from definitions |
 
 ## Configuration
 
