@@ -126,12 +126,13 @@ checktools
 
 ### SSH Agent Detection (macOS)
 
-Automatically detects:
+Automatically detects, in order:
 
 1. **1Password SSH Agent** - `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock`
-2. **GPG Agent** - `~/.gnupg/S.gpg-agent.ssh`
+2. **GPG Agent** - `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent.ssh`
+3. **Pre-existing `$SSH_AUTH_SOCK`** - the macOS launchd agent, kept as fallback
 
-Sets `SSH_AUTH_SOCK` appropriately.
+Sets `SSH_AUTH_SOCK` appropriately. Inspect with `sshagent`.
 
 ## Linux Configuration
 
@@ -215,11 +216,12 @@ Used by history module for `Ctrl-Y` copy.
 
 ### SSH Agent Detection (Linux)
 
-Automatically detects:
+Automatically detects, in order:
 
-1. **GNOME Keyring** - `$XDG_RUNTIME_DIR/keyring/ssh`
+1. **1Password SSH Agent** - `~/.1password/agent.sock`
 2. **GPG Agent** - `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent.ssh`
-3. **KDE/systemd** - `$XDG_RUNTIME_DIR/ssh-agent.socket`
+3. **GNOME Keyring** - `$XDG_RUNTIME_DIR/keyring/ssh`
+4. **Pre-existing `$SSH_AUTH_SOCK`** - kept when it points at a valid socket
 
 ### WSL Configuration
 

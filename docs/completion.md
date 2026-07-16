@@ -29,7 +29,7 @@ Smart, fast, and user-friendly tab completion system with caching and intelligen
 
 ### Tool Integration
 
-- **OMZ Aware** - Integrates seamlessly with Oh My Zsh plugins
+- **fzf-tab Ready** - Runs `compinit` before the plugin loader so fzf-tab can take over the menu
 - **Bash Compat** - Loads `bashcompinit` for AWS CLI and similar tools
 - **Homebrew** - Auto-detects Homebrew completion paths
 - **Helm Support** - Kubernetes package manager completions (cached)
@@ -49,7 +49,7 @@ Add custom completion files to these directories (checked in order):
 1. `~/.config/zsh/completions` (highest priority)
 2. `$ZDOTDIR/completions`
 3. `$XDG_DATA_HOME/zsh/completions`
-4. OMZ custom completions (if using Oh My Zsh)
+4. Legacy Oh My Zsh completion dirs (only if `$ZSH` is set by an old install)
 5. `/opt/homebrew/share/zsh/site-functions` (Homebrew on Apple Silicon)
 6. `/usr/local/share/zsh/site-functions` (Homebrew on Intel)
 
@@ -145,6 +145,5 @@ echo $fpath | tr ' ' '\n'
 
 ## Notes
 
-- Loads **after** Oh My Zsh to properly integrate with plugins
-- Doesn't duplicate completions from OMZ plugins (git, docker, kubectl)
+- Loads **before** the plugin loader (`lib/plugins/index.zsh`) so `compinit` has run by the time fzf-tab needs it
 - Only adds directories to fpath if they exist

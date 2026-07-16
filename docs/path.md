@@ -94,7 +94,7 @@ When enabled (`Z_PATH_PROJECT_BIN=true`), automatically adds these directories w
 
 ```bash
 # Show current PATH entries (numbered)
-path
+zpath
 # Output:
 #   1: /opt/homebrew/bin
 #   2: /usr/local/bin
@@ -102,24 +102,24 @@ path
 #   ...
 
 # Find where a command comes from
-pathwhich npm
+zpathwhich npm
 # Output:
 #   Command 'npm' found at: /Users/you/.volta/bin/npm
 #   From PATH entry: /Users/you/.volta/bin
 
 # Debug PATH issues
-pathdebug
+zpathdebug
 # Shows:
 #   Total entries: 45
 #   Unique entries: 42
 #   Non-existent: 3
 
 # Remove non-existent paths
-pathclean
+zpathclean
 # Output: ✓ PATH cleaned
 
 # Check if path contains directory
-pathcontains /opt/homebrew/bin
+zpathcontains /opt/homebrew/bin
 # Output: ✓ Found at position 1
 ```
 
@@ -127,10 +127,10 @@ pathcontains /opt/homebrew/bin
 
 ### Data-Driven Definitions
 
-All paths are defined in `ZSH_PATH_DEFINITIONS` with conditions:
+All paths are defined in `Z_PATH_DEFINITIONS` (populated by the registry files in `lib/registry/`) with conditions:
 
 ```zsh
-ZSH_PATH_DEFINITIONS=(
+Z_PATH_DEFINITIONS+=(
     'js_volta'          '$VOLTA_HOME/bin:prepend:if_var_set:VOLTA_HOME'
     'mac_homebrew_m1'   '/opt/homebrew/bin:prepend:if_command_exists:/opt/homebrew/bin/brew'
     'linux_snap'        '/snap/bin:append:os_is_linux'

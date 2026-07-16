@@ -80,39 +80,22 @@ For larger functions, create a separate file and source it:
 source ~/my-functions.zsh
 ```
 
-## Adding Oh My Zsh Plugins
+## Adding Plugins
 
-### Built-in Plugins
+Plugins are self-managed git clones — no framework required. The installer clones the three built-in plugins (zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab) into `~/.local/share/zsh/plugins`, loaded by `lib/plugins/index.zsh`.
 
-OMZ includes 300+ plugins. To enable one, add to `.zshlocal`:
-
-```bash
-# ~/.config/zsh/.zshlocal
-
-# Load additional OMZ plugins
-# Note: Some plugins are already enabled in .zshrc
-source "$ZSH/plugins/docker/docker.plugin.zsh"
-source "$ZSH/plugins/kubectl/kubectl.plugin.zsh"
-source "$ZSH/plugins/npm/npm.plugin.zsh"
-```
-
-Browse available plugins:
-
-```bash
-ls "$ZSH/plugins"
-```
-
-### External Plugins
-
-Clone to `~/.config/zsh/custom/plugins/` and source:
+To add your own plugin, clone it anywhere (the standard plugins directory keeps things tidy) and source its entry file from `.zshlocal`:
 
 ```bash
 # Clone the plugin
-git clone https://github.com/author/my-plugin ~/.config/zsh/custom/plugins/my-plugin
+git clone --depth=1 https://github.com/author/my-plugin \
+    ~/.local/share/zsh/plugins/my-plugin
 
-# Add to .zshlocal
-source "$ZDOTDIR/custom/plugins/my-plugin/my-plugin.plugin.zsh"
+# Add to ~/.config/zsh/.zshlocal
+source ~/.local/share/zsh/plugins/my-plugin/my-plugin.plugin.zsh
 ```
+
+Small self-contained widgets (like the bundled `dirhistory` and `sudo`) live in `lib/plugins/vendor/` — a single sourced file, no clone needed.
 
 ## Disabling Modules
 

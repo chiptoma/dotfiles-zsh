@@ -133,12 +133,20 @@ export Z_TERMINAL_EDITORS_ORDER="vim nano"
 
 ## SSH Agent Detection
 
-Order of preference:
+Runs in `.zshenv` for every shell (`_detect_ssh_agent` in
+`lib/core/platform/detect.zsh`). Order of preference:
 
-1. **1Password** - `~/Library/Group Containers/.../agent.sock`
-2. **macOS Keychain** - `launchd` socket
-3. **Standard Agent** - `$SSH_AUTH_SOCK`
-4. **GPG Agent** - `gpgconf --list-dirs agent-ssh-socket`
+1. **1Password (macOS)** - `~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock`
+2. **1Password (Linux / symlink)** - `~/.1password/agent.sock`
+3. **GPG Agent** - `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent.ssh`
+4. **GNOME Keyring** - `$XDG_RUNTIME_DIR/keyring/ssh`
+5. **Pre-existing `$SSH_AUTH_SOCK`** - kept when it points at a valid socket
+   (e.g. the macOS launchd agent)
+
+Only socket *existence* is checked at startup. Inspect provider, liveness,
+and offered keys any time with `sshagent` (`z_ssh_agent`); `health` includes
+the same check. A `.zshlocal` `export SSH_AUTH_SOCK=...` overrides
+auto-detection for interactive shells (it loads last).
 
 Disable with:
 ```bash

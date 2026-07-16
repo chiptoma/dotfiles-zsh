@@ -154,12 +154,16 @@ zbench          # Benchmark startup time
    export Z_LAZY_PYENV=false   # If you don't use pyenv
    ```
 
-3. **Check for slow plugins**:
+3. **Profile the startup**:
    ```bash
-   # Profile shell startup
+   # Quick timing
    time zsh -i -c exit
 
-   # Detailed profiling (edit .zshrc to uncomment zprof)
+   # Per-stage breakdown (modules, plugins, registry)
+   Z_PROFILE_STARTUP=true zsh -ic z_profile
+
+   # Function-level (zprof) report
+   Z_PROFILE_STARTUP=zprof zsh -ic exit
    ```
 
 ### Shell Crashes on Startup
@@ -324,6 +328,66 @@ Add to `~/.config/zsh/.zshlocal` if not automatically detected.
 
 ---
 
+## SSH Issues
+
+### "Too many authentication failures"
+
+The SSH agent (typically 1Password) offers **every** enabled key to every
+server, one per authentication attempt. Servers reject the connection after
+`MaxAuthTries` attempts (OpenSSH default: 6), so with 6+ keys in the agent,
+hosts whose key sits late in the offer order never get it.
+
+Check how many keys your agent offers:
+
+```bash
+sshagent          # provider, socket, liveness, key count (z_ssh_agent)
+ssh-add -l | wc -l
+```
+
+Fixes, in order of preference:
+
+1. **1Password SSH bookmarks (best)** — add a URL field `ssh://user@host`
+   to each SSH key item (or click *Bookmark* in 1Password → SSH Agent →
+   Activity after connecting once). 1Password then generates
+   `~/.ssh/1Password/config` with exact host-to-key `Match` blocks.
+   Activate it once by putting this as the FIRST line of `~/.ssh/config`:
+
+   ```
+   Include ~/.ssh/1Password/config
+   ```
+
+2. **Pin hosts manually** in `~/.ssh/config` — offer exactly one key:
+
+   ```
+   Host myserver
+       IdentityFile ~/.ssh/mykey.pub
+       IdentitiesOnly yes
+   ```
+
+3. **Order and trim the agent** in `~/.config/1Password/ssh/agent.toml` —
+   the order of `[[ssh-keys]]` entries is the offer order; put your
+   most-used key/vault first and remove vaults never used for SSH.
+   Changes apply live, no restart needed.
+
+Do **not** set `IdentitiesOnly yes` under a bare `Host *` — hosts without
+an `IdentityFile` would then offer no keys at all.
+
+### Auto-accepting new host keys
+
+The agent never manages `known_hosts`. To stop first-connection prompts
+while still rejecting *changed* keys (MITM protection), add to `~/.ssh/config`:
+
+```
+Host *
+    StrictHostKeyChecking accept-new
+```
+
+### Stale agent socket
+
+`SSH_AUTH_SOCK` points at a socket file that exists but nothing answers
+(app quit, machine slept). Diagnose with `sshagent`; fix by starting the
+agent app and opening a new shell (or running `_detect_ssh_agent`).
+
 ## Configuration Issues
 
 ### Changes to .zshlocal Not Taking Effect
@@ -401,12 +465,13 @@ z_calc 2+2       # Should output 4
 
 ### Run the Test Suite
 
-```bash
-# Unit tests (fast, ~200 tests)
-zsh ~/.config/zsh/tests/unit-test.zsh --verbose
+All test layers run through the Justfile (see [TESTING.md](TESTING.md)):
 
-# Smoke tests (verifies shell starts correctly)
-zsh ~/.config/zsh/tests/smoke-test.zsh
+```bash
+cd ~/.config/zsh
+just test          # Lint + unit + smoke
+just test-unit     # Unit suite only
+just test-smoke    # Smoke suite only
 ```
 
 ### Common Debug Scenarios
@@ -419,8 +484,8 @@ Z_LOG_LEVEL=DEBUG zsh -ic 'print -l ${(k)parameters[(I)_Z_*_LOADED]}; exit'
 
 **What's in my PATH?**
 ```bash
-path          # Pretty-printed list
-pathdebug     # Full diagnostics with conditions
+zpath         # Pretty-printed list
+zpathdebug    # Full diagnostics with conditions
 ```
 
 **What did lazy loading defer?**
@@ -442,8 +507,8 @@ lazy          # Show status of all lazy-loaded tools
 
 ```bash
 help            # Quick reference guide
-status          # Show current configuration
-health          # Diagnostic health check
+zstatus         # Show current configuration
+zhealth         # Diagnostic health check
 als             # Browse all aliases
 ```
 
@@ -467,7 +532,7 @@ echo $ZSH_VERSION
 ./install.sh --check
 
 # Health status
-health
+zhealth
 
 # Relevant error messages
 ```

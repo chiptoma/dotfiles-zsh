@@ -11,48 +11,100 @@ git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
-That's it! The installer handles everything automatically.
+That's it! The installer handles everything automatically. Installing from a fork or a CI mirror? Set `ZSH_DOTFILES_REPO_URL` before the curl-pipe command.
 
 ---
 
 ## Installer Options
 
-### Basic Options
-```bash
-./install.sh              # Interactive installation
-./install.sh --yes, -y    # Non-interactive (accept all defaults)
-./install.sh --quiet, -q  # Minimal output (implies --yes)
-./install.sh --dry-run, -n # Show what would be done without changes
-./install.sh --help, -h   # Show all options
-./install.sh --version, -v # Show version number
-```
+### Installation options
 
-### Installation Profiles
-```bash
-./install.sh --minimal    # Core ZSH + Oh My Zsh only (essential tools only)
-./install.sh --full       # Install all tools automatically
-./install.sh --skip-tools # Skip recommended tools (essential still installed)
-./install.sh --tools fzf,eza,bat  # Install only specific tools
-```
+| Flag | Description |
+|------|-------------|
+| `--help`, `-h` | Show this help message |
+| `--version`, `-v` | Show version number |
+| `--yes`, `-y` | Non-interactive mode (accept defaults) |
+| `--quiet`, `-q` | Minimal output (implies `--yes`) |
+| `--dry-run`, `-n` | Show what would be done without making changes |
+| `--verbose` | Show detailed debug output |
+| `--symlink` | Symlink the repo into place (development setups) |
+| `--copy` | Copy files into place (default when unattended) |
+| `--default-shell` | Set zsh as default shell without asking |
+| `--no-default-shell` | Never touch the default shell |
 
-**Tool Tiers:**
-- **Essential** (always installed): `starship`, `atuin` - Required for proper shell experience
-- **Recommended** (default Y): `fzf`, `eza`, `bat`, `ripgrep`, `fd`, `zoxide` - Power user tools
-- **Extra** (--full only): `yazi` - File manager
+### Installation profiles
+
+| Flag | Description |
+|------|-------------|
+| `--minimal` | Core ZSH + plugins only (no optional tools) |
+| `--full` | Install all optional tools automatically |
+| `--skip-tools` | Skip optional tools installation step |
+| `--tools TOOLS` | Install specific tools (comma-separated). Full catalog: `lib/registry/tools.dat` (starship, atuin, eza, bat, fzf, zoxide, delta, lazygit, btm, dust, ...) |
 
 ### Maintenance
+
+| Flag | Description |
+|------|-------------|
+| `--check`, `-c` | Verify existing installation |
+| `--update` | Update to latest version (git pull) |
+| `--repair`, `--fix` | Repair broken installation |
+| `--restore [DIR]` | Restore dotfiles from a backup (newest by default) |
+| `--uninstall`, `-u` | Uninstall the configuration |
+
+### Advanced
+
+| Flag | Description |
+|------|-------------|
+| `--user USERNAME` | Run as specified user (for Docker testing) |
+
+### Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `NO_COLOR` | Disable colored output |
+| `XDG_CONFIG_HOME` | Override config directory (default: `~/.config`) |
+| `XDG_DATA_HOME` | Override data directory (default: `~/.local/share`) |
+| `ZSH_DOTFILES_REPO_URL` | Override repo URL for curl-pipe installs (forks/CI) |
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success (warnings possible, listed in the summary) |
+| `1` | Installation error (rollback attempted) |
+| `2` | Usage error (bad flag or argument) |
+| `3` | Preflight failure (missing dependency, no network) |
+
+### Examples
+
 ```bash
-./install.sh --check, -c  # Verify existing installation
-./install.sh --update     # Update to latest version (git pull)
-./install.sh --repair     # Repair broken installation
-./install.sh --uninstall, -u # Remove configuration
+install.sh                        # Interactive installation
+install.sh --yes                  # Automated with defaults
+install.sh --minimal --yes        # Minimal install (no optional tools)
+install.sh --full --yes           # Full install with all tools
+install.sh --tools fzf,eza,bat    # Install only specific tools
+install.sh --skip-tools --yes     # Install config without optional tools
+install.sh --repair               # Fix broken installation
+install.sh --check                # Verify installation health
 ```
 
-### Environment Variables
-```bash
-NO_COLOR=1 ./install.sh   # Disable colored output
-XDG_CONFIG_HOME=~/.config ./install.sh  # Override config directory
-```
+---
+
+## Choosing Tools
+
+The installer reads its 29-tool catalog from `lib/registry/tools.dat`, where every tool is tiered:
+
+- **essential** — `starship` (prompt), `atuin` (history)
+- **recommended** — `eza`, `bat`, `fd`, `ripgrep`, `sd`, `fzf`, `zoxide`, `yazi`, `dust`, `duf`, `btm`, `delta`, `lazygit`, `gh`, `tldr`, `topgrade`
+- **extra** — `procs`, `fastfetch`, `gping`, `trippy`, `xh`, `bandwhich`, `hyperfine`, `direnv`, `yq`, `just`, `mas` (macOS only)
+
+**Interactive runs** get a checkbox menu of every missing tool, grouped by tier. Toggle entries by number, `a`/`n` for all/none, `p` to cycle the preset (minimal → recommended → full), Enter to confirm.
+
+**Unattended runs** (`--yes`, `--quiet`, or an explicit profile flag) select by tier: the default profile installs essential + recommended; `--minimal` installs essential only; `--full` installs everything; `--tools a,b,c` installs exactly the named tools.
+
+Shipped tool configs (starship, atuin, bat, ripgrep, delta, lazygit, btm, fastfetch, tldr) are installed per `tools/manifest.dat` — only for tools that are actually present, with any pre-existing config backed up first.
+
+---
 
 ## SSH / Headless Server Quick-Start
 
@@ -70,7 +122,7 @@ This gives you:
 - SSH minimal mode (auto-detected — lighter env for remote sessions)
 - No optional tool prompts or downloads
 
-Oh My Zsh is **not required**. Without it, the framework falls back to basic `compinit` and all core modules work normally. Add tools later at any time:
+Add tools later at any time:
 
 ```bash
 ~/.config/zsh/install.sh --tools starship,fzf
@@ -78,17 +130,36 @@ Oh My Zsh is **not required**. Without it, the framework falls back to basic `co
 
 ---
 
+## Unattended / Ansible
+
+In unattended mode (`--yes` or `--quiet`) the installer never execs a new shell and never changes your default shell — pass `--default-shell` to opt in, or run `chsh -s $(command -v zsh)` yourself. Files are copied (not symlinked) by default so the install survives repo moves; pass `--symlink` to override.
+
+For fleet installs, an Ansible role is included:
+
+```bash
+ansible-playbook -i inventory ansible/playbook.yml
+```
+
+See [ansible/README.md](ansible/README.md) for role variables (repo/fork, install method, tool profile, default shell) and idempotence notes.
+
+---
+
 ## What the Installer Does
 
-1. **Checks Requirements** - Verifies zsh, git, curl, network connectivity
-2. **Installs Oh My Zsh** - If not already present
-3. **Backs Up Existing Config** - Saves ~/.zshrc, ~/.zshenv to timestamped backup
-4. **Installs Configuration** - Symlinks (from repo) or copies files
-5. **Configures ZDOTDIR** - Creates ~/.zshenv pointing to config
-6. **Installs Essential Tools** - starship (prompt), atuin (history) - always installed
-7. **Installs Recommended Tools** - fzf, eza, bat, ripgrep, fd, zoxide (prompted)
-8. **Creates .zshlocal** - For your personal customizations
-9. **Verifies Installation** - Checks all components are in place
+1. **Checks requirements** - Verifies zsh, git, curl, network connectivity
+2. **Backs up existing config** - Everything it will touch (dotfiles and tool configs) goes to `~/.zsh-backup-<timestamp>/` with a `MANIFEST`
+3. **Installs configuration** - Symlinks (`--symlink`) or copies files, and sets ZDOTDIR via `~/.zshenv`
+4. **Clones shell plugins** - zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab into `~/.local/share/zsh/plugins` (existing clones in the legacy Oh My Zsh custom dir are migrated)
+5. **Installs tools** - Interactive checkbox menu, or tier rules when unattended
+6. **Installs tool configs** - Per `tools/manifest.dat`, for tools that are present
+7. **Creates .zshlocal** - For your personal customizations
+8. **Verifies installation** - Checks all components are in place
+
+### Backups
+
+- Every run that changes files creates `~/.zsh-backup-<timestamp>/` with a `MANIFEST` mapping each original path to its backup copy (including tool configs).
+- Restore the newest backup with `install.sh --restore`, or a specific one with `install.sh --restore ~/.zsh-backup-<timestamp>`.
+- When more than five backups accumulate, interactive runs offer to prune the oldest (the newest five are always kept; unattended runs never delete backups).
 
 ---
 
@@ -96,31 +167,30 @@ Oh My Zsh is **not required**. Without it, the framework falls back to basic `co
 
 If you prefer not to use the installer:
 
-### 1. Install Oh My Zsh
-
-```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-```
-
-### 2. Clone Configuration
+### 1. Clone Configuration
 
 ```bash
 git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 ```
 
-### 3. Set ZDOTDIR
+### 2. Set ZDOTDIR
 
 ```bash
 echo 'export ZDOTDIR="$HOME/.config/zsh"' > ~/.zshenv
 ```
 
-### 4. Move Oh My Zsh (Optional)
+### 3. Clone Plugins (Optional)
 
 ```bash
-mv ~/.oh-my-zsh ~/.local/share/oh-my-zsh
+P=~/.local/share/zsh/plugins && mkdir -p "$P"
+git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$P/zsh-autosuggestions"
+git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$P/zsh-syntax-highlighting"
+git clone --depth=1 https://github.com/Aloxaf/fzf-tab "$P/fzf-tab"
 ```
 
-### 5. Restart Shell
+The framework works without them — missing plugins are simply skipped.
+
+### 4. Restart Shell
 
 ```bash
 exec zsh
@@ -142,44 +212,14 @@ exec zsh
 
 ---
 
-## Tools
-
-### Essential Tools (Always Installed)
-
-These are required for a proper shell experience:
-
-| Tool | Purpose | Install Method |
-|------|---------|----------------|
-| **starship** | Cross-shell prompt with git status | brew/pacman/dnf or script |
-| **atuin** | Shell history search and sync | brew/pacman or script |
-
-### Recommended Tools (Prompted)
-
-Power user tools that enhance productivity:
-
-| Tool | Purpose | Install Method |
-|------|---------|----------------|
-| **fzf** | Fuzzy finder (Ctrl+R, Ctrl+T) | Package manager |
-| **eza** | Modern ls with icons | brew/pacman/dnf or cargo |
-| **bat** | Better cat with syntax highlighting | Package manager |
-| **ripgrep** | Fast grep (10x faster) | Package manager |
-| **fd** | Modern find | Package manager |
-| **zoxide** | Smart cd (learns your habits) | Package manager |
-
-### Extra Tools (--full only)
-
-| Tool | Purpose | Install Method |
-|------|---------|----------------|
-| **yazi** | Terminal file manager | brew/pacman or script |
-
-### Manual Tool Installation
+## Manual Tool Installation
 
 **macOS:**
 ```bash
 # Essential
 brew install starship atuin
 
-# Recommended
+# Recommended (subset)
 brew install fzf eza bat ripgrep fd zoxide
 ```
 
@@ -189,7 +229,7 @@ brew install fzf eza bat ripgrep fd zoxide
 curl -sS https://starship.rs/install.sh | sh
 bash <(curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh)
 
-# Recommended
+# Recommended (subset)
 sudo apt install fzf bat ripgrep fd-find zoxide
 cargo install eza  # or download from GitHub releases
 ```
@@ -229,7 +269,7 @@ $EDITOR ~/.config/zsh/.zshlocal
 ~/.config/zsh/install.sh --update
 
 # Or using the shell function
-zsh_update
+z_update
 ```
 
 ### Manual Update
@@ -243,8 +283,8 @@ exec zsh
 ### Check Version
 
 ```bash
-zsh_version
-# Output: ZSH Configuration v1.0.0
+z_version
+# Output: ZSH Configuration v0.1.1
 #         Git: main @ abc1234
 ```
 
@@ -252,24 +292,19 @@ zsh_version
 
 ## Troubleshooting
 
-### "Oh My Zsh not found"
-
-The config expects OMZ at `~/.local/share/oh-my-zsh`:
-
-```bash
-mv ~/.oh-my-zsh ~/.local/share/oh-my-zsh
-```
-
-Or set a custom path in `.zshlocal`:
-```bash
-export ZSH="$HOME/.oh-my-zsh"
-```
-
 ### Commands Not Found
 
 Restart your shell completely:
 ```bash
 exec zsh
+```
+
+### Plugins Not Loading
+
+Check the clones exist and re-run the installer if not:
+```bash
+ls ~/.local/share/zsh/plugins
+~/.config/zsh/install.sh --repair
 ```
 
 ### Slow Startup
@@ -280,11 +315,18 @@ export Z_LOG_LEVEL=DEBUG
 exec zsh
 ```
 
+Or profile per stage:
+```bash
+Z_PROFILE_STARTUP=true zsh -ic z_profile
+```
+
 ### Verify Health
 
 ```bash
 ~/.config/zsh/install.sh --check
 ```
+
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for the full guide.
 
 ---
 

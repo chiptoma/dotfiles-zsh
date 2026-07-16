@@ -71,20 +71,20 @@ You'll see detailed output from all modules.
 
 ```bash
 # Change level without restart
-log_level_set DEBUG
+z_log_level DEBUG
 
 # Do some operations, see all output
 source ~/.config/zsh/modules/03_lazy.zsh
 
 # Restore normal level
-log_level_set WARN
+z_log_level WARN
 ```
 
 ### Temporary Level Change
 
 ```bash
 # Run command with different log level
-log_with_level DEBUG source ~/.config/zsh/modules/06_aliases.zsh
+z_log_with_level DEBUG source ~/.config/zsh/modules/06_aliases.zsh
 
 # Level automatically restored after
 ```
@@ -138,23 +138,23 @@ _log INFO "Processing complete"
 _log WARN "Disk space low"
 ```
 
-### `log_level_set <level>`
+### `z_log_level <level>`
 
 Change log level at runtime.
 
 ```bash
-log_level_set DEBUG    # Show everything
-log_level_set WARN     # Only warnings and errors
-log_level_set NONE     # Silence all output
+z_log_level DEBUG    # Show everything
+z_log_level WARN     # Only warnings and errors
+z_log_level NONE     # Silence all output
 ```
 
-### `log_with_level <level> <command>`
+### `z_log_with_level <level> <command>`
 
 Run command with temporary log level.
 
 ```bash
-log_with_level DEBUG source some-script.zsh
-log_with_level NONE noisy_command
+z_log_with_level DEBUG source some-script.zsh
+z_log_with_level NONE noisy_command
 ```
 
 ## Color Support

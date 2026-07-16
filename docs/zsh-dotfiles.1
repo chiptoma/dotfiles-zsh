@@ -5,7 +5,7 @@ zsh-dotfiles \- Modern ZSH configuration framework
 .B install.sh
 [\fIOPTIONS\fR]
 .SH DESCRIPTION
-A comprehensive ZSH configuration framework with Oh My Zsh integration,
+A comprehensive, self-contained ZSH configuration framework with
 modern CLI tools, and cross-platform support for macOS and Linux.
 .PP
 The installer sets up a complete ZSH environment with sensible defaults,
@@ -33,7 +33,7 @@ Show detailed debug output for troubleshooting.
 .SS "Installation Profiles"
 .TP
 .B \-\-minimal
-Install core ZSH configuration and Oh My Zsh only, without optional tools.
+Install core ZSH configuration and plugins only, without optional tools.
 .TP
 .B \-\-full
 Install all optional tools automatically.
@@ -117,8 +117,8 @@ User customizations. Not overwritten by updates.
 .I ~/.local/share/zsh/
 Data directory for history and caches.
 .TP
-.I ~/.local/share/oh-my-zsh/
-Oh My Zsh installation directory.
+.I ~/.local/share/zsh/plugins/
+Self-managed plugin clones (autosuggestions, syntax highlighting, fzf-tab).
 .TP
 .I ~/.zshenv
 Bootstrap file that sets ZDOTDIR.
@@ -127,7 +127,7 @@ After installation, these commands are available:
 .TP
 .B health
 Run comprehensive health check on ZSH configuration.
-Shows status of ZDOTDIR, config files, Oh My Zsh, tools, PATH, and startup time.
+Shows status of ZDOTDIR, config files, plugins, tools, PATH, SSH agent, and startup time.
 .TP
 .B z_status
 Display detailed ZSH configuration information.
@@ -151,9 +151,6 @@ Verify installation integrity (same as install.sh --check).
 .B ZDOTDIR
 ZSH configuration directory. Set automatically to ~/.config/zsh.
 .TP
-.B ZSH
-Oh My Zsh installation path.
-.TP
 .B Z_LOG_LEVEL
 Logging verbosity. Values: DEBUG, INFO, WARN, ERROR.
 .TP
@@ -176,7 +173,7 @@ Interactive installation:
 Automated installation with defaults:
 .B install.sh --yes
 .TP
-Minimal install (ZSH + Oh My Zsh only):
+Minimal install (no optional tools):
 .B install.sh --minimal --yes
 .TP
 Full install with all tools:

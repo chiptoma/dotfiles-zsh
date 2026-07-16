@@ -4,7 +4,7 @@ Final keybinding configuration that loads last to override plugin defaults.
 
 ## Overview
 
-The keybindings module ensures consistent key behavior by loading **after** all plugins (Oh My Zsh, fzf, etc.). This prevents plugins from overriding your preferred bindings.
+The keybindings module ensures consistent key behavior by loading **after** all plugins (autosuggestions, fzf, fzf-tab, etc.). This prevents plugins from overriding your preferred bindings.
 
 ## Configuration
 
@@ -29,7 +29,7 @@ If [atuin](https://atuin.sh/) is installed:
 
 ### Directory Navigation
 
-If the `dirhistory` Oh My Zsh plugin is loaded:
+Provided by the vendored `dirhistory` widget (`lib/plugins/vendor/dirhistory.zsh`, loaded automatically):
 
 | Key | Action |
 |-----|--------|
@@ -53,7 +53,7 @@ Works like browser back/forward for directories.
 
 ## Atuin Integration
 
-The module specifically fixes a common issue where Oh My Zsh or fzf plugins override atuin's up-arrow binding. After loading all plugins, this module re-binds the arrow keys to atuin's widgets.
+The module specifically fixes a common issue where fzf's shell bindings override atuin's up-arrow binding. After loading all plugins, this module re-binds the arrow keys to atuin's widgets.
 
 ### Checking Atuin Status
 
@@ -142,15 +142,15 @@ cat -v
 
 ## Load Order
 
-The keybindings module is intentionally loaded **last** in `.zshrc`:
+The keybindings module is intentionally the **last module** in `.zshrc`:
 
-1. Oh My Zsh plugins load
-2. fzf bindings load
-3. Other modules load
-4. **Keybindings module loads** (overrides all)
-5. `.zshlocal` loads (for user overrides)
+1. Plugins load (`lib/plugins/index.zsh`: fzf-tab, autosuggestions, fzf bindings, vendored widgets)
+2. Other modules load
+3. **Keybindings module loads** (overrides plugin bindings)
+4. `.zshlocal` loads (for user overrides)
+5. zsh-syntax-highlighting loads last (widget wrapping only — it respects existing bindings)
 
 ## Dependencies
 
 - **Optional:** atuin (for enhanced history search)
-- **Optional:** Oh My Zsh dirhistory plugin (for Alt+arrow navigation)
+- **Bundled:** `dirhistory` vendored widget (for Alt+arrow navigation)

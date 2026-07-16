@@ -5,18 +5,19 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Version](https://img.shields.io/github/v/release/chiptoma/dotfiles-zsh)](https://github.com/chiptoma/dotfiles-zsh/releases/latest)
 
-A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support.
+A modular, modern ZSH configuration with security-first defaults, lazy loading, and cross-platform support. No framework dependency — plugins are self-managed git clones.
 
 ## Features
 
 | Feature | Description |
 |---------|-------------|
 | **Modular Architecture** | Enable/disable features independently via `Z_*_ENABLED` flags |
-| **Lazy Loading** | Deferred initialization for starship, atuin, zoxide, nvm, pyenv, rbenv |
+| **Self-Managed Plugins** | zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab — no Oh My Zsh |
+| **Lazy Loading** | Deferred initialization for zoxide, nvm, pyenv, rbenv |
 | **Security First** | History filtering, safe aliases, ownership verification |
 | **Cross-Platform** | macOS (Intel/Apple Silicon) and Linux with auto-detection |
-| **XDG Compliant** | Respects XDG Base Directory specification |
-| **Performance** | Caching, optional compilation, minimal SSH mode |
+| **XDG Compliant** | Respects XDG Base Directory specification, with an XDG guardian |
+| **Performance** | 107ms interactive startup (measured with hyperfine), cached tool init |
 
 ## Quick Start
 
@@ -29,21 +30,20 @@ git clone https://github.com/chiptoma/dotfiles-zsh ~/.config/zsh
 curl -fsSL https://raw.githubusercontent.com/chiptoma/dotfiles-zsh/main/install.sh | bash
 ```
 
-The installer automatically:
-- Installs Oh My Zsh if desired (optional — framework works without it)
-- Configures ZDOTDIR
-- Creates XDG directories
-- Installs essential tools (starship prompt, atuin history)
-- Offers recommended tool installation (fzf, eza, zoxide, etc.)
+The installer:
+- Configures ZDOTDIR and creates XDG directories
+- Clones the shell plugins (zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab) into `~/.local/share/zsh/plugins`
+- Offers an interactive checkbox menu of optional tools (grouped essential / recommended / extra)
+- Backs up any existing config to `~/.zsh-backup-<timestamp>` before touching it
 
-See [INSTALL.md](INSTALL.md) for detailed instructions.
+See [INSTALL.md](INSTALL.md) for detailed instructions, all flags, and unattended installs.
 
 ## Architecture
 
 ```
 ~/.config/zsh/
-├── .zshenv                 # Entry point: XDG, logging, utils, platform, path
-├── .zshrc                  # Interactive: plugins, modules, keybindings
+├── .zshenv                 # Entry point: XDG, core lib, registry, path, environment
+├── .zshrc                  # Interactive: modules, plugins, keybindings
 ├── .zshlocal               # User customizations (gitignored)
 │
 ├── modules/                # Numbered by load order
@@ -56,27 +56,31 @@ See [INSTALL.md](INSTALL.md) for detailed instructions.
 │   └── 07_keybindings.zsh  # Key bindings, atuin/fzf integration
 │
 ├── lib/
-│   ├── utils.zsh           # Core utilities (_has_cmd, _safe_source, etc.)
-│   ├── platform/
-│   │   ├── macos.zsh       # macOS-specific (Homebrew, app bundles)
-│   │   └── linux.zsh       # Linux-specific (snap, flatpak)
-│   └── functions/
-│       ├── index.zsh       # Auto-discovery barrel
-│       ├── utilities.zsh   # calc, weather, process mgmt
-│       ├── framework.zsh   # version, health, status, benchmark
-│       ├── file.zsh        # File operations
-│       ├── git.zsh         # Git helpers
-│       ├── docker.zsh      # Docker/container helpers
-│       ├── network.zsh     # Network utilities
-│       ├── python.zsh      # Python/venv helpers
-│       └── introspection.zsh  # Shell debugging
+│   ├── core/               # Foundational infrastructure
+│   │   ├── logging.zsh     # _log with levels, colors, caller info
+│   │   ├── ui.zsh          # Shared output helpers
+│   │   ├── helpers.zsh     # _has_cmd, _safe_source, _cache_eval
+│   │   ├── profile.zsh     # Opt-in startup profiler
+│   │   └── platform/       # OS detection, macOS/Linux/BSD helpers
+│   ├── functions/          # User-facing z_* commands (auto-discovered)
+│   ├── plugins/
+│   │   ├── index.zsh       # Plugin loader (self-managed clones)
+│   │   └── vendor/         # Vendored widgets (dirhistory, sudo)
+│   └── registry/           # Tool knowledge: paths, env vars, tools.dat catalog
 │
-└── completions/            # Custom completions
+├── tools/                  # Shipped tool configs (manifest-driven)
+├── completions/            # Custom completions
+├── ansible/                # Ansible role + playbook for fleet installs
+├── tests/                  # Test suites (see docs/TESTING.md)
+└── Justfile                # Task runner — single entry for dev tasks
 ```
 
 ## Documentation
 
-Detailed documentation for each module:
+- **[docs/COMMANDS.md](docs/COMMANDS.md)** — full command reference (generated via `just docs-commands`)
+- **[docs/TESTING.md](docs/TESTING.md)** — test layers and the `just` workflow
+- **[docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md)** — personalizing via `.zshlocal`
+- **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** — debugging guide
 
 ### Interactive Modules
 
@@ -93,12 +97,39 @@ Detailed documentation for each module:
 | Module | Docs | Description |
 |--------|------|-------------|
 | **PATH** | [docs/path.md](docs/path.md) | Intelligent PATH with 50+ dev tools |
-| **Environment** | [docs/environment.md](docs/environment.md) | XDG compliance, editor detection |
+| **Environment** | [docs/environment.md](docs/environment.md) | XDG compliance, editor detection, SSH agent |
 | **Lazy Loading** | [docs/lazy.md](docs/lazy.md) | Deferred init for fast startup |
 | **Platform** | [docs/platform.md](docs/platform.md) | macOS/Linux detection and helpers |
 | **Logging** | [docs/logging.md](docs/logging.md) | Debug levels, colors, caller info |
 | **Core** | [docs/core.md](docs/core.md) | Core helpers (`_has_cmd`, `_cache_eval`) |
-| **Compilation** | [docs/compilation.md](docs/compilation.md) | Optional .zwc bytecode compilation |
+
+## Performance
+
+Interactive startup is measured with hyperfine (`just bench`):
+
+| Configuration | Mean startup |
+|---------------|--------------|
+| Previous (Oh My Zsh based) | 173ms |
+| Current (self-managed plugins) | **107ms** |
+
+Contributing factors: no framework overhead, cached `eval` of tool init (starship, atuin, zoxide, fzf), lazy loading of version managers, and a compiled completion dump.
+
+Profile your own startup:
+
+```bash
+Z_PROFILE_STARTUP=true zsh -ic z_profile   # Per-stage timing breakdown
+Z_PROFILE_STARTUP=zprof zsh -ic exit       # Function-level (zprof) report
+```
+
+## Plugins
+
+Plugins are plain git clones in `~/.local/share/zsh/plugins`, installed by the installer and loaded by `lib/plugins/index.zsh` — no plugin manager required:
+
+- [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions) — inline history suggestions
+- [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) — command colorization (loads last, from `.zshrc`)
+- [fzf-tab](https://github.com/Aloxaf/fzf-tab) — fzf-powered completion menu (loads right after `compinit`)
+
+Small widgets (`dirhistory`, `sudo`) are vendored in `lib/plugins/vendor/`. Clones made by older versions of this config into the legacy Oh My Zsh custom-plugins directory are still honored as a fallback for one release.
 
 ## Modules
 
@@ -122,7 +153,6 @@ Detailed documentation for each module:
 | History | [docs/history.md](docs/history.md) | enabled | History with security filtering |
 | Aliases | [docs/aliases.md](docs/aliases.md) | enabled | Modern tool replacements |
 | Keybindings | [docs/keybindings.md](docs/keybindings.md) | enabled | Key bindings (atuin, navigation) |
-| Compilation | [docs/compilation.md](docs/compilation.md) | disabled | .zwc bytecode compilation |
 
 ## Configuration Reference
 
@@ -198,10 +228,13 @@ All options can be set in `.zshlocal` or exported before sourcing.
 | `Z_ALIASES_MODERN_TOOLS` | `true` | Use eza, bat, ripgrep, etc. |
 | `Z_ALIASES_SAFETY_PROMPTS` | `true` | Confirm destructive ops |
 
-### Compilation
+### XDG Guardian
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `Z_XDG_GUARDIAN_ENABLED` | `true` | Scan `$HOME` for XDG-movable dotfiles |
+| `Z_XDG_GUARDIAN_MODE` | `notify` | `notify` (one-line summary), `interactive`, or `off` |
+| `Z_XDG_GUARDIAN_INTERVAL` | `86400` | Seconds between scans (24h) |
 
 ### Update Check
 
@@ -216,6 +249,7 @@ All options can be set in `.zshlocal` or exported before sourcing.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `Z_VERIFY_FILE_OWNERSHIP` | `false` | Check file ownership before sourcing |
+| `Z_PROFILE_STARTUP` | unset | `true` = per-stage timings, `zprof` = function-level report |
 
 ## Customization
 
@@ -258,7 +292,7 @@ export Z_LAZY_ZOXIDE=false
 
 ## Useful Commands
 
-### Shell Introspection
+The full command reference lives in [docs/COMMANDS.md](docs/COMMANDS.md) (or run `help` in the shell). Highlights:
 
 | Alias | Command | Description |
 |-------|---------|-------------|
@@ -269,6 +303,12 @@ export Z_LAZY_ZOXIDE=false
 | `zpathdebug` | `z_path_debug` | PATH diagnostics |
 | `zhiststats` | `z_history_stats` | Top commands chart |
 | `als` | `z_alias_browser` | Interactive alias browser (fzf) |
+| `sshagent` | `z_ssh_agent` | SSH agent provider, socket, keys |
+| `dotbackup` / `dotrestore` | `z_dotfiles_backup` / `z_dotfiles_restore` | Snapshot / restore managed dotfiles |
+| `copypath` / `copyfile` | `z_copypath` / `z_copyfile` | Copy path / file contents to clipboard |
+| `gitignore` | `z_gitignore` | Generate .gitignore from templates |
+| `profile` | `z_profile` | Startup timing breakdown |
+| `envinfo` | `z_env_info` | Editor/pager/viewer configuration |
 
 ### Popular Aliases (see [docs/aliases.md](docs/aliases.md) for all aliases)
 
@@ -282,6 +322,18 @@ export Z_LAZY_ZOXIDE=false
 | `mkcd` | Create dir and cd into it | Navigation |
 | `lt` | `eza --tree --level=2 --icons` | Modern tools |
 | `G` | `\| grep` (global alias) | Piping |
+
+## Development
+
+All dev, test, and maintenance tasks run through the [Justfile](Justfile):
+
+```bash
+just            # List all recipes
+just test       # Lint + unit + smoke (safe on any machine)
+just bench      # Benchmark interactive startup with hyperfine
+```
+
+See [docs/TESTING.md](docs/TESTING.md) for the full test-layer breakdown and [CONTRIBUTING.md](CONTRIBUTING.md) for conventions.
 
 ## Troubleshooting
 
@@ -303,8 +355,8 @@ z_lazy_status
 
 **PATH issues:**
 ```bash
-pathdebug      # Show diagnostics
-pathclean      # Remove non-existent entries
+zpathdebug     # Show diagnostics
+zpathclean     # Remove non-existent entries
 ```
 
 **Reset completion cache:**
@@ -313,36 +365,30 @@ rm -f ~/.cache/zsh/completion/zcompdump*
 exec zsh
 ```
 
-## Oh My Zsh (Optional)
-
-Oh My Zsh is **optional**. When installed, it provides plugin management for zsh-autosuggestions, zsh-syntax-highlighting, and fzf-tab. When absent, the framework falls back to basic `compinit` and all core modules (PATH, environment, lazy loading, history, aliases, functions) continue to work normally.
-
-```bash
-# Install OMZ if you want plugins
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-
-# Or run without it — everything except plugins works
-```
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for the full guide.
 
 ## Dependencies
 
 **Required:**
 - ZSH 5.8+
+- git (for plugin clones and updates)
 
-**Optional:**
-- [Oh My Zsh](https://ohmyz.sh/) — Plugin manager (graceful fallback if absent)
+**Shell plugins (cloned automatically by the installer):**
+- zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab
 
-**Essential (installed automatically):**
+**Essential tools (installed by default):**
 - [starship](https://starship.rs/) - Cross-shell prompt with git status
 - [atuin](https://atuin.sh/) - Shell history search and sync
 
-**Recommended (prompted during install):**
+**Recommended (selectable during install):**
 - [fzf](https://github.com/junegunn/fzf) - Fuzzy finder (Ctrl+R, Ctrl+T)
 - [zoxide](https://github.com/ajeetdsouza/zoxide) - Smarter cd
 - [eza](https://github.com/eza-community/eza) - Modern ls with icons
 - [bat](https://github.com/sharkdp/bat) - Modern cat with syntax highlighting
 - [ripgrep](https://github.com/BurntSushi/ripgrep) - Fast grep
 - [fd](https://github.com/sharkdp/fd) - Modern find
+
+The full 29-tool catalog lives in `lib/registry/tools.dat`.
 
 ```bash
 # macOS
