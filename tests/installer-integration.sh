@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # INSTALLER INTEGRATION TESTS
-# End-to-end tests for the ZSH dotfiles installer.
+# End-to-end tests for the ZSH dotfiles installer (shared harness.sh).
 # Run in Docker for clean environment isolation.
 # ==============================================================================
 
@@ -14,100 +14,18 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALLER="$SCRIPT_DIR/install.sh"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m'
-
-# Counters
-PASSED=0
-FAILED=0
-SKIPPED=0
+# shellcheck source=tests/harness.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/harness.sh"
 
 # ----------------------------------------------------------
 # TEST HELPERS
 # ----------------------------------------------------------
-
-# $((x + 1)) form: ((x++)) returns status 1 when x is 0, killing set -e
-pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    PASSED=$((PASSED + 1))
-}
-
-fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    [[ -n "${2:-}" ]] && echo "       $2"
-    FAILED=$((FAILED + 1))
-}
-
-skip() {
-    echo -e "${YELLOW}[SKIP]${NC} $1"
-    SKIPPED=$((SKIPPED + 1))
-}
 
 # Clean up test environment (incl. backup dirs — stale ones poison
 # tests that inspect "the" backup)
 cleanup() {
     rm -rf ~/.config/zsh ~/.local/share/zsh ~/.local/share/oh-my-zsh \
         ~/.zshenv ~/.zshrc ~/.zsh-backup-* 2>/dev/null || true
-}
-
-# Check if file exists
-assert_file_exists() {
-    local file="$1"
-    local msg="${2:-File exists: $file}"
-    if [[ -f "$file" ]]; then
-        return 0
-    else
-        echo "       Expected file: $file"
-        return 1
-    fi
-}
-
-# Check if directory exists
-assert_dir_exists() {
-    local dir="$1"
-    if [[ -d "$dir" ]]; then
-        return 0
-    else
-        echo "       Expected directory: $dir"
-        return 1
-    fi
-}
-
-# Check if directory does not exist
-assert_dir_not_exists() {
-    local dir="$1"
-    if [[ ! -d "$dir" ]]; then
-        return 0
-    else
-        echo "       Directory should not exist: $dir"
-        return 1
-    fi
-}
-
-# Check if file contains string
-assert_file_contains() {
-    local file="$1"
-    local pattern="$2"
-    if grep -q "$pattern" "$file" 2>/dev/null; then
-        return 0
-    else
-        echo "       Pattern not found in $file: $pattern"
-        return 1
-    fi
-}
-
-# Check if path is a symlink
-assert_is_symlink() {
-    local path="$1"
-    if [[ -L "$path" ]]; then
-        return 0
-    else
-        echo "       Expected symlink: $path"
-        return 1
-    fi
 }
 
 # ----------------------------------------------------------
@@ -121,10 +39,10 @@ test_fresh_install_copy() {
     # Run installer with copy mode (option 1)
     echo "1" | "$INSTALLER" --yes --skip-tools >/dev/null 2>&1
 
-    if assert_dir_exists ~/.config/zsh && \
-       assert_file_exists ~/.config/zsh/.zshrc && \
-       assert_file_exists ~/.zshenv && \
-       assert_file_contains ~/.zshenv "ZDOTDIR"; then
+    if check_dir_exists ~/.config/zsh && \
+       check_file_exists ~/.config/zsh/.zshrc && \
+       check_file_exists ~/.zshenv && \
+       check_file_contains ~/.zshenv "ZDOTDIR"; then
         pass "Fresh install (copy mode)"
     else
         fail "Fresh install (copy mode)"
@@ -152,9 +70,9 @@ test_fresh_install_curlpipe() {
     ZSH_DOTFILES_REPO_URL="file://$origin_tmp/src/.git" \
         bash -s -- --yes --skip-tools <"$INSTALLER" >/dev/null 2>&1 || true
 
-    if assert_dir_exists ~/.config/zsh && \
+    if check_dir_exists ~/.config/zsh && \
        [[ ! -L ~/.config/zsh ]] && \
-       assert_file_exists ~/.config/zsh/.zshrc; then
+       check_file_exists ~/.config/zsh/.zshrc; then
         pass "Fresh install (curl-pipe mode forces copy from cloned repo)"
     else
         fail "Fresh install (curl-pipe mode forces copy from cloned repo)"
@@ -174,7 +92,7 @@ test_fresh_install_symlink() {
 
     "$INSTALLER" --yes --skip-tools --symlink >/dev/null 2>&1
 
-    if assert_is_symlink ~/.config/zsh; then
+    if check_is_symlink ~/.config/zsh; then
         pass "Fresh install (--symlink flag creates symlink)"
     else
         fail "Fresh install (--symlink flag creates symlink)"
@@ -187,7 +105,7 @@ test_unattended_defaults_to_copy() {
 
     "$INSTALLER" --yes --skip-tools >/dev/null 2>&1
 
-    if assert_dir_exists ~/.config/zsh && [[ ! -L ~/.config/zsh ]]; then
+    if check_dir_exists ~/.config/zsh && [[ ! -L ~/.config/zsh ]]; then
         pass "Unattended install defaults to copy (not a symlink)"
     else
         fail "Unattended install defaults to copy (not a symlink)"
@@ -207,7 +125,7 @@ test_repair_zdotdir() {
     # Repair
     "$INSTALLER" --repair --yes >/dev/null 2>&1
 
-    if assert_file_contains ~/.zshenv "ZDOTDIR"; then
+    if check_file_contains ~/.zshenv "ZDOTDIR"; then
         pass "Repair fixes broken ZDOTDIR"
     else
         fail "Repair fixes broken ZDOTDIR"
@@ -227,7 +145,7 @@ test_repair_missing_files() {
     # Repair
     "$INSTALLER" --repair --yes >/dev/null 2>&1
 
-    if assert_file_exists ~/.config/zsh/.zshrc; then
+    if check_file_exists ~/.config/zsh/.zshrc; then
         pass "Repair restores missing files"
     else
         fail "Repair restores missing files"
@@ -240,7 +158,7 @@ test_dry_run() {
 
     "$INSTALLER" --dry-run --yes >/dev/null 2>&1
 
-    if assert_dir_not_exists ~/.config/zsh; then
+    if check_dir_not_exists ~/.config/zsh; then
         pass "Dry-run makes no changes"
     else
         fail "Dry-run makes no changes"
@@ -305,7 +223,7 @@ test_uninstall() {
     # Uninstall
     "$INSTALLER" --uninstall --yes >/dev/null 2>&1
 
-    if assert_dir_not_exists ~/.config/zsh; then
+    if check_dir_not_exists ~/.config/zsh; then
         pass "Uninstall removes configuration"
     else
         fail "Uninstall removes configuration"
@@ -325,7 +243,7 @@ test_preserves_zshlocal() {
     # Run installer again (upgrade)
     echo "1" | "$INSTALLER" --yes --skip-tools >/dev/null 2>&1
 
-    if assert_file_contains ~/.config/zsh/.zshlocal "MY_CUSTOM_SETTING"; then
+    if check_file_contains ~/.config/zsh/.zshlocal "MY_CUSTOM_SETTING"; then
         pass "Upgrade preserves .zshlocal"
     else
         fail "Upgrade preserves .zshlocal"
@@ -534,8 +452,8 @@ run_tests() {
 
     # DESTRUCTIVE GUARD: these tests install into and wipe parts of $HOME.
     # Only run inside a container/CI, or with FORCE=1 on a throwaway machine.
-    if [[ ! -f /.dockerenv && "${CI:-}" != "true" && "${FORCE:-}" != "1" ]]; then
-        echo -e "${RED}FAIL: refusing to run outside a container/CI — these tests mutate \$HOME.${NC}"
+    if ! _is_ci_or_container && [[ "${FORCE:-}" != "1" ]]; then
+        printf '%s\n' "${RED}FAIL: refusing to run outside a container/CI — these tests mutate \$HOME.${NC}"
         echo "      Use 'just test-docker <distro>' for isolation, or FORCE=1 to override."
         exit 1
     fi
@@ -566,15 +484,8 @@ run_tests() {
     # Final cleanup
     cleanup
 
-    # Summary
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "  Results: ${GREEN}$PASSED passed${NC}, ${RED}$FAILED failed${NC}, ${YELLOW}$SKIPPED skipped${NC}"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
-
-    # Exit with failure if any tests failed
-    [[ $FAILED -eq 0 ]]
+    # Summary (boxed + machine-greppable final line)
+    print_summary "installer integration"
 }
 
 # Run if executed directly

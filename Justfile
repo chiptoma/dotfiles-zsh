@@ -55,8 +55,12 @@ test-unit:
 test-smoke:
     cd "{{repo}}" && ZDOTDIR="{{repo}}" zsh tests/smoke-test.zsh
 
+# Run installer pure-function unit tests (sourced install.sh; mutates nothing)
+test-installer-unit:
+    cd "{{repo}}" && bash tests/installer-unit.sh
+
 # L0 + L1 + L2 — the default local gate
-test: lint test-unit test-smoke
+test: lint test-unit test-installer-unit test-smoke
     @echo "ok: test — lint + unit + smoke all green"
 
 # ----------------------------------------------------------

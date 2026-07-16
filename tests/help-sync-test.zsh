@@ -10,11 +10,8 @@
 emulate -L zsh
 
 REPO_ROOT="${0:A:h:h}"
-FAILURES=0
-CHECKS=0
 
-pass() { print -r -- "ok: $1"; (( CHECKS += 1 )); }
-fail() { print -r -- "FAIL: $1"; (( FAILURES += 1, CHECKS += 1 )); }
+source "${0:A:h}/harness.zsh"
 
 # Load just enough framework for the registry + functions; the history
 # module defines the z_history_* functions the registry references
@@ -88,9 +85,7 @@ done
 # ----------------------------------------------------------
 # SUMMARY
 # ----------------------------------------------------------
-print -r -- "---"
-if (( FAILURES > 0 )); then
-    print -r -- "FAIL: help sync — $FAILURES of $CHECKS checks failed"
-    exit 1
+if print_summary "help sync"; then
+    exit 0
 fi
-print -r -- "ok: help sync — all $CHECKS checks passed"
+exit 1

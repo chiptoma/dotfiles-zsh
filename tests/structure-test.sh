@@ -12,11 +12,9 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FAILURES=0
-CHECKS=0
 
-pass() { printf 'ok: %s\n' "$1"; CHECKS=$((CHECKS + 1)); }
-fail() { printf 'FAIL: %s\n' "$1"; FAILURES=$((FAILURES + 1)); CHECKS=$((CHECKS + 1)); }
+# shellcheck source=tests/harness.sh
+. "$(cd "$(dirname "$0")" && pwd)/harness.sh"
 
 # ----------------------------------------------------------
 # 1. ESSENTIAL_FILES ENTRIES EXIST
@@ -64,7 +62,7 @@ done <<< "$referenced_paths"
 
 # ----------------------------------------------------------
 # 3. TOOL CATALOG FORMAT
-# Every non-comment line: 7 colon-delimited fields, unique names.
+# Every non-comment line: 8 colon-delimited fields, unique names.
 # ----------------------------------------------------------
 catalog=""
 for candidate in "$REPO_ROOT/lib/registry/tools.dat" "$REPO_ROOT/lib/registry/_install.dat"; do
@@ -74,12 +72,12 @@ done
 if [ -z "$catalog" ]; then
     fail "tool catalog not found (lib/registry/tools.dat or _install.dat)"
 else
-    bad_lines="$(grep -vE '^[[:space:]]*(#|$)' "$catalog" | awk -F: 'NF != 7 {print NR": "$0}')"
+    bad_lines="$(grep -vE '^[[:space:]]*(#|$)' "$catalog" | awk -F: 'NF != 8 {print NR": "$0}')"
     if [ -n "$bad_lines" ]; then
-        fail "catalog lines without exactly 7 colon-fields in ${catalog##*/}:"
+        fail "catalog lines without exactly 8 colon-fields in ${catalog##*/}:"
         printf '%s\n' "$bad_lines" | head -5
     else
-        pass "catalog format valid: every entry in ${catalog##*/} has 7 fields"
+        pass "catalog format valid: every entry in ${catalog##*/} has 8 fields"
     fi
 
     dupes="$(grep -vE '^[[:space:]]*(#|$)' "$catalog" | cut -d: -f1 | sort | uniq -d)"
@@ -118,11 +116,31 @@ else
 fi
 
 # ----------------------------------------------------------
+# 5. MASTER .ZSHLOCAL COVERS EVERY TUNABLE
+# Any `: ${Z_X:=...}` default in the codebase must appear in
+# examples/zshlocal so users can discover it.
+# ----------------------------------------------------------
+zshlocal_example="$REPO_ROOT/examples/zshlocal"
+if [ -f "$zshlocal_example" ]; then
+    missing_opts=0
+    while IFS= read -r opt; do
+        [ -n "$opt" ] || continue
+        if ! grep -q "$opt" "$zshlocal_example"; then
+            fail "tunable missing from examples/zshlocal: $opt"
+            missing_opts=$((missing_opts + 1))
+        fi
+    done < <(grep -rhoE ': \$\{Z_[A-Z_]+:=' \
+        "$REPO_ROOT/lib" "$REPO_ROOT/modules" "$REPO_ROOT/.zshrc" "$REPO_ROOT/.zshenv" 2>/dev/null \
+        | grep -oE 'Z_[A-Z_]+' | sort -u)
+    [ "$missing_opts" -eq 0 ] && pass "examples/zshlocal documents every Z_* tunable"
+else
+    fail "examples/zshlocal missing"
+fi
+
+# ----------------------------------------------------------
 # SUMMARY
 # ----------------------------------------------------------
-echo "---"
-if [ "$FAILURES" -gt 0 ]; then
-    printf 'FAIL: structure test — %d of %d checks failed\n' "$FAILURES" "$CHECKS"
-    exit 1
+if print_summary "structure test"; then
+    exit 0
 fi
-printf 'ok: structure test — all %d checks passed\n' "$CHECKS"
+exit 1

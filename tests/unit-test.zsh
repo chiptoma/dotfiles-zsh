@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 # ==============================================================================
 # ZSH UNIT TEST FRAMEWORK
-# Self-contained unit tests for core zsh configuration functions.
+# Unit tests for core zsh configuration functions (shared harness.zsh).
 # Run: ./tests/unit-test.zsh [--verbose]
 # ==============================================================================
 
@@ -14,131 +14,16 @@
 VERBOSE=false
 [[ "$1" == "--verbose" || "$1" == "-v" ]] && VERBOSE=true
 
-# Colors (safe for non-color terminals)
-if [[ -t 1 ]] && [[ -n "$TERM" ]] && [[ "$TERM" != "dumb" ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-else
-    RED='' GREEN='' YELLOW='' BLUE='' NC=''
-fi
-
-# Counters
-PASSED=0
-FAILED=0
-SKIPPED=0
-
-# Test isolation temp dir
-TEST_TMP=""
+source "${0:A:h}/harness.zsh"
 
 # ----------------------------------------------------------
-# TEST HELPERS
+# SUITE SETUP
 # ----------------------------------------------------------
 
-pass() {
-    echo "${GREEN}[PASS]${NC} $1"
-    PASSED=$((PASSED + 1))
-}
+# Detect ZDOTDIR so modules can be loaded from the repo under test
+setup_suite_env() {
+    setup_test_env
 
-fail() {
-    echo "${RED}[FAIL]${NC} $1"
-    [[ -n "${2:-}" ]] && echo "       Expected: $2"
-    [[ -n "${3:-}" ]] && echo "       Got:      $3"
-    FAILED=$((FAILED + 1))
-}
-
-skip() {
-    echo "${YELLOW}[SKIP]${NC} $1"
-    SKIPPED=$((SKIPPED + 1))
-}
-
-info() {
-    [[ "$VERBOSE" == "true" ]] && echo "${BLUE}[INFO]${NC} $1"
-    return 0
-}
-
-section() {
-    echo ""
-    echo "${BLUE}━━━${NC} $1 ${BLUE}━━━${NC}"
-}
-
-# Assert helpers
-assert_eq() {
-    local actual="$1" expected="$2" msg="$3"
-    if [[ "$actual" == "$expected" ]]; then
-        pass "$msg"
-    else
-        fail "$msg" "$expected" "$actual"
-    fi
-}
-
-assert_ne() {
-    local actual="$1" unexpected="$2" msg="$3"
-    if [[ "$actual" != "$unexpected" ]]; then
-        pass "$msg"
-    else
-        fail "$msg" "not $unexpected" "$actual"
-    fi
-}
-
-assert_true() {
-    local msg="$1"
-    shift
-    if "$@"; then
-        pass "$msg"
-    else
-        fail "$msg" "true" "false"
-    fi
-}
-
-assert_false() {
-    local msg="$1"
-    shift
-    if ! "$@"; then
-        pass "$msg"
-    else
-        fail "$msg" "false" "true"
-    fi
-}
-
-assert_contains() {
-    local haystack="$1" needle="$2" msg="$3"
-    if [[ "$haystack" == *"$needle"* ]]; then
-        pass "$msg"
-    else
-        fail "$msg" "contains '$needle'" "'$haystack'"
-    fi
-}
-
-assert_file_exists() {
-    local file="$1" msg="$2"
-    if [[ -f "$file" ]]; then
-        pass "$msg"
-    else
-        fail "$msg" "file exists" "not found"
-    fi
-}
-
-assert_dir_exists() {
-    local dir="$1" msg="$2"
-    if [[ -d "$dir" ]]; then
-        pass "$msg"
-    else
-        fail "$msg" "directory exists" "not found"
-    fi
-}
-
-# ----------------------------------------------------------
-# TEST SETUP & TEARDOWN
-# ----------------------------------------------------------
-
-setup_test_env() {
-    # Create isolated temp directory
-    TEST_TMP=$(mktemp -d)
-
-    # Detect ZDOTDIR
     if [[ -z "$ZDOTDIR" ]]; then
         if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/zsh" ]]; then
             export ZDOTDIR="${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
@@ -147,10 +32,6 @@ setup_test_env() {
 
     info "TEST_TMP=$TEST_TMP"
     info "ZDOTDIR=$ZDOTDIR"
-}
-
-teardown_test_env() {
-    [[ -n "$TEST_TMP" && -d "$TEST_TMP" ]] && rm -rf "$TEST_TMP"
 }
 
 # Load a module in isolation
@@ -333,6 +214,41 @@ test_path_functions() {
 
     # Restore original path
     path=("${original_path[@]}")
+}
+
+# ----------------------------------------------------------
+# TESTS: modules/01_path.zsh (Exact Ordering)
+# ----------------------------------------------------------
+
+test_path_ordering() {
+    section "modules/01_path.zsh (ordering)"
+
+    (( $+functions[_path_add] )) || { skip "_path_add not defined"; return; }
+
+    local dir_a="$TEST_TMP/path_order_a" dir_b="$TEST_TMP/path_order_b"
+    mkdir -p "$dir_a" "$dir_b"
+
+    local -a original_path=("${path[@]}")
+
+    # Prepend ordering: the LAST prepend must win index 1
+    _path_add "$dir_a" prepend
+    _path_add "$dir_b" prepend
+    assert_eq "${path[1]}" "$dir_b" "second prepend lands at exact index 1"
+    assert_eq "${path[2]}" "$dir_a" "first prepend is pushed to exact index 2"
+
+    # Reset PATH and dedup cache before testing append
+    path=("${original_path[@]}")
+    (( $+functions[_path_cache_rebuild] )) && _path_cache_rebuild 2>/dev/null
+
+    # Append ordering: appends land at the tail in call order
+    _path_add "$dir_a" append
+    _path_add "$dir_b" append
+    assert_eq "${path[-2]}" "$dir_a" "first append sits at exact second-to-last index"
+    assert_eq "${path[-1]}" "$dir_b" "second append lands at exact last index"
+
+    # Restore
+    path=("${original_path[@]}")
+    (( $+functions[_path_cache_rebuild] )) && _path_cache_rebuild 2>/dev/null
 }
 
 # ----------------------------------------------------------
@@ -1531,8 +1447,8 @@ test_z_history_clean() {
         fail "z_history_clean not defined"
     fi
 
-    # Test the awk dedup+filter logic directly (z_history_clean uses fc -R which hangs in non-interactive)
-    local test_histfile="$TEST_TMP/awk_test_history"
+    # Behavioral: run the REAL z_history_clean against a fixture HISTFILE
+    local test_histfile="$TEST_TMP/histclean_fixture"
     cat > "$test_histfile" <<'HIST'
 : 1700000001:0;ls -la
 : 1700000002:0;git status
@@ -1543,74 +1459,58 @@ test_z_history_clean() {
 : 1700000007:0;echo hello
 HIST
 
-    # Build the awk pattern the same way z_history_clean does
-    local awk_patterns=()
-    local pattern
-    for pattern in "${Z_HISTORY_IGNORE_PATTERNS[@]}"; do
-        awk_patterns+=( "${pattern//\*/.*}" )
-    done
-    local full_awk_pattern="${(j.|.)awk_patterns}"
+    local old_data_home="${ZSH_DATA_HOME:-}"
+    export ZSH_DATA_HOME="$TEST_TMP/histclean_data"
+    HISTFILE="$test_histfile"
 
-    local temp_out="$TEST_TMP/awk_test_output"
-    LC_ALL=C awk -v pattern="$full_awk_pattern" '
-        BEGIN { FS=OFS=";" }
-        {
-            cmd = substr($0, index($0, ";") + 1)
-            if (cmd !~ pattern) {
-                lines[cmd] = $0
-                last_seen[cmd] = NR
-                all_lines[NR] = $0
-                all_cmds[NR] = cmd
-            }
-        }
-        END {
-            for (i = 1; i <= NR; i++) {
-                if (i in all_cmds) {
-                    cmd = all_cmds[i]
-                    if (i == last_seen[cmd]) {
-                        print lines[cmd]
-                    }
-                }
-            }
-        }
-    ' "$test_histfile" > "$temp_out" 2>/dev/null
-
-    if [[ -s "$temp_out" ]]; then
-        # Check duplicates removed (ls -la should appear once)
-        local ls_count
-        ls_count=$(grep -c 'ls -la' "$temp_out")
-        if [[ "$ls_count" -le 1 ]]; then
-            pass "history awk logic removes duplicates"
-        else
-            fail "history awk logic left $ls_count copies of duplicate"
-        fi
-
-        # Check secrets removed
-        local cleaned_content
-        cleaned_content=$(cat "$temp_out")
-        if [[ "$cleaned_content" != *"PASSWORD=secret"* ]]; then
-            pass "history awk logic removes secrets"
-        else
-            fail "history awk logic left secrets"
-        fi
-
-        # Check clean commands preserved
-        if [[ "$cleaned_content" == *"echo hello"* ]]; then
-            pass "history awk logic preserves clean commands"
-        else
-            fail "history awk logic removed clean commands"
-        fi
-
-        # Check git status deduped to last occurrence
-        local git_count
-        git_count=$(grep -c 'git status' "$temp_out")
-        if [[ "$git_count" -le 1 ]]; then
-            pass "history awk logic dedupes to last occurrence"
-        else
-            fail "history awk logic left $git_count copies of git status"
-        fi
+    # Shadow fc in the subshell: `fc -R` (session reload) hangs when zsh has
+    # no active history; the behavior under test is the HISTFILE rewrite.
+    local clean_out clean_rc
+    clean_out=$( fc() { return 0 }; z_history_clean 2>&1 )
+    clean_rc=$?
+    HISTFILE="$original_histfile"
+    if [[ -n "$old_data_home" ]]; then
+        export ZSH_DATA_HOME="$old_data_home"
     else
-        fail "history awk logic produced empty output"
+        unset ZSH_DATA_HOME
+    fi
+
+    assert_eq "$clean_rc" "0" "z_history_clean succeeds on fixture HISTFILE"
+
+    if [[ -s "$test_histfile" ]]; then
+        local cleaned_content
+        cleaned_content=$(cat "$test_histfile")
+
+        # Duplicates removed (ls -la appears exactly once)
+        local ls_count
+        ls_count=$(grep -c 'ls -la' "$test_histfile")
+        assert_eq "$ls_count" "1" "z_history_clean dedupes repeated commands to one entry"
+
+        # Secret-pattern line filtered out entirely
+        if [[ "$cleaned_content" != *"PASSWORD=secret"* ]]; then
+            pass "z_history_clean removes secret-pattern lines from HISTFILE"
+        else
+            fail "z_history_clean removes secret-pattern lines from HISTFILE"
+        fi
+
+        # Clean commands preserved
+        assert_contains "$cleaned_content" "echo hello" \
+            "z_history_clean preserves clean commands"
+
+        # Dedup keeps the LAST occurrence (timestamp 1700000006, not 1700000002)
+        assert_contains "$cleaned_content" ": 1700000006:0;git status" \
+            "z_history_clean keeps the last occurrence of a duplicate"
+        if [[ "$cleaned_content" != *": 1700000002:0;git status"* ]]; then
+            pass "z_history_clean drops the earlier duplicate occurrence"
+        else
+            fail "z_history_clean drops the earlier duplicate occurrence"
+        fi
+
+        # 7 lines in, 4 unique clean commands out -> reports 3 removed
+        assert_contains "$clean_out" "removed 3 lines" \
+            "z_history_clean reports the exact number of removed lines"
+    else
+        fail "z_history_clean left fixture HISTFILE empty or missing"
     fi
 
     # _create_z_history_backup
@@ -1782,6 +1682,185 @@ test_extract_errors() {
     else
         skip "z_extract not defined"
     fi
+}
+
+# ----------------------------------------------------------
+# lib/functions/file.zsh (z_extract roundtrip + zip-slip guard)
+# ----------------------------------------------------------
+
+test_extract_roundtrip() {
+    section "lib/functions/file.zsh (z_extract roundtrip)"
+
+    if ! (( $+functions[z_extract] && $+functions[_check_archive_safety] )); then
+        skip "z_extract/_check_archive_safety not defined"
+        return
+    fi
+    _skip_unless_cmd tar "z_extract roundtrip" && return
+
+    local work="$TEST_TMP/extract_roundtrip"
+    local payload="roundtrip-payload-$$"
+    mkdir -p "$work/src"
+    print -r -- "$payload" > "$work/src/payload.txt"
+
+    # -- tar.gz roundtrip: extract and verify the bytes came back --
+    (cd "$work" && tar czf archive.tar.gz -C src payload.txt) 2>/dev/null
+    local tar_dest="$work/out_tar"
+    z_extract "$work/archive.tar.gz" "$tar_dest" >/dev/null 2>&1
+    assert_eq "$(cat "$tar_dest/payload.txt" 2>/dev/null)" "$payload" \
+        "z_extract tar.gz roundtrip preserves file contents"
+
+    # -- zip roundtrip (skip leg if zip/unzip missing) --
+    if _has_cmd zip && _has_cmd unzip; then
+        (cd "$work/src" && zip -q "$work/archive.zip" payload.txt) 2>/dev/null
+        local zip_dest="$work/out_zip"
+        z_extract "$work/archive.zip" "$zip_dest" >/dev/null 2>&1
+        assert_eq "$(cat "$zip_dest/payload.txt" 2>/dev/null)" "$payload" \
+            "z_extract zip roundtrip preserves file contents"
+    else
+        skip "zip roundtrip (zip/unzip not installed)"
+    fi
+
+    # -- Malicious archive with ../ member must fail closed --
+    mkdir -p "$work/evil/sub"
+    print -r -- "escape" > "$work/evil/escape.txt"
+    (cd "$work/evil/sub" && tar -P -cf "$work/evil_rel.tar" ../escape.txt) 2>/dev/null
+    if tar -tf "$work/evil_rel.tar" 2>/dev/null | grep -q '\.\./'; then
+        assert_false "_check_archive_safety rejects archive with ../ member" \
+            _check_archive_safety "$work/evil_rel.tar" 2>/dev/null
+        local evil_dest="$work/out_evil_rel"
+        z_extract "$work/evil_rel.tar" "$evil_dest" >/dev/null 2>&1
+        assert_ne "$?" "0" "z_extract aborts extraction of ../ traversal archive"
+        assert_file_exists "$work/evil/escape.txt" \
+            "traversal target untouched after aborted extraction"
+    else
+        skip "tar -P did not preserve ../ member on this platform"
+    fi
+
+    # -- Malicious archive with absolute-path member must fail closed --
+    (cd "$work" && tar -P -cf "$work/evil_abs.tar" "$work/src/payload.txt") 2>/dev/null
+    if tar -tf "$work/evil_abs.tar" 2>/dev/null | grep -q '^/'; then
+        assert_false "_check_archive_safety rejects archive with absolute-path member" \
+            _check_archive_safety "$work/evil_abs.tar" 2>/dev/null
+        z_extract "$work/evil_abs.tar" "$work/out_evil_abs" >/dev/null 2>&1
+        assert_ne "$?" "0" "z_extract aborts extraction of absolute-path archive"
+    else
+        skip "tar -P did not preserve absolute member on this platform"
+    fi
+}
+
+# ----------------------------------------------------------
+# lib/functions/utilities.zsh (clipboard via stubbed backend)
+# ----------------------------------------------------------
+
+test_clipboard_functions() {
+    section "lib/functions/utilities.zsh (clipboard)"
+
+    if ! (( $+functions[z_copypath] && $+functions[z_copyfile] && $+functions[_get_clipboard_cmd] )); then
+        skip "clipboard functions not defined"
+        return
+    fi
+
+    # Stub the clipboard backend so the "clipboard" is a readable file
+    local clip_file="$TEST_TMP/clip"
+    local saved_clip_fn="${functions[_get_clipboard_cmd]}"
+    eval "_get_clipboard_cmd() { print -r -- 'cat > \"$clip_file\"' }"
+
+    # z_copypath: clipboard receives the absolute path
+    local target="$TEST_TMP/copypath_target"
+    mkdir -p "$target"
+    z_copypath "$target" >/dev/null 2>&1
+    assert_eq "$(cat "$clip_file" 2>/dev/null)" "${target:A}" \
+        "z_copypath puts the absolute path on the clipboard"
+
+    # z_copyfile: clipboard receives the exact file bytes (multiline)
+    # (no cmp: diffutils is absent on minimal dnf images)
+    local src_file="$TEST_TMP/copyfile_src"
+    printf 'line one\nline two with spaces\n' > "$src_file"
+    z_copyfile "$src_file" >/dev/null 2>&1
+    if [[ "$(<$src_file)" == "$(<$clip_file 2>/dev/null)" ]]; then
+        pass "z_copyfile puts the exact file contents on the clipboard"
+    else
+        fail "z_copyfile puts the exact file contents on the clipboard" \
+            "$(cat "$src_file")" "$(cat "$clip_file" 2>/dev/null)"
+    fi
+
+    # z_copyfile rejects a missing file and leaves the clipboard untouched
+    print -r -- "sentinel" > "$clip_file"
+    z_copyfile "/nonexistent-file-$$" >/dev/null 2>&1
+    assert_ne "$?" "0" "z_copyfile rejects missing file"
+    assert_eq "$(cat "$clip_file" 2>/dev/null)" "sentinel" \
+        "z_copyfile leaves clipboard untouched on missing file"
+
+    # Restore the real backend
+    functions[_get_clipboard_cmd]="$saved_clip_fn"
+}
+
+# ----------------------------------------------------------
+# lib/functions/backup.zsh (backup/restore roundtrip, fake HOME)
+# ----------------------------------------------------------
+
+test_dotfiles_backup_restore() {
+    section "lib/functions/backup.zsh (backup/restore roundtrip)"
+
+    if ! (( $+functions[z_dotfiles_backup] && $+functions[z_dotfiles_restore] )); then
+        skip "z_dotfiles_backup/z_dotfiles_restore not defined"
+        return
+    fi
+
+    local fake_home="$TEST_TMP/backup_home"
+    local fake_zdot="$fake_home/.config/zsh"
+    local env_payload="original-zshenv-$$"
+    local rc_payload="original-zshrc-$$"
+    mkdir -p "$fake_zdot"
+    print -r -- "$env_payload" > "$fake_home/.zshenv"
+    print -r -- "$rc_payload" > "$fake_zdot/.zshrc"
+
+    # Backup inside a fake-HOME subshell
+    (
+        HOME="$fake_home"
+        ZDOTDIR="$fake_zdot"
+        ZSH_CONFIG_HOME="$fake_zdot"
+        z_dotfiles_backup >/dev/null 2>&1
+    )
+
+    local backup_dir
+    backup_dir=$(ls -dt "$fake_home"/.zsh-backup-* 2>/dev/null | head -1)
+    if [[ -z "$backup_dir" ]]; then
+        fail "z_dotfiles_backup creates ~/.zsh-backup-<ts> in fake HOME"
+        return
+    fi
+    pass "z_dotfiles_backup creates ~/.zsh-backup-<ts> in fake HOME"
+    assert_file_exists "$backup_dir/MANIFEST" "backup writes a MANIFEST"
+    assert_eq "$(cat "$backup_dir/.zshenv" 2>/dev/null)" "$env_payload" \
+        "backup captures .zshenv bytes"
+    assert_eq "$(cat "$backup_dir/zsh/.zshrc" 2>/dev/null)" "$rc_payload" \
+        "backup captures ZDOTDIR contents"
+
+    # Mutate the live files, then restore (answering the y/N prompt)
+    print -r -- "MUTATED_ENV" > "$fake_home/.zshenv"
+    print -r -- "MUTATED_RC" > "$fake_zdot/.zshrc"
+    (
+        HOME="$fake_home"
+        ZDOTDIR="$fake_zdot"
+        ZSH_CONFIG_HOME="$fake_zdot"
+        print y | z_dotfiles_restore >/dev/null 2>&1
+    )
+
+    assert_eq "$(cat "$fake_home/.zshenv" 2>/dev/null)" "$env_payload" \
+        "restore returns .zshenv to pre-mutation bytes"
+    assert_eq "$(cat "$fake_zdot/.zshrc" 2>/dev/null)" "$rc_payload" \
+        "restore returns ZDOTDIR file to pre-mutation bytes"
+
+    # Restore declines when the user answers no
+    print -r -- "MUTATED_AGAIN" > "$fake_home/.zshenv"
+    (
+        HOME="$fake_home"
+        ZDOTDIR="$fake_zdot"
+        ZSH_CONFIG_HOME="$fake_zdot"
+        print n | z_dotfiles_restore >/dev/null 2>&1
+    )
+    assert_eq "$(cat "$fake_home/.zshenv" 2>/dev/null)" "MUTATED_AGAIN" \
+        "restore leaves files untouched when declined"
 }
 
 # ----------------------------------------------------------
@@ -2424,17 +2503,17 @@ test_tools_catalog() {
         fail "catalog has full tool set" ">=25" "${#Z_TOOL_NAMES[@]}"
     fi
 
-    # Every entry carries all 6 value fields (structure test checks the file;
+    # Every entry carries all 7 value fields (structure test checks the file;
     # this checks the parse)
     local name bad=0
     for name in "${Z_TOOL_NAMES[@]}"; do
         local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
-        (( ${#fields[@]} == 6 )) || bad=$((bad + 1))
+        (( ${#fields[@]} == 7 )) || bad=$((bad + 1))
     done
     if (( bad == 0 )); then
-        pass "every catalog entry parses to 6 fields"
+        pass "every catalog entry parses to 7 fields"
     else
-        fail "every catalog entry parses to 6 fields" "0 bad" "$bad bad"
+        fail "every catalog entry parses to 7 fields" "0 bad" "$bad bad"
     fi
 
     if [[ "$(_z_tool_field starship category)" == "essential" && \
@@ -2510,6 +2589,53 @@ test_ssh_agent_detection() {
 }
 
 # ----------------------------------------------------------
+# modules/06_aliases.zsh (_z_apply_replacements)
+# ----------------------------------------------------------
+
+test_replacements() {
+    section "modules/06_aliases.zsh (_z_apply_replacements)"
+
+    # Hermetic subshell: fixture catalog + stubbed _has_cmd, real function
+    local out
+    out=$(zsh -c "
+        export ZDOTDIR='$ZDOTDIR' ZSH_CONFIG_HOME='$ZDOTDIR' Z_LOG_LEVEL=NONE
+        source '$ZDOTDIR/lib/core/index.zsh' 2>/dev/null
+        source '$ZDOTDIR/lib/registry/tools.zsh' 2>/dev/null
+        source '$ZDOTDIR/modules/06_aliases.zsh' 2>/dev/null
+
+        # Fixture catalog (pre-populated => _z_tools_load early-returns)
+        Z_TOOL_NAMES=(faketool cdtool battool)
+        Z_TOOLS[faketool]='fakebin:desc:extra:fakecls:brew:apt:'
+        Z_TOOLS[cdtool]='cdbin:desc:extra:cd:brew:apt:'
+        Z_TOOLS[battool]='bat:desc:extra:cat:brew:apt:'
+        _has_cmd() { [[ \$1 == fakebin || \$1 == cdbin || \$1 == bat ]] }
+
+        Z_REPLACE_FAKETOOL=true
+        Z_REPLACE_CDTOOL=true
+        Z_REPLACE_BATTOOL=true
+        _z_apply_replacements
+
+        print -r -- \"fakecls=\${aliases[fakecls]:-UNSET}\"
+        print -r -- \"cd=\${aliases[cd]:-UNSET}\"
+        print -r -- \"cat=\${aliases[cat]:-UNSET}\"
+
+        Z_REPLACE_FAKETOOL=false
+        unalias fakecls 2>/dev/null
+        _z_apply_replacements
+        print -r -- \"fakecls_off=\${aliases[fakecls]:-UNSET}\"
+    " 2>/dev/null)
+
+    assert_contains "$out" "fakecls=fakebin" \
+        "enabled toggle aliases the classic command to the modern binary"
+    assert_contains "$out" "cd=UNSET" \
+        "cd replacement is excluded (owned by the zoxide lazy module)"
+    assert_contains "$out" "cat=bat --paging=never" \
+        "bat replacement carries its behave-like-cat flags"
+    assert_contains "$out" "fakecls_off=UNSET" \
+        "disabled toggle leaves the classic command untouched"
+}
+
+# ----------------------------------------------------------
 # TEST RUNNER
 # ----------------------------------------------------------
 
@@ -2518,12 +2644,13 @@ main() {
     echo "  ZSH Configuration Unit Tests"
     echo "================================================"
 
-    setup_test_env
+    setup_suite_env
 
     # Run all test suites
     test_utils
     test_logging
     test_path_functions
+    test_path_ordering
     test_path_conditions
     test_lazy
     test_history
@@ -2548,35 +2675,20 @@ main() {
     test_core_utils_extended
     test_portcheck_valid
     test_extract_errors
+    test_extract_roundtrip
+    test_clipboard_functions
+    test_dotfiles_backup_restore
     test_path_processing
     test_help_system
     test_xdg_guardian
     test_tools_catalog
     test_ssh_agent_detection
+    test_replacements
 
     teardown_test_env
 
-    # Summary
-    echo ""
-    echo "================================================"
-    echo "  Summary"
-    echo "================================================"
-    echo ""
-    echo "  ${GREEN}Passed:${NC}  $PASSED"
-    echo "  ${RED}Failed:${NC}  $FAILED"
-    echo "  ${YELLOW}Skipped:${NC} $SKIPPED"
-    echo ""
-
-    if [[ $FAILED -gt 0 ]]; then
-        echo "${RED}UNIT TESTS FAILED${NC}"
-        exit 1
-    elif [[ $SKIPPED -gt 0 ]]; then
-        echo "${YELLOW}UNIT TESTS PASSED WITH SKIPS${NC}"
-        exit 0
-    else
-        echo "${GREEN}ALL UNIT TESTS PASSED${NC}"
-        exit 0
-    fi
+    print_summary "unit tests"
+    exit $?
 }
 
 main "$@"

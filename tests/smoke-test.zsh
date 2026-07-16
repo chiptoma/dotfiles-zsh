@@ -1,8 +1,8 @@
 #!/bin/zsh
 # ==============================================================================
 # ZSH CONFIGURATION SMOKE TEST
-# Validates installation and shell functionality.
-# Run: ./scripts/smoke-test.zsh [--verbose]
+# Validates installation and shell functionality (shared harness.zsh).
+# Run: ./tests/smoke-test.zsh [--verbose]
 # ==============================================================================
 
 set -e
@@ -14,50 +14,7 @@ set -e
 VERBOSE=false
 [[ "$1" == "--verbose" || "$1" == "-v" ]] && VERBOSE=true
 
-# Colors (safe for non-color terminals)
-if [[ -t 1 ]] && [[ -n "$TERM" ]] && [[ "$TERM" != "dumb" ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-else
-    RED='' GREEN='' YELLOW='' BLUE='' NC=''
-fi
-
-# Counters
-PASSED=0
-FAILED=0
-WARNINGS=0
-
-# ----------------------------------------------------------
-# TEST HELPERS
-# ----------------------------------------------------------
-
-pass() {
-    echo "${GREEN}✓${NC} $1"
-    PASSED=$((PASSED + 1))
-}
-
-fail() {
-    echo "${RED}✗${NC} $1"
-    FAILED=$((FAILED + 1))
-}
-
-warn() {
-    echo "${YELLOW}⚠${NC} $1"
-    WARNINGS=$((WARNINGS + 1))
-}
-
-info() {
-    [[ "$VERBOSE" == "true" ]] && echo "${BLUE}→${NC} $1"
-    return 0
-}
-
-section() {
-    echo ""
-    echo "${BLUE}═══${NC} $1 ${BLUE}═══${NC}"
-}
+source "${0:A:h}/harness.zsh"
 
 # ----------------------------------------------------------
 # ENVIRONMENT SETUP
@@ -466,21 +423,7 @@ fi
 # SUMMARY
 # ----------------------------------------------------------
 
-section "Summary"
-
-echo ""
-echo "  ${GREEN}Passed:${NC}   $PASSED"
-echo "  ${RED}Failed:${NC}   $FAILED"
-echo "  ${YELLOW}Warnings:${NC} $WARNINGS"
-echo ""
-
-if [[ $FAILED -gt 0 ]]; then
-    echo "${RED}SMOKE TEST FAILED${NC}"
-    exit 1
-elif [[ $WARNINGS -gt 0 ]]; then
-    echo "${YELLOW}SMOKE TEST PASSED WITH WARNINGS${NC}"
-    exit 0
-else
-    echo "${GREEN}SMOKE TEST PASSED${NC}"
+if print_summary "smoke test"; then
     exit 0
 fi
+exit 1
