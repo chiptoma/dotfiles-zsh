@@ -475,3 +475,36 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/repo:ro" zshdot-test-alpine \
             bash -c 'cp -r /repo "$HOME/repo" && cd "$HOME/repo" && bash tests/installer-integration.sh'
+
+  # ─────────────────────────────────────────────────────────
+  # UNATTENDED MODE — proves no hidden prompt and exit codes
+  # ─────────────────────────────────────────────────────────
+  unattended:
+    name: Unattended Install + Exit Codes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ZSH
+        run: sudo apt-get update && sudo apt-get install -y zsh git curl
+
+      - name: Full install with stdin closed (no prompt may block)
+        run: timeout 600 ./install.sh --yes --full --skip-tools </dev/null
+
+      - name: Exit code 0 on healthy check
+        run: ./install.sh --check
+
+      - name: Exit code 2 on usage error
+        run: |
+          set +e
+          ./install.sh --definitely-not-a-flag </dev/null
+          rc=$?
+          [[ $rc -eq 2 ]] || { echo "expected 2, got $rc"; exit 1; }
+
+      - name: Restore roundtrip via --restore
+        run: |
+          echo "# MARKER_UNATTENDED" > ~/.zshenv
+          ./install.sh --yes --skip-tools </dev/null
+          ./install.sh --restore --yes </dev/null
+          grep -q MARKER_UNATTENDED ~/.zshenv

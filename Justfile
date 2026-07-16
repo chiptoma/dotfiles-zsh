@@ -40,6 +40,7 @@ lint:
         echo "warn: shellcheck not installed — skipped (brew install shellcheck)"
     fi
     bash tests/structure-test.sh || fails=$((fails+1))
+    zsh tests/help-sync-test.zsh || fails=$((fails+1))
     [[ $fails -eq 0 ]] && echo "ok: lint — clean" || { echo "FAIL: lint — $fails group(s) failed"; exit 1; }
 
 # ----------------------------------------------------------
@@ -101,24 +102,28 @@ test-docker distro='ubuntu':
 # Run the full local distro matrix (arch runs emulated; failures downgraded to warn)
 test-docker-all:
     #!/usr/bin/env bash
+    # No assoc arrays: macOS ships bash 3.2
     set -uo pipefail
-    declare -A results
+    summary=""
     fails=0
     for d in ubuntu debian fedora rocky arch alpine; do
         if just test-docker "$d"; then
-            results[$d]="ok"
+            summary="$summary  $d: ok\n"
         else
-            results[$d]="FAIL"
             case "$d" in
-                arch|alpine) echo "warn: $d failed (known-flaky tier: emulation/musl)" ;;
-                *) fails=$((fails+1)) ;;
+                arch|alpine)
+                    echo "warn: $d failed (known-flaky tier: emulation/musl)"
+                    summary="$summary  $d: warn (non-gating)\n"
+                    ;;
+                *)
+                    summary="$summary  $d: FAIL\n"
+                    fails=$((fails+1))
+                    ;;
             esac
         fi
     done
     echo "── distro matrix summary ──"
-    for d in ubuntu debian fedora rocky arch alpine; do
-        printf '%-8s %s\n' "$d" "${results[$d]:-skipped}"
-    done
+    printf "%b" "$summary"
     [[ $fails -eq 0 ]] && echo "ok: test-docker-all — required distros green" \
                        || { echo "FAIL: test-docker-all — $fails required distro(s) failed"; exit 1; }
 
@@ -145,3 +150,14 @@ bench:
         echo "warn: hyperfine not installed — falling back to a 10-run loop"
         for i in $(seq 1 10); do /usr/bin/time -p zsh -ic exit 2>&1 | awk '/^real/ {print $2 "s"}'; done
     fi
+
+# Regenerate docs/COMMANDS.md from the help registry
+docs-commands:
+    #!/usr/bin/env zsh
+    cd "{{repo}}"
+    ZDOTDIR="{{repo}}" ZSH_CONFIG_HOME="{{repo}}" Z_LOG_LEVEL=NONE zsh -c '
+        source lib/core/index.zsh 2>/dev/null
+        source lib/functions/index.zsh 2>/dev/null
+        z_help --export-md
+    ' > docs/COMMANDS.md
+    echo "ok: docs/COMMANDS.md regenerated ($(wc -l < docs/COMMANDS.md | tr -d ' ') lines)"

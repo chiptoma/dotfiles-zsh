@@ -1,0 +1,19 @@
+---
+# ==============================================================================
+# EXAMPLE PLAYBOOK
+# Installs the zsh dotfiles framework on every host in `shell_hosts`.
+# Run: ansible-playbook -i inventory ansible/playbook.yml
+# ==============================================================================
+
+- name: Provision zsh dotfiles
+  hosts: shell_hosts
+  gather_facts: true
+
+  roles:
+    - role: zsh_dotfiles
+      vars:
+        zsh_dotfiles_profile: recommended
+        zsh_dotfiles_install_method: copy
+        zsh_dotfiles_set_default_shell: false
+        # Or pin exact tools instead of a profile:
+        # zsh_dotfiles_tools: [starship, atuin, eza, bat, fzf, zoxide]

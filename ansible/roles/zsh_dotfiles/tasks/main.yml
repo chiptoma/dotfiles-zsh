@@ -1,0 +1,52 @@
+---
+# ==============================================================================
+# ZSH_DOTFILES ROLE TASKS
+# Clone the framework and run its unattended installer, then verify.
+# ==============================================================================
+
+- name: Ensure prerequisites are present
+  ansible.builtin.package:
+    name:
+      - zsh
+      - git
+      - curl
+    state: present
+  become: true
+
+- name: Clone the dotfiles repository
+  ansible.builtin.git:
+    repo: "{{ zsh_dotfiles_repo }}"
+    dest: "{{ zsh_dotfiles_clone_dest }}"
+    version: "{{ zsh_dotfiles_version }}"
+    depth: 1
+  register: zsh_dotfiles_clone
+
+- name: Build installer flag list
+  ansible.builtin.set_fact:
+    zsh_dotfiles_flags: >-
+      --yes
+      --{{ zsh_dotfiles_install_method }}
+      {% if zsh_dotfiles_tools | length > 0 %}--tools {{ zsh_dotfiles_tools | join(',') }}
+      {% elif zsh_dotfiles_profile == 'minimal' %}--minimal
+      {% elif zsh_dotfiles_profile == 'full' %}--full
+      {% endif %}
+      {% if zsh_dotfiles_skip_tools %}--skip-tools{% endif %}
+      {{ '--default-shell' if zsh_dotfiles_set_default_shell else '--no-default-shell' }}
+
+- name: Run the installer (unattended)
+  ansible.builtin.command:
+    cmd: "bash {{ zsh_dotfiles_clone_dest }}/install.sh {{ zsh_dotfiles_flags }}"
+    creates: "{{ ansible_env.HOME }}/.config/zsh/.zshrc"
+  environment:
+    NO_COLOR: "1"
+    TERM: dumb
+  register: zsh_dotfiles_install
+  changed_when: zsh_dotfiles_install is not skipped
+
+- name: Verify the installation health
+  ansible.builtin.command:
+    cmd: "bash {{ zsh_dotfiles_clone_dest }}/install.sh --check"
+  environment:
+    NO_COLOR: "1"
+    TERM: dumb
+  changed_when: false

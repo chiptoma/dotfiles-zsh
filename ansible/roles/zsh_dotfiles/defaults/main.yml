@@ -1,0 +1,30 @@
+---
+# ==============================================================================
+# ZSH_DOTFILES ROLE DEFAULTS
+# Every knob the installer exposes for unattended runs.
+# ==============================================================================
+
+# Repository to install from (override for forks)
+zsh_dotfiles_repo: "https://github.com/chiptoma/dotfiles-zsh.git"
+
+# Branch or tag to check out
+zsh_dotfiles_version: "main"
+
+# Where the repo is cloned before installation
+zsh_dotfiles_clone_dest: "{{ ansible_env.HOME }}/.local/src/dotfiles-zsh"
+
+# symlink (config follows the clone) or copy (self-contained install)
+zsh_dotfiles_install_method: "copy"
+
+# minimal | recommended | full
+zsh_dotfiles_profile: "recommended"
+
+# Explicit tool list overrides the profile when non-empty, e.g.
+# ["starship", "atuin", "eza", "bat", "fzf", "zoxide"]
+zsh_dotfiles_tools: []
+
+# Skip the optional-tools step entirely
+zsh_dotfiles_skip_tools: false
+
+# Set zsh as the login shell (chsh may need privileges; off by default)
+zsh_dotfiles_set_default_shell: false

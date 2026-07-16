@@ -18,10 +18,14 @@ if command -v apt-get >/dev/null 2>&1; then
     apt-get install -y -qq $PKGS >/dev/null
     rm -rf /var/lib/apt/lists/*
 elif command -v dnf >/dev/null 2>&1; then
+    # --allowerasing: EL images ship curl-minimal, which conflicts with curl
     # shellcheck disable=SC2086
-    dnf install -y -q $PKGS shadow-utils util-linux
+    dnf install -y -q --allowerasing $PKGS shadow-utils util-linux
     dnf clean all -q
 elif command -v pacman >/dev/null 2>&1; then
+    # pacman 7's seccomp download sandbox fails under qemu/Rosetta emulation
+    # (this test image runs amd64 on arm64 hosts) — disable it here only
+    sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
     # shellcheck disable=SC2086
     pacman -Syu --noconfirm --quiet $PKGS
     pacman -Scc --noconfirm >/dev/null 2>&1 || true
