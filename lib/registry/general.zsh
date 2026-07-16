@@ -9,14 +9,14 @@
 # ----------------------------------------------------------
 
 # Build Tools
-ZSH_ENV_TOOLS_BUILD+=(
+Z_ENV_TOOLS_BUILD+=(
     'CCACHE_DIR'         '$XDG_CACHE_HOME/ccache|ccache'
     'CCACHE_CONFIGPATH'  '$XDG_CONFIG_HOME/ccache/config|ccache'
     'PKG_CONFIG_PATH'    '$XDG_DATA_HOME/pkgconfig:$XDG_DATA_HOME/lib/pkgconfig|pkg-config'
 )
 
 # General Tools (remaining entries not covered by ecosystem files)
-ZSH_ENV_TOOLS_GENERAL+=(
+Z_ENV_TOOLS_GENERAL+=(
     'HTOPRC'              '$XDG_CONFIG_HOME/htop/htoprc|htop'
     'TMUX_TMPDIR'         '$XDG_RUNTIME_DIR/tmux|tmux'
     'SCREENRC'            '$XDG_CONFIG_HOME/screen/screenrc|screen'

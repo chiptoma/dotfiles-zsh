@@ -21,7 +21,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_RUBY+=(
+Z_ENV_TOOLS_RUBY+=(
     'GEM_HOME'            '$XDG_DATA_HOME/gem|gem'
     'GEM_SPEC_CACHE'      '$XDG_CACHE_HOME/gem|gem'
     'BUNDLE_USER_CONFIG'  '$XDG_CONFIG_HOME/bundle|bundle'

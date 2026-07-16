@@ -8,7 +8,7 @@
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_DB+=(
+Z_ENV_TOOLS_DB+=(
     'PSQL_HISTORY'        '$XDG_STATE_HOME/psql_history|psql'
     'PSQLRC'              '$XDG_CONFIG_HOME/pg/psqlrc|psql'
     'PGPASSFILE'          '$XDG_CONFIG_HOME/pg/pgpass|psql'

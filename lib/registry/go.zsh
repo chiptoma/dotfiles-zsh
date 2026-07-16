@@ -18,7 +18,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_GO+=(
+Z_ENV_TOOLS_GO+=(
     'GOPATH'        '$XDG_DATA_HOME/go|go'
     'GOCACHE'       '$XDG_CACHE_HOME/go|go'
     'GOMODCACHE'    '$XDG_CACHE_HOME/go-mod|go'

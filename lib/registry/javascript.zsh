@@ -27,7 +27,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_JS+=(
+Z_ENV_TOOLS_JS+=(
     'VOLTA_HOME'                '$XDG_DATA_HOME/volta|volta'
     'NPM_CONFIG_USERCONFIG'     '$XDG_CONFIG_HOME/npm/npmrc|npm'
     'NPM_CONFIG_CACHE'          '$XDG_CACHE_HOME/npm|npm'

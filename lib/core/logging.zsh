@@ -173,9 +173,9 @@ _log() {
 # ----------------------------------------------------------
 
 # Change log level at runtime
-log_level_set() {
+z_log_level() {
     if [[ -z "$1" ]]; then
-        _log WARN "log_level_set: No level specified"
+        _log WARN "z_log_level: No level specified"
         return 1
     fi
 
@@ -189,21 +189,21 @@ log_level_set() {
 }
 
 # Temporarily run a command with a different log level
-log_with_level() {
+z_log_with_level() {
     if (( $# == 0 )); then
-        _log ERROR "log_with_level: No level or command provided"
+        _log ERROR "z_log_with_level: No level or command provided"
         return 1
     fi
 
     local lvl="${1:u}"; shift
 
     if (( $# == 0 )); then
-        _log ERROR "log_with_level: No command provided (usage: log_with_level LEVEL command...)"
+        _log ERROR "z_log_with_level: No command provided (usage: z_log_with_level LEVEL command...)"
         return 1
     fi
 
     local old="$Z_LOG_LEVEL"
-    log_level_set "$lvl" || return 1
+    z_log_level "$lvl" || return 1
     "$@"
     local rc=$?
     Z_LOG_LEVEL="$old"

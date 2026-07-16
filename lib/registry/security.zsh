@@ -8,7 +8,7 @@
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_SECURITY+=(
+Z_ENV_TOOLS_SECURITY+=(
     'GNUPGHOME'           '$XDG_DATA_HOME/gnupg|gpg'
     'PASSWORD_STORE_DIR'  '$XDG_DATA_HOME/pass|pass'
     'GOPASS_CONFIG'       '$XDG_CONFIG_HOME/gopass/config.yml|gopass'

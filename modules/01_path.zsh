@@ -278,7 +278,7 @@ _add_project_paths() {
 # INITIALIZATION FUNCTION
 # ----------------------------------------------------------
 
-path_init() {
+_path_init() {
     _log "INFO" "Initializing Zsh PATH management..."
 
     # ----------------------------------------------------------
@@ -376,7 +376,7 @@ path_init() {
 }
 
 # Call the initialization function
-path_init
+_path_init
 
 # ----------------------------------------------------------
 # DEFERRED PATH CLEANUP

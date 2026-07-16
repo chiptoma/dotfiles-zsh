@@ -62,17 +62,15 @@
 # export Z_LAZY_ENABLED=false        # Disable lazy loading
 # export Z_COMPLETION_ENABLED=false  # Disable completion module
 # export Z_ALIASES_ENABLED=false     # Disable aliases module
-# export Z_COMPILATION_ENABLED=true  # Enable .zwc bytecode compilation
 
 # ----------------------------------------------------------
 # LAZY LOADING
 # Control which tools are lazy loaded
 # ----------------------------------------------------------
-# export Z_LAZY_STARSHIP=false  # Load starship immediately
-# export Z_LAZY_ATUIN=false     # Load atuin immediately
 # export Z_LAZY_ZOXIDE=false    # Load zoxide immediately
 # export Z_LAZY_NVM=true        # Lazy load nvm (default)
 # export Z_LAZY_PYENV=true      # Lazy load pyenv (default)
+# export Z_LAZY_RBENV=true      # Lazy load rbenv (default)
 
 # ----------------------------------------------------------
 # HISTORY SETTINGS

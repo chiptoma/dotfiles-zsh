@@ -26,16 +26,16 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_DOCKER+=(
+Z_ENV_TOOLS_DOCKER+=(
     'DOCKER_CONFIG' '$XDG_CONFIG_HOME/docker|docker'
 )
 
-ZSH_ENV_TOOLS_K8S+=(
+Z_ENV_TOOLS_K8S+=(
     'KUBECONFIG'    '$XDG_CONFIG_HOME/kube/config|kubectl'
     'KREW_ROOT'     '$XDG_DATA_HOME/krew|kubectl-krew'
 )
 
-ZSH_ENV_TOOLS_VIRT+=(
+Z_ENV_TOOLS_VIRT+=(
     'VAGRANT_HOME'  '$XDG_DATA_HOME/vagrant|vagrant'
     'MINIKUBE_HOME' '$XDG_DATA_HOME/minikube|minikube'
 )

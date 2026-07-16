@@ -17,7 +17,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_RUST+=(
+Z_ENV_TOOLS_RUST+=(
     'CARGO_HOME'          '$XDG_DATA_HOME/cargo|cargo'
     'RUSTUP_HOME'         '$XDG_DATA_HOME/rustup|rustup'
 )

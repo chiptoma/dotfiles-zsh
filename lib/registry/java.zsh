@@ -24,7 +24,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_JVM+=(
+Z_ENV_TOOLS_JVM+=(
     'GRADLE_USER_HOME'    '$XDG_DATA_HOME/gradle|gradle'
     '_JAVA_OPTIONS'       '-Djava.util.prefs.userRoot=$XDG_CONFIG_HOME/java|java'
     'LEIN_HOME'           '$XDG_DATA_HOME/lein|lein'

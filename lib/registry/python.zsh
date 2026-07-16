@@ -23,7 +23,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_PYTHON+=(
+Z_ENV_TOOLS_PYTHON+=(
     'PYTHONSTARTUP'      '$XDG_CONFIG_HOME/python/python_startup.py|python'
     'PYTHON_HISTORY'     '$XDG_STATE_HOME/python_history|python'
     'PIP_CACHE_DIR'      '$XDG_CACHE_HOME/pip|pip'
@@ -39,7 +39,7 @@ ZSH_ENV_TOOLS_PYTHON+=(
 )
 
 # Jupyter config (General Tools category for display)
-ZSH_ENV_TOOLS_GENERAL+=(
+Z_ENV_TOOLS_GENERAL+=(
     'JUPYTER_CONFIG_DIR'  '$XDG_CONFIG_HOME/jupyter|jupyter'
 )
 

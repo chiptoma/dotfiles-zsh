@@ -20,31 +20,31 @@ typeset -g _Z_REGISTRY_LOADED=1
 typeset -gA Z_PATH_DEFINITIONS
 
 # Master list of environment tool categories
-typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
-    ZSH_ENV_TOOLS_ZSH
-    ZSH_ENV_TOOLS_JS
-    ZSH_ENV_TOOLS_GO
-    ZSH_ENV_TOOLS_PYTHON
-    ZSH_ENV_TOOLS_DOCKER
-    ZSH_ENV_TOOLS_K8S
-    ZSH_ENV_TOOLS_JVM
-    ZSH_ENV_TOOLS_ANSIBLE
-    ZSH_ENV_TOOLS_CLOUD
-    ZSH_ENV_TOOLS_IAC
-    ZSH_ENV_TOOLS_DB
-    ZSH_ENV_TOOLS_VIRT
-    ZSH_ENV_TOOLS_SECURITY
-    ZSH_ENV_TOOLS_BUILD
-    ZSH_ENV_TOOLS_LANGS
-    ZSH_ENV_TOOLS_RUBY
-    ZSH_ENV_TOOLS_RUST
-    ZSH_ENV_TOOLS_GENERAL
+typeset -ga Z_ENV_TOOL_CATEGORIES=(
+    Z_ENV_TOOLS_ZSH
+    Z_ENV_TOOLS_JS
+    Z_ENV_TOOLS_GO
+    Z_ENV_TOOLS_PYTHON
+    Z_ENV_TOOLS_DOCKER
+    Z_ENV_TOOLS_K8S
+    Z_ENV_TOOLS_JVM
+    Z_ENV_TOOLS_ANSIBLE
+    Z_ENV_TOOLS_CLOUD
+    Z_ENV_TOOLS_IAC
+    Z_ENV_TOOLS_DB
+    Z_ENV_TOOLS_VIRT
+    Z_ENV_TOOLS_SECURITY
+    Z_ENV_TOOLS_BUILD
+    Z_ENV_TOOLS_LANGS
+    Z_ENV_TOOLS_RUBY
+    Z_ENV_TOOLS_RUST
+    Z_ENV_TOOLS_GENERAL
 )
 
 # Declare every category (registry data files append to these)
 () {
     local _cat
-    for _cat in "${ZSH_ENV_TOOL_CATEGORIES[@]}"; do
+    for _cat in "${Z_ENV_TOOL_CATEGORIES[@]}"; do
         (( ${+parameters[$_cat]} )) || typeset -gA "$_cat"
     done
 }
@@ -82,7 +82,7 @@ typeset -gA Z_XDG_MIGRATIONS
 
 {
     local _category _var _val_cmd _val
-    for _category in "${ZSH_ENV_TOOL_CATEGORIES[@]}"; do
+    for _category in "${Z_ENV_TOOL_CATEGORIES[@]}"; do
         for _var _val_cmd in ${(kvP)_category}; do
             _val="${_val_cmd%%|*}"
             # Skip if already set (respect user overrides from .zshenv/.zshlocal)

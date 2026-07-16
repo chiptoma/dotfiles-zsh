@@ -36,7 +36,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_LANGS+=(
+Z_ENV_TOOLS_LANGS+=(
     'NUGET_PACKAGES'      '$XDG_CACHE_HOME/NuGet/packages|dotnet'
     'DOTNET_CLI_HOME'     '$XDG_DATA_HOME/dotnet|dotnet'
     'ELM_HOME'            '$XDG_CONFIG_HOME/elm|elm'
@@ -54,7 +54,7 @@ ZSH_ENV_TOOLS_LANGS+=(
 )
 
 # PHP (General Tools category for display)
-ZSH_ENV_TOOLS_GENERAL+=(
+Z_ENV_TOOLS_GENERAL+=(
     'COMPOSER_HOME'       '$XDG_CONFIG_HOME/composer|composer'
     'COMPOSER_CACHE_DIR'  '$XDG_CACHE_HOME/composer|composer'
 )

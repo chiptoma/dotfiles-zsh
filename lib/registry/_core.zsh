@@ -77,6 +77,6 @@ Z_PATH_DEFINITIONS+=(
 # ZSH ENVIRONMENT
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_ZSH+=(
+Z_ENV_TOOLS_ZSH+=(
     'ZSH_AUTOSUGGEST_HISTORY_FILE'  '$XDG_STATE_HOME/zsh/autosuggestions.history|zsh'
 )

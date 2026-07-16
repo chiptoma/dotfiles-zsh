@@ -41,8 +41,8 @@ typeset -ga Z_POST_ENV_INIT_HOOKS=()
 # ----------------------------------------------------------
 
 # Global associative arrays for environment definitions
-typeset -gA ZSH_ENV_XDG_BASE
-typeset -gA ZSH_ENV_CORE
+typeset -gA Z_ENV_XDG_BASE
+typeset -gA Z_ENV_CORE
 
 # The registry owns all tool-category declarations and the master
 # category list; source it when this module is loaded standalone.
@@ -70,7 +70,7 @@ typeset -gA ZSH_ENV_CORE
 # XDG_RUNTIME_DIR is intentionally absent: lib/core/platform/linux.zsh
 # owns it (/run/user/$UID with a secure fallback); a /tmp default here
 # would fight that logic and skip the 0700 permission handling.
-ZSH_ENV_XDG_BASE=(
+Z_ENV_XDG_BASE=(
     'XDG_CONFIG_HOME'   "$HOME/.config"
     'XDG_CACHE_HOME'    "$HOME/.cache"
     'XDG_DATA_HOME'     "$HOME/.local/share"
@@ -79,15 +79,15 @@ ZSH_ENV_XDG_BASE=(
 
 # Core Environment Variables - Always set
 # Use single quotes to defer $(tty) expansion until _env_setup_core() runs
-ZSH_ENV_CORE=(
+Z_ENV_CORE=(
     'GPG_TTY'       '$(tty)'
 )
 
 export HOMEBREW_NO_ENV_HINTS=1
 
 # Terminal configuration (non-SSH only)
-typeset -gA ZSH_ENV_TERMINAL
-ZSH_ENV_TERMINAL=(
+typeset -gA Z_ENV_TERMINAL
+Z_ENV_TERMINAL=(
     'LESS'                              "${LESS:--R -F -X -i -J -M -W -x4}"
     'LESSHISTFILE'                      '$XDG_STATE_HOME/less/history'
     'LESSKEY'                           '$XDG_CONFIG_HOME/less/keys'
@@ -228,7 +228,7 @@ _env_setup_xdg_base() {
     _log "DEBUG" "Setting up XDG base directories..."
 
     local var value
-    for var value in ${(kv)ZSH_ENV_XDG_BASE}; do
+    for var value in ${(kv)Z_ENV_XDG_BASE}; do
         # Respect existing values
         : ${(P)var::=$value}
         export $var
@@ -256,7 +256,7 @@ _env_setup_core() {
     fi
 
     local var value expanded_value
-    for var value in ${(kv)ZSH_ENV_CORE}; do
+    for var value in ${(kv)Z_ENV_CORE}; do
         # Expand command substitution at runtime (e.g., $(tty))
         expanded_value="${(e)value}"
         export "$var"="$expanded_value"
@@ -281,7 +281,7 @@ _env_setup_tools() {
     # Process each tool category
     # Format: 'VAR_NAME' 'value|command' where | separates value from command
     # Using | instead of : allows values to contain colons (e.g., PATH-style vars)
-    for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
+    for category in ${Z_ENV_TOOL_CATEGORIES[@]}; do
         for var value_and_command in ${(kvP)category}; do
             value="${value_and_command%%|*}"
             command="${value_and_command#*|}"
@@ -348,7 +348,7 @@ _env_setup_terminal() {
     fi
 
     local var value expanded_value
-    for var value in ${(kv)ZSH_ENV_TERMINAL}; do
+    for var value in ${(kv)Z_ENV_TERMINAL}; do
         # Expand the value string using ZSH parameter expansion
         # Safer than eval - prevents shell injection
         expanded_value="${(e)value}"
@@ -474,32 +474,32 @@ z_env_show() {
     }
 
     # 1. XDG Base Directories
-    for var in ${(k)ZSH_ENV_XDG_BASE}; do _add_to_display "01_XDG" "$var"; done
+    for var in ${(k)Z_ENV_XDG_BASE}; do _add_to_display "01_XDG" "$var"; done
 
     # 2. ZSH Base Directories and Variables
     for var in 'ZDOTDIR' 'ZSH_CACHE_HOME' 'ZSH_CONFIG_HOME' 'ZSH_DATA_HOME' 'ZSH_STATE_HOME'; do
         _add_to_display "02_ZSH_Base" "$var"
     done
 
-    # 3. ZSH Tool Variables (from ZSH_ENV_TOOLS_ZSH)
-    for var val in ${(kv)ZSH_ENV_TOOLS_ZSH}; do
+    # 3. ZSH Tool Variables (from Z_ENV_TOOLS_ZSH)
+    for var val in ${(kv)Z_ENV_TOOLS_ZSH}; do
         _add_to_display "03_ZSH_Variables" "$var"
     done
 
     # 4. Core Environment
-    for var in ${(k)ZSH_ENV_CORE}; do _add_to_display "04_Core" "$var"; done
+    for var in ${(k)Z_ENV_CORE}; do _add_to_display "04_Core" "$var"; done
 
     # 5. Editor Variables
     for var in 'EDITOR' 'VISUAL' 'GIT_EDITOR' 'SUDO_EDITOR' 'TERMINAL_EDITOR' 'ALTERNATE_EDITOR'; do _add_to_display "05_Editor" "$var"; done
 
     # 6. Terminal Environment
-    for var in ${(k)ZSH_ENV_TERMINAL}; do _add_to_display "06_Terminal" "$var"; done
+    for var in ${(k)Z_ENV_TERMINAL}; do _add_to_display "06_Terminal" "$var"; done
 
     # 7. Tool Categories (excluding ZSH which we handled above)
     local category_name
-    for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
-        if [[ "$category" != "ZSH_ENV_TOOLS_ZSH" ]]; then
-            category_name="${category#ZSH_ENV_TOOLS_}"
+    for category in ${Z_ENV_TOOL_CATEGORIES[@]}; do
+        if [[ "$category" != "Z_ENV_TOOLS_ZSH" ]]; then
+            category_name="${category#Z_ENV_TOOLS_}"
             for var val in ${(kvP)category}; do
                 _add_to_display "07_Tool_${category_name}" "$var"
             done
@@ -590,7 +590,7 @@ z_env_show() {
 }
 
 # Check installation status of configured tools
-# Derives tool list from registry data (ZSH_ENV_TOOL_CATEGORIES)
+# Derives tool list from registry data (Z_ENV_TOOL_CATEGORIES)
 z_env_status() {
     echo "=== Tool Installation Status ==="
     echo ""
@@ -598,7 +598,7 @@ z_env_status() {
     local -A seen_commands
     local category var value_and_command command
 
-    for category in ${ZSH_ENV_TOOL_CATEGORIES[@]}; do
+    for category in ${Z_ENV_TOOL_CATEGORIES[@]}; do
         for var value_and_command in ${(kvP)category}; do
             command="${value_and_command#*|}"
             # Skip duplicates (many vars share the same command)

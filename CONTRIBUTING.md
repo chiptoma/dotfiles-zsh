@@ -66,9 +66,7 @@ test(integration): add repair command test cases
 3. **Make your changes** with clear, atomic commits
 4. **Run tests locally:**
    ```bash
-   ./tests/unit-test.zsh
-   ./tests/smoke-test.zsh
-   shellcheck install.sh
+   just test    # lint + unit + smoke (L0-L2)
    ```
 5. **Update documentation** if your change affects usage
 6. **Submit a PR** with:
@@ -78,18 +76,20 @@ test(integration): add repair command test cases
 
 ## Testing
 
+All testing runs through the [Justfile](Justfile) — see [docs/TESTING.md](docs/TESTING.md) for the full layer breakdown (L0 lint → L5 CI).
+
 ### Running Tests
 
 ```bash
-# Unit tests
-./tests/unit-test.zsh
-
-# Verbose mode
-./tests/unit-test.zsh --verbose
-
-# Smoke tests (requires zsh config installed)
-./tests/smoke-test.zsh
+just test               # L0 lint + L1 unit + L2 smoke — the default local gate
+just lint               # Syntax checks, shellcheck, structure + help-sync tests
+just test-unit          # Unit suite only
+just test-smoke         # Smoke suite only
+just test-docker fedora # Installer + unit + smoke inside a distro container
+just test-all           # Everything runnable locally (L0-L4, needs Docker)
 ```
+
+`just test-install` mutates `$HOME` and refuses to run outside a container — use `just test-docker <distro>` instead, or `FORCE=1` on a throwaway machine.
 
 ### Writing Tests
 
@@ -110,11 +110,9 @@ test_my_feature() {
 
 ### CI Environment
 
-Tests run automatically on:
-- Ubuntu 22.04
-- Fedora (latest)
-- Arch Linux (latest)
-- macOS (latest)
+Tests run automatically on push/PR:
+- Quality workflow: `just lint`, `just test-unit`, `just test-smoke` on Ubuntu
+- Platform matrix: Ubuntu (22.04/24.04), Debian, Fedora, Arch, Alpine, Rocky, openSUSE, macOS, simulated WSL
 
 ## Development Setup
 
@@ -124,7 +122,7 @@ git clone https://github.com/chiptoma/dotfiles-zsh.git
 cd dotfiles-zsh
 
 # Install for development (symlink mode)
-./install.sh  # Choose option 1 (Symlink)
+./install.sh --symlink
 
 # Make changes to files in the repo
 # Changes reflect immediately in your shell
@@ -135,6 +133,7 @@ cd dotfiles-zsh
 ```
 .
 ├── install.sh              # Main installer script
+├── Justfile                # Task runner (dev/test/maintenance)
 ├── .zshrc                  # Shell entry point (interactive)
 ├── .zshenv                 # Environment variables (all shells)
 ├── modules/                # Feature modules (numbered by load order)
@@ -146,11 +145,17 @@ cd dotfiles-zsh
 │   ├── 06_aliases.zsh      # Command aliases
 │   └── 07_keybindings.zsh  # Key mappings
 ├── lib/                    # Shared libraries
-│   ├── utils/              # Utility functions
-│   │   ├── core.zsh        # _has_cmd, _cache_eval, etc.
+│   ├── core/               # Foundational infrastructure
 │   │   ├── logging.zsh     # _log function
+│   │   ├── ui.zsh          # Shared output helpers
+│   │   ├── helpers.zsh     # _has_cmd, _cache_eval, etc.
+│   │   ├── profile.zsh     # Opt-in startup profiler
 │   │   └── platform/       # OS detection & helpers
-│   └── functions/          # User-facing functions
+│   ├── functions/          # User-facing z_* functions
+│   ├── plugins/            # Plugin loader + vendored widgets
+│   └── registry/           # Tool knowledge (paths, env, tools.dat)
+├── tools/                  # Shipped tool configs (manifest.dat)
+├── ansible/                # Ansible role + playbook
 ├── tests/                  # Test suites
 └── docs/                   # Documentation
 ```
@@ -163,25 +168,55 @@ Understanding the load order is critical for contributors:
 ┌─────────────────────────────────────────────────────────────┐
 │                    LOAD ORDER (.zshenv)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  1. lib/core/logging.zsh      ← No dependencies             │
-│  2. lib/core/helpers.zsh      ← Depends on: logging         │
-│  3. lib/core/platform/        ← Depends on: logging, helpers│
-│  4. modules/01_path.zsh       ← Depends on: core, platform  │
-│  5. modules/02_environment.zsh ← Depends on: core, platform │
+│  1. lib/core/profile.zsh       ← Opt-in startup profiler    │
+│  2. lib/core/index.zsh         ← logging → ui → helpers →   │
+│                                  platform                   │
+│  3. lib/functions/index.zsh    ← Depends on: core           │
+│  4. lib/registry/index.zsh     ← Depends on: core           │
+│  5. modules/01_path.zsh        ← Depends on: core, registry │
+│  6. modules/02_environment.zsh ← Depends on: core, registry,│
+│                                  path                       │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │                    LOAD ORDER (.zshrc)                       │
 ├─────────────────────────────────────────────────────────────┤
-│  1. Oh My Zsh (if enabled)                                  │
-│  2. modules/03_lazy.zsh        ← Depends on: core           │
-│  3. modules/04_completion.zsh  ← Depends on: core           │
+│  1. modules/03_lazy.zsh        ← Depends on: core           │
+│  2. modules/04_completion.zsh  ← Depends on: core (compinit)│
+│  3. lib/plugins/index.zsh      ← fzf-tab, autosuggestions,  │
+│                                  fzf/op init, vendored      │
+│                                  widgets                    │
 │  4. modules/05_history.zsh     ← Depends on: core           │
 │  5. modules/06_aliases.zsh     ← Depends on: core, platform │
-│  6. modules/07_keybindings.zsh ← Depends on: core           │
-│  7. .zshlocal                  ← User customizations (last) │
+│  6. modules/07_keybindings.zsh ← Depends on: core, plugins  │
+│  7. post-interactive hooks     ← starship init, path clean  │
+│  8. .zshlocal                  ← User customizations        │
+│  9. zsh-syntax-highlighting    ← LAST (binds ZLE widgets    │
+│                                  over everything)           │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Naming Conventions
+
+Every symbol follows exactly one of these patterns — the drift tests enforce it:
+
+| Kind | Convention | Example |
+|------|------------|---------|
+| User-tunable setting (exported) | `Z_*` | `Z_LOG_LEVEL`, `Z_LAZY_ENABLED` |
+| Internal global state | `_Z_*` | `_Z_REGISTRY_LOADED` |
+| Registry data table | `Z_*` array | `Z_PATH_DEFINITIONS`, `Z_ENV_TOOLS_*`, `Z_TOOLS` |
+| Public command function | `z_*` | `z_health`, `z_log_level`, `z_dotfiles_backup` |
+| Internal helper function | `_*` | `_has_cmd`, `_ui_kv`, `_z_tools_load` |
+| Module init function | `_<module>_init` | `_path_init`, `_environment_init` |
+| Post-interactive hook | `_*_hook` in `Z_POST_INTERACTIVE_HOOKS` | `_xdg_guardian_hook` |
+| Module file | `NN_name.zsh` (load order) | `modules/03_lazy.zsh` |
+| Registry data file | topic `.zsh` / shared `.dat` | `lib/registry/python.zsh`, `tools.dat` |
+
+**Documented exceptions** (third-party or ecosystem contracts, never rename):
+`ZSH_VERSION`, `ZSH_COMPDUMP`, `$ZSH` (legacy Oh My Zsh installs — its completion
+dirs are still honored), `ZSH_AUTOSUGGEST_*` (plugin),
+and the framework directory quartet `ZSH_CONFIG_HOME`/`ZSH_CACHE_HOME`/
+`ZSH_DATA_HOME`/`ZSH_STATE_HOME` (mirrors the XDG naming scheme).
 
 ### Key Architectural Rules
 

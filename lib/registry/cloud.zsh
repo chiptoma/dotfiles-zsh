@@ -21,7 +21,7 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_CLOUD+=(
+Z_ENV_TOOLS_CLOUD+=(
     'AWS_CONFIG_FILE'             '$XDG_CONFIG_HOME/aws/config|aws'
     'AWS_SHARED_CREDENTIALS_FILE' '$XDG_CONFIG_HOME/aws/credentials|aws'
     'AWS_CLI_HISTORY_FILE'        '$XDG_STATE_HOME/aws_history|aws'

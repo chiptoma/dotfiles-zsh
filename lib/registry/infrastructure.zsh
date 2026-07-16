@@ -21,12 +21,12 @@ Z_PATH_DEFINITIONS+=(
 # ENVIRONMENT VARIABLES
 # ----------------------------------------------------------
 
-ZSH_ENV_TOOLS_ANSIBLE+=(
+Z_ENV_TOOLS_ANSIBLE+=(
     'ANSIBLE_CONFIG'    '$XDG_CONFIG_HOME/ansible/ansible.cfg|ansible'
     'ANSIBLE_HOME'      '$XDG_DATA_HOME/ansible|ansible'
 )
 
-ZSH_ENV_TOOLS_IAC+=(
+Z_ENV_TOOLS_IAC+=(
     'TF_CLI_CONFIG_FILE'  '$XDG_CONFIG_HOME/terraform/terraformrc|terraform'
     'TERRAGRUNT_CONFIG'   '$XDG_CONFIG_HOME/terragrunt|terragrunt'
     'TERRAGRUNT_CACHE'    '$XDG_CACHE_HOME/terragrunt|terragrunt'
