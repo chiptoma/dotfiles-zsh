@@ -89,7 +89,7 @@ Check if shell is interactive.
 ```bash
 if _is_interactive; then
     # Only run in interactive shells
-    source ~/.config/zsh/modules/08_keybindings.zsh
+    source ~/.config/zsh/modules/07_keybindings.zsh
 fi
 ```
 

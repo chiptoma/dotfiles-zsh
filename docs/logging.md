@@ -74,7 +74,7 @@ You'll see detailed output from all modules.
 log_level_set DEBUG
 
 # Do some operations, see all output
-source ~/.config/zsh/modules/04_lazy.zsh
+source ~/.config/zsh/modules/03_lazy.zsh
 
 # Restore normal level
 log_level_set WARN
@@ -84,7 +84,7 @@ log_level_set WARN
 
 ```bash
 # Run command with different log level
-log_with_level DEBUG source ~/.config/zsh/modules/07_aliases.zsh
+log_with_level DEBUG source ~/.config/zsh/modules/06_aliases.zsh
 
 # Level automatically restored after
 ```

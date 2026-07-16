@@ -376,14 +376,14 @@ test_path_conditions() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/04_lazy.zsh
+# TESTS: modules/03_lazy.zsh
 # ----------------------------------------------------------
 
 test_lazy() {
-    section "modules/04_lazy.zsh"
+    section "modules/03_lazy.zsh"
 
     # Check if lazy module can be loaded
-    [[ -f "$ZDOTDIR/modules/04_lazy.zsh" ]] || { skip "lazy.zsh not found"; return; }
+    [[ -f "$ZDOTDIR/modules/03_lazy.zsh" ]] || { skip "lazy.zsh not found"; return; }
 
     # Test lazy status function exists after loading
     unset _Z_LAZY_LOADED 2>/dev/null
@@ -393,7 +393,7 @@ test_lazy() {
     typeset -g Z_LAZY_PYENV=false
     typeset -g Z_LAZY_RBENV=false
 
-    source "$ZDOTDIR/modules/04_lazy.zsh" 2>/dev/null || { skip "lazy.zsh not loadable"; return; }
+    source "$ZDOTDIR/modules/03_lazy.zsh" 2>/dev/null || { skip "lazy.zsh not loadable"; return; }
 
     # z_lazy_status now lives in lib/functions/framework.zsh
     # Just verify the lazy module loads without it
@@ -406,46 +406,15 @@ test_lazy() {
         fail "_LAZY_LOADED_TOOLS array exists"
     fi
 
-    # Test lazy_load function exists
-    if typeset -f lazy_load > /dev/null 2>&1; then
-        pass "lazy_load function defined"
-    else
-        fail "lazy_load function defined"
-    fi
-
-    # Test lazy_load_precmd function exists
-    if typeset -f lazy_load_precmd > /dev/null 2>&1; then
-        pass "lazy_load_precmd function defined"
-    else
-        fail "lazy_load_precmd function defined"
-    fi
-
-    # Test _LAZY_PRECMD_INITS array exists
-    if [[ -n "${(t)_LAZY_PRECMD_INITS}" ]]; then
-        pass "_LAZY_PRECMD_INITS array exists"
-    else
-        fail "_LAZY_PRECMD_INITS array exists"
-    fi
-
-    # Test _lazy_validate_cmd security validation
-    if typeset -f _lazy_validate_cmd > /dev/null 2>&1; then
-        pass "_lazy_validate_cmd function defined"
-
-        # Test valid command names
-        assert_true "validates simple command" _lazy_validate_cmd "mycommand"
-        assert_true "validates hyphenated" _lazy_validate_cmd "my-command"
-        assert_true "validates underscored" _lazy_validate_cmd "my_command"
-        assert_true "validates with numbers" _lazy_validate_cmd "cmd123"
-
-        # Test invalid command names (should be rejected)
-        assert_false "rejects semicolon" _lazy_validate_cmd "cmd;rm" 2>/dev/null
-        assert_false "rejects pipe" _lazy_validate_cmd "cmd|cat" 2>/dev/null
-        assert_false "rejects subshell" _lazy_validate_cmd '$(whoami)' 2>/dev/null
-        assert_false "rejects backticks" _lazy_validate_cmd '`whoami`' 2>/dev/null
-        assert_false "rejects spaces" _lazy_validate_cmd "cmd arg" 2>/dev/null
-    else
-        fail "_lazy_validate_cmd function defined"
-    fi
+    # The bespoke per-tool initializers are the whole lazy API
+    local fn
+    for fn in _lazy_init_zoxide _lazy_init_nvm _lazy_init_pyenv _lazy_init_rbenv; do
+        if typeset -f "$fn" > /dev/null 2>&1; then
+            pass "$fn defined"
+        else
+            fail "$fn defined"
+        fi
+    done
 }
 
 # ----------------------------------------------------------
@@ -468,11 +437,11 @@ test_input_validation() {
 }
 
 # ----------------------------------------------------------
-# TESTS: modules/06_history.zsh
+# TESTS: modules/05_history.zsh
 # ----------------------------------------------------------
 
 test_history() {
-    section "modules/06_history.zsh"
+    section "modules/05_history.zsh"
 
     # Load dependencies first
     unset _Z_HISTORY_LOADED 2>/dev/null
@@ -480,7 +449,7 @@ test_history() {
     source "$ZDOTDIR/lib/core/helpers.zsh" 2>/dev/null || true
 
     # Load history module
-    source "$ZDOTDIR/modules/06_history.zsh" 2>/dev/null || { skip "history.zsh not loadable"; return; }
+    source "$ZDOTDIR/modules/05_history.zsh" 2>/dev/null || { skip "history.zsh not loadable"; return; }
 
     # Test _should_ignore_history_cmd function exists
     if ! typeset -f _should_ignore_history_cmd > /dev/null 2>&1; then
@@ -603,50 +572,6 @@ test_platform_detection() {
 
 test_security_negative() {
     section "Security (Negative Tests)"
-
-    # ─────────────────────────────────────────────────────────
-    # Lazy Load Injection Prevention
-    # ─────────────────────────────────────────────────────────
-
-    # Test that lazy_load rejects unsafe command names
-    if typeset -f _lazy_validate_cmd > /dev/null 2>&1; then
-        # Shell metacharacters that could enable injection
-        assert_false "rejects newline injection" _lazy_validate_cmd $'cmd\nrm -rf /' 2>/dev/null
-        assert_false "rejects carriage return" _lazy_validate_cmd $'cmd\rrm' 2>/dev/null
-        assert_false "rejects ampersand" _lazy_validate_cmd "cmd&whoami" 2>/dev/null
-        assert_false "rejects double ampersand" _lazy_validate_cmd "cmd&&whoami" 2>/dev/null
-        assert_false "rejects double pipe" _lazy_validate_cmd "cmd||whoami" 2>/dev/null
-        assert_false "rejects redirect" _lazy_validate_cmd "cmd>file" 2>/dev/null
-        assert_false "rejects append redirect" _lazy_validate_cmd "cmd>>file" 2>/dev/null
-        assert_false "rejects input redirect" _lazy_validate_cmd "cmd<file" 2>/dev/null
-        assert_false "rejects dollar expansion" _lazy_validate_cmd 'cmd$PATH' 2>/dev/null
-        assert_false "rejects brace expansion" _lazy_validate_cmd "cmd{a,b}" 2>/dev/null
-        assert_false "rejects glob asterisk" _lazy_validate_cmd "cmd*" 2>/dev/null
-        assert_false "rejects glob question" _lazy_validate_cmd "cmd?" 2>/dev/null
-        assert_false "rejects square brackets" _lazy_validate_cmd "cmd[0]" 2>/dev/null
-        assert_false "rejects parentheses" _lazy_validate_cmd "cmd()" 2>/dev/null
-        assert_false "rejects hash comment" _lazy_validate_cmd "cmd#" 2>/dev/null
-        assert_false "rejects exclamation" _lazy_validate_cmd "cmd!" 2>/dev/null
-        assert_false "rejects tilde expansion" _lazy_validate_cmd "~cmd" 2>/dev/null
-        assert_false "rejects equals in name" _lazy_validate_cmd "VAR=cmd" 2>/dev/null
-        assert_false "rejects forward slash" _lazy_validate_cmd "/bin/cmd" 2>/dev/null
-        assert_false "rejects backslash" _lazy_validate_cmd "cmd\\n" 2>/dev/null
-    else
-        skip "_lazy_validate_cmd not available for security tests"
-    fi
-
-    # Test lazy_load function integration
-    if typeset -f lazy_load > /dev/null 2>&1; then
-        # Verify lazy_load returns error for unsafe commands
-        local result
-        result=$(lazy_load "cmd;rm" "echo init" 2>&1)
-        [[ $? -ne 0 ]] && pass "lazy_load rejects unsafe command (semicolon)" || fail "lazy_load rejects unsafe command (semicolon)"
-
-        result=$(lazy_load '$(whoami)' "echo init" 2>&1)
-        [[ $? -ne 0 ]] && pass "lazy_load rejects unsafe command (subshell)" || fail "lazy_load rejects unsafe command (subshell)"
-    else
-        skip "lazy_load not available for integration test"
-    fi
 
     # ─────────────────────────────────────────────────────────
     # History Filter Completeness
@@ -1566,18 +1491,11 @@ test_introspection_functions() {
 }
 
 # ----------------------------------------------------------
-# modules/04_lazy.zsh (extended)
+# modules/03_lazy.zsh (extended)
 # ----------------------------------------------------------
 
 test_lazy_loading_extended() {
-    section "modules/04_lazy.zsh (extended)"
-
-    # _lazy_create_wrapper existence
-    if (( $+functions[_lazy_create_wrapper] )); then
-        pass "_lazy_create_wrapper function defined"
-    else
-        fail "_lazy_create_wrapper not defined"
-    fi
+    section "modules/03_lazy.zsh (extended)"
 
     # Tool-specific initializers
     local init_fn
@@ -1588,40 +1506,6 @@ test_lazy_loading_extended() {
             fail "$init_fn not defined"
         fi
     done
-
-    # lazy_load creates wrapper (use a safe test command)
-    if (( $+functions[lazy_load] )); then
-        # Use 'echo' as a test — it's a builtin that exists everywhere
-        lazy_load "echo" "true" "_test_lazy_alias" 2>/dev/null
-        # The wrapper should have been created for echo
-        # (echo is a builtin so lazy_load will find it via _has_cmd)
-        if (( $+functions[_test_lazy_alias] )) || (( $+functions[echo] )); then
-            pass "lazy_load creates wrapper function"
-        else
-            # echo is a builtin, _has_cmd may not detect it
-            skip "lazy_load wrapper test inconclusive (builtin)"
-        fi
-
-        # lazy_load rejects empty
-        lazy_load "" "" 2>/dev/null
-        if [[ $? -ne 0 ]]; then
-            pass "lazy_load rejects empty command"
-        else
-            # Empty command might just be skipped (not found), which returns 0
-            skip "lazy_load empty handling varies"
-        fi
-    else
-        fail "lazy_load not defined"
-    fi
-
-    # lazy_load_precmd
-    if (( $+functions[lazy_load_precmd] )); then
-        local precmd_count_before=${#_LAZY_PRECMD_INITS[@]}
-        # Can't add to readonly array, just verify it exists
-        pass "lazy_load_precmd function defined"
-    else
-        fail "lazy_load_precmd not defined"
-    fi
 
     # z_lazy_status output
     if (( $+functions[z_lazy_status] )); then
@@ -1638,11 +1522,11 @@ test_lazy_loading_extended() {
 }
 
 # ----------------------------------------------------------
-# modules/06_history.zsh (z_history_clean)
+# modules/05_history.zsh (z_history_clean)
 # ----------------------------------------------------------
 
 test_z_history_clean() {
-    section "modules/06_history.zsh (z_history_clean)"
+    section "modules/05_history.zsh (z_history_clean)"
 
     local original_histfile="$HISTFILE"
 
@@ -2406,6 +2290,69 @@ test_xdg_guardian() {
 }
 
 # ----------------------------------------------------------
+# lib/registry/tools.zsh (tool catalog)
+# ----------------------------------------------------------
+
+test_tools_catalog() {
+    section "lib/registry/tools.zsh (tool catalog)"
+
+    unset _Z_REGISTRY_TOOLS_LOADED 2>/dev/null
+    source "$ZDOTDIR/lib/registry/tools.zsh" 2>/dev/null || true
+
+    if ! typeset -f _z_tools_load > /dev/null 2>&1; then
+        fail "_z_tools_load not defined"
+        return
+    fi
+
+    Z_TOOLS=() Z_TOOL_NAMES=()
+    if _z_tools_load; then
+        pass "_z_tools_load parses tools.dat"
+    else
+        fail "_z_tools_load parses tools.dat"
+        return
+    fi
+
+    if (( ${#Z_TOOL_NAMES[@]} >= 25 )); then
+        pass "catalog has full tool set (${#Z_TOOL_NAMES[@]} tools)"
+    else
+        fail "catalog has full tool set" ">=25" "${#Z_TOOL_NAMES[@]}"
+    fi
+
+    # Every entry carries all 6 value fields (structure test checks the file;
+    # this checks the parse)
+    local name bad=0
+    for name in "${Z_TOOL_NAMES[@]}"; do
+        local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
+        (( ${#fields[@]} == 6 )) || bad=$((bad + 1))
+    done
+    if (( bad == 0 )); then
+        pass "every catalog entry parses to 6 fields"
+    else
+        fail "every catalog entry parses to 6 fields" "0 bad" "$bad bad"
+    fi
+
+    if [[ "$(_z_tool_field starship category)" == "essential" && \
+          "$(_z_tool_field atuin category)" == "essential" ]]; then
+        pass "starship and atuin are essential"
+    else
+        fail "starship and atuin are essential"
+    fi
+
+    if [[ "$(_z_tool_field ripgrep binary)" == "rg" ]]; then
+        pass "_z_tool_field resolves binary names (ripgrep -> rg)"
+    else
+        fail "_z_tool_field resolves binary names (ripgrep -> rg)"
+    fi
+
+    # Drift guard: the installer must consume the catalog, not a literal copy
+    if ! grep -q 'declare -a ALL_TOOLS' "$ZDOTDIR/install.sh"; then
+        pass "install.sh has no hardcoded ALL_TOOLS list"
+    else
+        fail "install.sh has no hardcoded ALL_TOOLS list"
+    fi
+}
+
+# ----------------------------------------------------------
 # TEST RUNNER
 # ----------------------------------------------------------
 
@@ -2447,6 +2394,7 @@ main() {
     test_path_processing
     test_help_system
     test_xdg_guardian
+    test_tools_catalog
 
     teardown_test_env
 

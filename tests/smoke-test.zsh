@@ -111,9 +111,9 @@ required_files=(
     "lib/functions/framework.zsh"
     "modules/02_environment.zsh"
     "modules/01_path.zsh"
-    "modules/04_lazy.zsh"
-    "modules/06_history.zsh"
-    "modules/07_aliases.zsh"
+    "modules/03_lazy.zsh"
+    "modules/05_history.zsh"
+    "modules/06_aliases.zsh"
 )
 
 for file in "${required_files[@]}"; do

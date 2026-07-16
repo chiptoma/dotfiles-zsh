@@ -391,7 +391,7 @@ zsh -f
 source ~/.config/zsh/.zshenv
 
 # Now test a specific module
-source ~/.config/zsh/modules/06_history.zsh
+source ~/.config/zsh/modules/05_history.zsh
 echo $HISTFILE   # Should be set
 
 # Or test a function library

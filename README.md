@@ -49,12 +49,11 @@ See [INSTALL.md](INSTALL.md) for detailed instructions.
 ├── modules/                # Numbered by load order
 │   ├── 01_path.zsh         # PATH management, platform paths
 │   ├── 02_environment.zsh  # ENV vars, XDG dirs, editor detection
-│   ├── 03_compilation.zsh  # Optional .zwc compilation
-│   ├── 04_lazy.zsh         # Deferred tool initialization
-│   ├── 05_completion.zsh   # Tab completion, caching
-│   ├── 06_history.zsh      # History management, security filtering
-│   ├── 07_aliases.zsh      # Command aliases, modern replacements
-│   └── 08_keybindings.zsh  # Key bindings, atuin/fzf integration
+│   ├── 03_lazy.zsh         # Deferred tool initialization
+│   ├── 04_completion.zsh   # Tab completion, caching
+│   ├── 05_history.zsh      # History management, security filtering
+│   ├── 06_aliases.zsh      # Command aliases, modern replacements
+│   └── 07_keybindings.zsh  # Key bindings, atuin/fzf integration
 │
 ├── lib/
 │   ├── utils.zsh           # Core utilities (_has_cmd, _safe_source, etc.)
@@ -146,7 +145,6 @@ All options can be set in `.zshlocal` or exported before sourcing.
 | `Z_HISTORY_ENABLED` | `true` | History module |
 | `Z_ALIASES_ENABLED` | `true` | Aliases module |
 | `Z_KEYBINDINGS_ENABLED` | `true` | Keybindings module |
-| `Z_COMPILATION_ENABLED` | `false` | Compilation module |
 
 ### Lazy Loading
 
@@ -204,7 +202,6 @@ All options can be set in `.zshlocal` or exported before sourcing.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `Z_COMPILATION_CLEANUP_ON_START` | `true` | Clean stale .zwc on startup |
 
 ### Update Check
 

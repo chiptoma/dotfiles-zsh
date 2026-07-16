@@ -140,12 +140,11 @@ cd dotfiles-zsh
 ├── modules/                # Feature modules (numbered by load order)
 │   ├── 01_path.zsh         # PATH management
 │   ├── 02_environment.zsh  # Environment setup
-│   ├── 03_compilation.zsh  # Bytecode compilation
-│   ├── 04_lazy.zsh         # Deferred tool initialization
-│   ├── 05_completion.zsh   # Tab completion
-│   ├── 06_history.zsh      # History configuration
-│   ├── 07_aliases.zsh      # Command aliases
-│   └── 08_keybindings.zsh  # Key mappings
+│   ├── 03_lazy.zsh         # Deferred tool initialization
+│   ├── 04_completion.zsh   # Tab completion
+│   ├── 05_history.zsh      # History configuration
+│   ├── 06_aliases.zsh      # Command aliases
+│   └── 07_keybindings.zsh  # Key mappings
 ├── lib/                    # Shared libraries
 │   ├── utils/              # Utility functions
 │   │   ├── core.zsh        # _has_cmd, _cache_eval, etc.
@@ -175,13 +174,12 @@ Understanding the load order is critical for contributors:
 │                    LOAD ORDER (.zshrc)                       │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Oh My Zsh (if enabled)                                  │
-│  2. modules/03_compilation.zsh ← Depends on: core          │
-│  3. modules/04_lazy.zsh       ← Depends on: core, core    │
-│  4. modules/05_completion.zsh ← Depends on: core           │
-│  5. modules/06_history.zsh    ← Depends on: core           │
-│  6. modules/07_aliases.zsh    ← Depends on: core, platform │
-│  7. modules/08_keybindings.zsh ← Depends on: core          │
-│  8. .zshlocal                 ← User customizations (last)  │
+│  2. modules/03_lazy.zsh        ← Depends on: core           │
+│  3. modules/04_completion.zsh  ← Depends on: core           │
+│  4. modules/05_history.zsh     ← Depends on: core           │
+│  5. modules/06_aliases.zsh     ← Depends on: core, platform │
+│  6. modules/07_keybindings.zsh ← Depends on: core           │
+│  7. .zshlocal                  ← User customizations (last) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -191,7 +189,7 @@ Understanding the load order is critical for contributors:
 2. **Idempotent loading**: All modules use `(( ${+_GUARD} )) && return 0` pattern
 3. **Platform isolation**: Platform-specific code lives in `lib/core/platform/`
 4. **Toggle pattern**: Modules check `Z_*_ENABLED` before loading
-5. **Security first**: `_lazy_validate_cmd` validates all eval inputs; history filters sensitive patterns
+5. **Security first**: `_cache_eval` allowlists every eval'd tool; history filters sensitive patterns
 
 ## Reporting Issues
 

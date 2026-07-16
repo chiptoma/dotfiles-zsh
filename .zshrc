@@ -121,20 +121,13 @@ else
 fi
 
 # ----------------------------------------------------------
-# COMPILATION MODULE
-# Bytecode compilation disabled - minimal benefit on modern SSDs.
-# ----------------------------------------------------------
-export Z_COMPILATION_ENABLED=false
-source "${ZSH_CONFIG_HOME}/modules/03_compilation.zsh"
-
-# ----------------------------------------------------------
 # INTERACTIVE MODULES
 # ----------------------------------------------------------
-source "${ZSH_CONFIG_HOME}/modules/04_lazy.zsh"
-source "${ZSH_CONFIG_HOME}/modules/05_completion.zsh"
-source "${ZSH_CONFIG_HOME}/modules/06_history.zsh"
-source "${ZSH_CONFIG_HOME}/modules/07_aliases.zsh"
-source "${ZSH_CONFIG_HOME}/modules/08_keybindings.zsh"
+source "${ZSH_CONFIG_HOME}/modules/03_lazy.zsh"
+source "${ZSH_CONFIG_HOME}/modules/04_completion.zsh"
+source "${ZSH_CONFIG_HOME}/modules/05_history.zsh"
+source "${ZSH_CONFIG_HOME}/modules/06_aliases.zsh"
+source "${ZSH_CONFIG_HOME}/modules/07_keybindings.zsh"
 
 # ----------------------------------------------------------
 # POST-INTERACTIVE HOOKS

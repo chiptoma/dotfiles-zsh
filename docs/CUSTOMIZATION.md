@@ -123,7 +123,6 @@ Every module respects an `_ENABLED` flag. Set these **before** `.zshrc` loads:
 # OR ~/.config/zsh/.zshlocal (for most cases)
 
 # Disable specific modules
-export Z_COMPILATION_ENABLED=false    # Disable .zwc compilation
 export Z_ALIASES_ENABLED=false        # Disable all aliases
 export Z_LAZY_ENABLED=false           # Disable lazy loading
 export Z_KEYBINDINGS_ENABLED=false    # Use default keybindings
@@ -141,7 +140,6 @@ Available module toggles:
 | `Z_COMPLETION_ENABLED` | `true` | Enable tab completion |
 | `Z_HISTORY_ENABLED` | `true` | Enable history management |
 | `Z_KEYBINDINGS_ENABLED` | `true` | Custom key bindings |
-| `Z_COMPILATION_ENABLED` | `false` | Compile scripts to .zwc |
 | `Z_LAZY_ENABLED` | `true` | Lazy load tools |
 
 ## Customizing PATH

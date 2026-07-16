@@ -95,6 +95,9 @@ alias todos='z_todos'      # Find TODO/FIXME comments
 alias extract='z_extract'  # Universal archive extractor
 alias gitsize='z_gitsize'  # Show git-tracked file sizes
 
+alias dotbackup='z_dotfiles_backup'    # Snapshot all managed dotfiles
+alias dotrestore='z_dotfiles_restore'  # Restore dotfiles from a backup
+
 if ! type which >/dev/null 2>&1; then
     alias which='type -a'  # Show command locations
 fi
@@ -691,15 +694,16 @@ if [[ -n "${EDITOR}" ]] || _has_cmd vim || _has_cmd vi; then
     alias -s {html,htm,css,scss,sass}="$suffix_editor"
 fi
 
-if ! _has_cmd extract; then
-    _has_cmd tar && alias -s {tar,gz,bz2,xz}='tar -tf'
-    _has_cmd unzip && alias -s zip='unzip -l'
-    _has_cmd 7z && alias -s 7z='7z l'
-    if _has_cmd unrar; then
-        alias -s rar='unrar l'
-    elif _has_cmd 7z; then
-        alias -s rar='7z l'
-    fi
+# Archive LISTING on suffix invocation (extraction stays with `extract`;
+# the old `! _has_cmd extract` guard never fired — extract is an alias,
+# not a command)
+_has_cmd tar && alias -s {tar,gz,bz2,xz}='tar -tf'
+_has_cmd unzip && alias -s zip='unzip -l'
+_has_cmd 7z && alias -s 7z='7z l'
+if _has_cmd unrar; then
+    alias -s rar='unrar l'
+elif _has_cmd 7z; then
+    alias -s rar='7z l'
 fi
 
 # ----------------------------------------------------------

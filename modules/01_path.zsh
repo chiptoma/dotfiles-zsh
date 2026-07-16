@@ -513,18 +513,19 @@ z_path_contains() {
     return 1
 }
 
-# z_path_reload - Reload the path.zsh module
+# z_path_reload - Reload the PATH module
 # Usage: z_path_reload
 z_path_reload() {
-    echo "Reloading path.zsh module..."
-    local script_path="$(_resolve_module_path modules/01_path.zsh)"
+    local module="modules/01_path.zsh"
+    echo "Reloading ${module:t} module..."
+    local script_path="$(_resolve_module_path "$module")"
 
     if [[ -f "$script_path" ]]; then
         unset _Z_PATH_LOADED
         source "$script_path"
-        _ui_ok "path.zsh module reloaded"
+        _ui_ok "${module:t} module reloaded"
     else
-        echo "✗ Could not find path.zsh at: $script_path" >&2
+        echo "✗ Could not find ${module:t} at: $script_path" >&2
         return 1
     fi
 }
