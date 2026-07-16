@@ -242,14 +242,14 @@ test_logging() {
     assert_eq "${Z_LOG_LEVELS[ERROR]}" "3" "ERROR level is 3"
     assert_eq "${Z_LOG_LEVELS[NONE]}" "4" "NONE level is 4"
 
-    # Test log_level_set
+    # Test z_log_level
     local old_level="$Z_LOG_LEVEL"
-    log_level_set DEBUG
-    assert_eq "$Z_LOG_LEVEL" "DEBUG" "log_level_set changes level"
-    log_level_set "$old_level"
+    z_log_level DEBUG
+    assert_eq "$Z_LOG_LEVEL" "DEBUG" "z_log_level changes level"
+    z_log_level "$old_level"
 
     # Test invalid log level
-    assert_false "log_level_set rejects invalid level" log_level_set INVALID_LEVEL
+    assert_false "z_log_level rejects invalid level" z_log_level INVALID_LEVEL
 
     # Test _log output (capture stderr for WARN/ERROR)
     local output
@@ -271,7 +271,7 @@ test_logging() {
 test_path_functions() {
     section "modules/01_path.zsh (functions)"
 
-    # We test path functions in isolation without running path_init
+    # We test path functions in isolation without running _path_init
     # Load only the function definitions
 
     unset _Z_LOGGING_LOADED _Z_PATH_LOADED 2>/dev/null
@@ -285,7 +285,7 @@ test_path_functions() {
     _is_docker() { return 1; }
     _is_ci() { return 1; }
 
-    # Source path module (will run path_init, but we'll test functions after)
+    # Source path module (will run _path_init, but we'll test functions after)
     typeset -g Z_PATH_ENABLED=true
     source "$ZDOTDIR/modules/01_path.zsh" 2>/dev/null || { skip "path.zsh not loadable"; return; }
 
@@ -426,8 +426,8 @@ test_input_validation() {
 
     # Test that functions handle empty inputs gracefully
 
-    # log_level_set with empty arg
-    assert_false "log_level_set rejects empty input" log_level_set ""
+    # z_log_level with empty arg
+    assert_false "z_log_level rejects empty input" z_log_level ""
 
     # _path_add with non-existent directory (should not add)
     local path_before=${#path[@]}
@@ -1046,17 +1046,18 @@ test_ensure_file_perms() {
 }
 
 # ----------------------------------------------------------
-# TESTS: OMZ Fallback
+# TESTS: Plugin Fallback (self-managed plugins, no OMZ)
 # ----------------------------------------------------------
 
-test_omz_fallback() {
-    section "OMZ Fallback (graceful degradation)"
+test_plugin_fallback() {
+    section "Plugin Fallback (graceful degradation)"
 
-    # Test that shell starts with fake OMZ path
+    # Shell must boot with no plugin directories at all
     local fallback_result
     fallback_result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH='/tmp/nonexistent-omz-$$'
+        export Z_PLUGINS_DIR='/tmp/nonexistent-plugins-$$'
+        export XDG_DATA_HOME='/tmp/nonexistent-data-$$'
         export Z_LOG_LEVEL=NONE
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
@@ -1064,24 +1065,17 @@ test_omz_fallback() {
     " 2>&1)
 
     if [[ "$fallback_result" == *"FALLBACK_OK"* ]]; then
-        pass "Shell starts without OMZ"
+        pass "Shell starts without plugins"
     else
-        fail "Shell starts without OMZ"
+        fail "Shell starts without plugins"
     fi
 
-    # Test that warning message is present
-    if [[ "$fallback_result" == *"Oh My Zsh not found"* ]] || [[ "$fallback_result" == *"Warning"* ]]; then
-        pass "OMZ fallback shows warning message"
-    else
-        # Warning may only show on tty, not piped
-        skip "OMZ fallback warning (may require tty)"
-    fi
-
-    # Test that custom modules still load without OMZ
+    # Framework modules must load regardless of plugin availability
     local modules_result
     modules_result=$(zsh -c "
         export ZDOTDIR='$ZDOTDIR'
-        export ZSH='/tmp/nonexistent-omz-$$'
+        export Z_PLUGINS_DIR='/tmp/nonexistent-plugins-$$'
+        export XDG_DATA_HOME='/tmp/nonexistent-data-$$'
         export Z_LOG_LEVEL=NONE
         source \$ZDOTDIR/.zshenv 2>/dev/null
         source \$ZDOTDIR/.zshrc 2>/dev/null
@@ -1090,15 +1084,15 @@ test_omz_fallback() {
     " 2>&1)
 
     if [[ "$modules_result" == *"LAZY_OK"* ]]; then
-        pass "Lazy module loads without OMZ"
+        pass "Lazy module loads without plugins"
     else
-        fail "Lazy module loads without OMZ"
+        fail "Lazy module loads without plugins"
     fi
 
     if [[ "$modules_result" == *"HISTORY_OK"* ]]; then
-        pass "History module loads without OMZ"
+        pass "History module loads without plugins"
     else
-        fail "History module loads without OMZ"
+        fail "History module loads without plugins"
     fi
 }
 
@@ -1920,6 +1914,9 @@ test_xdg_guardian() {
     # Z_XDG_GUARDIAN_QUIET defaults to false
     assert_eq "${Z_XDG_GUARDIAN_QUIET:-}" "false" "Z_XDG_GUARDIAN_QUIET defaults to false"
 
+    # Z_XDG_GUARDIAN_MODE defaults to notify
+    assert_eq "${Z_XDG_GUARDIAN_MODE:-}" "notify" "Z_XDG_GUARDIAN_MODE defaults to notify"
+
     # -- Z_XDG_MIGRATIONS array --
 
     if (( ${+Z_XDG_MIGRATIONS} )); then
@@ -1952,6 +1949,8 @@ test_xdg_guardian() {
     local -a xdg_funcs=(
         _xdg_ninja_db_path _xdg_is_skipped _xdg_format_size _xdg_format_date
         _xdg_format_date_short _xdg_format_relative_time
+        _xdg_now _xdg_record_pack _xdg_record_unpack
+        _xdg_ninja_cache_file _xdg_ninja_cache_stale _xdg_ninja_build_cache
         _xdg_scan_ninja _xdg_scan_registry _xdg_scan_orphans
         _xdg_check_conflict _xdg_migrate_one _xdg_classify
         _xdg_guardian_hook _xdg_clean_old_backups
@@ -2276,6 +2275,113 @@ test_xdg_guardian() {
 
     export ZSH_STATE_HOME="$_old_state2"
 
+    # -- _xdg_now: positive integer epoch --
+
+    local _now_out
+    _now_out=$(_xdg_now)
+    if [[ "$_now_out" == <-> ]] && (( _now_out > 0 )); then
+        pass "_xdg_now returns a positive integer ($_now_out)"
+    else
+        fail "_xdg_now did not return a positive integer" "positive integer" "$_now_out"
+    fi
+
+    # -- Record pack/unpack roundtrip (4 fields, incl. empty + spaces) --
+
+    local REPLY
+    local -a reply
+    _xdg_record_pack "first" "two words" "" "fourth"
+    _xdg_record_unpack "$REPLY"
+    if (( ${#reply} == 4 )) && [[ "${reply[1]}" == "first" ]] && \
+       [[ "${reply[2]}" == "two words" ]] && [[ -z "${reply[3]}" ]] && \
+       [[ "${reply[4]}" == "fourth" ]]; then
+        pass "record pack/unpack roundtrip preserves 4 fields"
+    else
+        fail "record pack/unpack roundtrip broken" "4 intact fields" \
+            "count=${#reply}: ${(j:,:)reply}"
+    fi
+
+    # -- _xdg_skip_permanently must not clobber the tied \$path array --
+
+    local _old_state_skip="$ZSH_STATE_HOME"
+    local _old_skip_list="$Z_XDG_GUARDIAN_SKIP"
+    export ZSH_STATE_HOME="$TEST_TMP/skip_state"
+    mkdir -p "$ZSH_STATE_HOME"
+
+    local _path_len_before=${#path}
+    _xdg_skip_permanently "$TEST_TMP/fake_stray_for_skip"
+    if (( ${#path} == _path_len_before )); then
+        pass "_xdg_skip_permanently leaves \$path array unchanged (${#path} entries)"
+    else
+        fail "_xdg_skip_permanently clobbered \$path" "$_path_len_before" "${#path}"
+    fi
+    if grep -q "fake_stray_for_skip" "$ZSH_STATE_HOME/xdg-guardian.skip" 2>/dev/null; then
+        pass "_xdg_skip_permanently persists entry to skip file"
+    else
+        fail "_xdg_skip_permanently did not persist entry"
+    fi
+
+    Z_XDG_GUARDIAN_SKIP="$_old_skip_list"
+    export ZSH_STATE_HOME="$_old_state_skip"
+
+    # -- _xdg_ninja_build_cache: one-pass TSV cache --
+
+    if _xdg_ninja_db_path >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+        local _old_cache_home="${ZSH_CACHE_HOME:-}"
+        export ZSH_CACHE_HOME="$TEST_TMP/ninja_cache"
+
+        if _xdg_ninja_build_cache; then
+            local _cache_file _cache_lines
+            _cache_file=$(_xdg_ninja_cache_file)
+            _cache_lines=$(wc -l < "$_cache_file" | tr -d ' ')
+            if (( _cache_lines > 100 )); then
+                pass "_xdg_ninja_build_cache produces cache with >100 lines ($_cache_lines)"
+            else
+                fail "_xdg_ninja_build_cache cache too small" ">100 lines" "$_cache_lines"
+            fi
+            # First line is the version stamp so filter changes invalidate
+            local _stamp
+            IFS= read -r _stamp < "$_cache_file"
+            assert_eq "$_stamp" "$_Z_XDG_NINJA_CACHE_VERSION" \
+                "_xdg_ninja_build_cache stamps cache version"
+            # Fresh cache is not stale; wrong stamp is
+            if ! _xdg_ninja_cache_stale "$(_xdg_ninja_db_path)" "$_cache_file"; then
+                pass "_xdg_ninja_cache_stale: fresh cache is not stale"
+            else
+                fail "_xdg_ninja_cache_stale: fresh cache reported stale"
+            fi
+            echo "#v0-obsolete" >| "$_cache_file"
+            if _xdg_ninja_cache_stale "$(_xdg_ninja_db_path)" "$_cache_file"; then
+                pass "_xdg_ninja_cache_stale: version mismatch is stale"
+            else
+                fail "_xdg_ninja_cache_stale: version mismatch not detected"
+            fi
+        else
+            fail "_xdg_ninja_build_cache failed despite jq + ninja DB present"
+        fi
+
+        if [[ -n "$_old_cache_home" ]]; then
+            export ZSH_CACHE_HOME="$_old_cache_home"
+        else
+            unset ZSH_CACHE_HOME
+        fi
+    else
+        skip "_xdg_ninja_build_cache: jq or xdg-ninja DB not available"
+    fi
+
+    # -- Guardian modes: off returns immediately --
+
+    local _old_mode="${Z_XDG_GUARDIAN_MODE:-notify}"
+    Z_XDG_GUARDIAN_MODE=off
+    local _mode_out _mode_rc
+    _mode_out=$(_xdg_guardian_hook 2>&1)
+    _mode_rc=$?
+    if (( _mode_rc == 0 )) && [[ -z "$_mode_out" ]]; then
+        pass "_xdg_guardian_hook: mode=off returns 0 with no output"
+    else
+        fail "_xdg_guardian_hook: mode=off misbehaved" "rc=0, no output" "rc=$_mode_rc, out=$_mode_out"
+    fi
+    Z_XDG_GUARDIAN_MODE="$_old_mode"
+
     # -- Hook registered in Z_POST_INTERACTIVE_HOOKS (fresh shell) --
     # NOTE: Other tests re-source core.zsh which resets the hooks array,
     # so we verify registration in a clean subshell instead.
@@ -2353,6 +2459,57 @@ test_tools_catalog() {
 }
 
 # ----------------------------------------------------------
+# lib/core/platform/detect.zsh (_detect_ssh_agent)
+# ----------------------------------------------------------
+
+test_ssh_agent_detection() {
+    section "lib/core/platform/detect.zsh (_detect_ssh_agent)"
+
+    if ! zmodload zsh/net/socket 2>/dev/null; then
+        skip "zsh/net/socket unavailable"
+        return
+    fi
+
+    local fake_home="$TEST_TMP/ssh-home"
+    mkdir -p "$fake_home/.1password"
+
+    # Real listening unix socket so [[ -S ]] is true
+    if ! zsocket -l "$fake_home/.1password/agent.sock" 2>/dev/null; then
+        skip "cannot create unix socket in test tmp"
+        return
+    fi
+    local sock_fd=$REPLY
+
+    # 1Password socket wins when nothing else is set
+    local result
+    result=$(HOME="$fake_home" XDG_RUNTIME_DIR="$TEST_TMP/no-such-run" SSH_AUTH_SOCK= \
+        zsh -c "source '$ZDOTDIR/lib/core/platform/detect.zsh' 2>/dev/null; \
+                _detect_ssh_agent; print -r -- \"\$SSH_AUTH_SOCK\"" 2>/dev/null)
+    if [[ "$result" == "$fake_home/.1password/agent.sock" ]]; then
+        pass "_detect_ssh_agent selects ~/.1password/agent.sock"
+    else
+        fail "_detect_ssh_agent selects ~/.1password/agent.sock" \
+            "$fake_home/.1password/agent.sock" "$result"
+    fi
+
+    # A valid pre-existing socket is preserved when no provider matches
+    local empty_home="$TEST_TMP/ssh-empty-home"
+    mkdir -p "$empty_home"
+    result=$(HOME="$empty_home" XDG_RUNTIME_DIR="$TEST_TMP/no-such-run" \
+        SSH_AUTH_SOCK="$fake_home/.1password/agent.sock" \
+        zsh -c "source '$ZDOTDIR/lib/core/platform/detect.zsh' 2>/dev/null; \
+                _detect_ssh_agent; print -r -- \"\$SSH_AUTH_SOCK\"" 2>/dev/null)
+    if [[ "$result" == "$fake_home/.1password/agent.sock" ]]; then
+        pass "_detect_ssh_agent keeps valid pre-existing SSH_AUTH_SOCK"
+    else
+        fail "_detect_ssh_agent keeps valid pre-existing SSH_AUTH_SOCK" \
+            "$fake_home/.1password/agent.sock" "$result"
+    fi
+
+    exec {sock_fd}>&- 2>/dev/null || true
+}
+
+# ----------------------------------------------------------
 # TEST RUNNER
 # ----------------------------------------------------------
 
@@ -2380,7 +2537,7 @@ main() {
     test_environment
     test_platform_extended
     test_ensure_file_perms
-    test_omz_fallback
+    test_plugin_fallback
     test_system_functions
     test_file_functions
     test_git_functions
@@ -2395,6 +2552,7 @@ main() {
     test_help_system
     test_xdg_guardian
     test_tools_catalog
+    test_ssh_agent_detection
 
     teardown_test_env
 

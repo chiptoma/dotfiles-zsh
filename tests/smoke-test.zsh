@@ -177,41 +177,41 @@ for func in "${core_functions[@]}"; do
 done
 
 # ----------------------------------------------------------
-# OH MY ZSH CHECK
+# PLUGINS CHECK (self-managed — no Oh My Zsh)
 # ----------------------------------------------------------
 
-section "Oh My Zsh"
+section "Plugins"
 
-# Check if OMZ is installed where .zshrc expects it
-omz_path=$(zsh -c "
+# Native location, with the legacy OMZ clone dir honored for migration
+plugins_path="${XDG_DATA_HOME:-$HOME/.local/share}/zsh/plugins"
+legacy_plugins_path="${XDG_DATA_HOME:-$HOME/.local/share}/oh-my-zsh/custom/plugins"
+
+for plugin_name in zsh-autosuggestions zsh-syntax-highlighting fzf-tab; do
+    if [[ -d "$plugins_path/$plugin_name" || -d "$legacy_plugins_path/$plugin_name" ]]; then
+        pass "Plugin available: $plugin_name"
+    else
+        warn "Plugin missing: $plugin_name (shell works with reduced UX)"
+    fi
+done
+
+# Shell must boot cleanly even with no plugins installed at all
+section "Plugin Fallback"
+
+plugin_fallback_result=$(zsh -c "
     export ZDOTDIR='$ZDOTDIR'
-    source \$ZDOTDIR/.zshenv 2>/dev/null
-    echo \"\$XDG_DATA_HOME/oh-my-zsh\"
-" 2>&1)
-
-if [[ -d "$omz_path" ]]; then
-    pass "Oh My Zsh found at $omz_path"
-else
-    warn "Oh My Zsh NOT found at $omz_path (shell will use fallback mode)"
-fi
-
-# Test graceful degradation without OMZ
-section "OMZ Fallback"
-
-omz_fallback_result=$(zsh -c "
-    export ZDOTDIR='$ZDOTDIR'
-    export ZSH='/tmp/nonexistent-omz-dir'
+    export Z_PLUGINS_DIR='/tmp/nonexistent-plugins-dir'
+    export XDG_DATA_HOME='/tmp/nonexistent-data-dir'
     export Z_LOG_LEVEL=NONE
     source \$ZDOTDIR/.zshenv 2>/dev/null
     source \$ZDOTDIR/.zshrc 2>/dev/null
     echo 'FALLBACK_OK'
 " 2>&1)
 
-if [[ "$omz_fallback_result" == *"FALLBACK_OK"* ]]; then
-    pass "Shell starts without OMZ (graceful fallback)"
+if [[ "$plugin_fallback_result" == *"FALLBACK_OK"* ]]; then
+    pass "Shell starts without plugins (graceful fallback)"
 else
-    fail "Shell fails without OMZ"
-    info "Output: $omz_fallback_result"
+    fail "Shell fails without plugins"
+    info "Output: $plugin_fallback_result"
 fi
 
 # ----------------------------------------------------------

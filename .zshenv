@@ -43,37 +43,54 @@ if ! mkdir -p "$ZSH_CONFIG_HOME" "$ZSH_CACHE_HOME" "$ZSH_STATE_HOME" "$ZSH_DATA_
 fi
 
 # ----------------------------------------------------------
+# STARTUP PROFILER
+# Opt-in (Z_PROFILE_STARTUP=true|zprof); no-op stubs otherwise.
+# Loaded first so every later stage can be measured.
+# ----------------------------------------------------------
+[[ -r "${ZSH_CONFIG_HOME}/lib/core/profile.zsh" ]] && source "${ZSH_CONFIG_HOME}/lib/core/profile.zsh"
+
+# ----------------------------------------------------------
 # CORE LIBRARY
 # Foundational infrastructure: logging, UI, helpers, platform.
 # Load order: logging → ui → helpers → platform
 # ----------------------------------------------------------
+_z_prof_start 2>/dev/null || true
 [[ -r "${ZSH_CONFIG_HOME}/lib/core/index.zsh" ]] && source "${ZSH_CONFIG_HOME}/lib/core/index.zsh"
 typeset -f _log >/dev/null 2>&1 || _log() { print -ru2 -- "$@"; }
+_z_prof_end "lib/core"
 
 # ----------------------------------------------------------
 # FUNCTIONS LIBRARY
 # Auto-discovered function libraries via barrel import.
 # All public functions use z_ prefix.
 # ----------------------------------------------------------
+_z_prof_start
 [[ -r "${ZSH_CONFIG_HOME}/lib/functions/index.zsh" ]] && source "${ZSH_CONFIG_HOME}/lib/functions/index.zsh"
+_z_prof_end "lib/functions"
 
 # ----------------------------------------------------------
 # TOOL REGISTRY
 # Single source of truth for tool paths and environment data.
 # Populates arrays consumed by 01_path.zsh and 02_environment.zsh.
 # ----------------------------------------------------------
+_z_prof_start
 [[ -r "${ZSH_CONFIG_HOME}/lib/registry/index.zsh" ]] && source "${ZSH_CONFIG_HOME}/lib/registry/index.zsh"
+_z_prof_end "lib/registry"
 
 # ----------------------------------------------------------
 # PATH MODULE
 # Manages PATH with platform-specific optimizations.
 # IMPORTANT: Loads BEFORE environment so $+commands[] works there.
 # ----------------------------------------------------------
+_z_prof_start
 [[ -r "${ZSH_CONFIG_HOME}/modules/01_path.zsh" ]] && source "${ZSH_CONFIG_HOME}/modules/01_path.zsh"
+_z_prof_end "01_path"
 
 # ----------------------------------------------------------
 # ENVIRONMENT MODULE
 # Sets up environment variables, XDG directories, shell tools.
 # PATH is now available - can use $+commands[] for tool detection.
 # ----------------------------------------------------------
+_z_prof_start
 [[ -r "${ZSH_CONFIG_HOME}/modules/02_environment.zsh" ]] && source "${ZSH_CONFIG_HOME}/modules/02_environment.zsh"
+_z_prof_end "02_environment"

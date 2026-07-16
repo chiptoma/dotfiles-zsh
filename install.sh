@@ -36,6 +36,10 @@ AUTO_YES=false
 # Backup directory chosen via --restore (empty = newest ~/.zsh-backup-*)
 RESTORE_DIR=""
 
+# Default-shell handling: "" = ask (interactive) / skip (unattended),
+# "yes" = --default-shell, "no" = --no-default-shell
+SET_DEFAULT_SHELL=""
+
 # Dry-run mode (set via --dry-run flag)
 DRY_RUN=false
 
@@ -963,7 +967,7 @@ preflight_checks() {
         print_info "The configuration will be installed for the root user"
     fi
 
-    # Check network connectivity (required for Oh My Zsh and tools)
+    # Check network connectivity (required for plugins and tools)
     status "Checking network connectivity..."
     if check_network; then
         status_clear
@@ -971,7 +975,7 @@ preflight_checks() {
     else
         status_clear
         print_error "No network connection"
-        print_info "Network is required to install Oh My Zsh and CLI tools."
+        print_info "Network is required to install plugins and CLI tools."
         print_info "Please check your internet connection and try again."
         return 1
     fi
@@ -1034,6 +1038,18 @@ offer_set_default_shell() {
     fi
 
     print_info "Your current shell is: $current_shell"
+
+    # Explicit opt-out, or unattended without explicit opt-in: chsh can
+    # prompt for a password and hang automation (Ansible, CI)
+    if [[ "$SET_DEFAULT_SHELL" == "no" ]]; then
+        print_dim "Skipping default-shell change (--no-default-shell)"
+        return 0
+    fi
+    if $AUTO_YES && [[ "$SET_DEFAULT_SHELL" != "yes" ]]; then
+        print_dim "Unattended mode: not changing the default shell"
+        print_dim "Pass --default-shell to opt in, or run: chsh -s $(command -v zsh)"
+        return 0
+    fi
 
     if ! confirm "Set ZSH as your default shell?" "y"; then
         print_dim "You can change it later with: chsh -s $(command -v zsh)"
@@ -1125,7 +1141,7 @@ check_requirements() {
     }
 
     # Check essential tools (needed for installation)
-    require_tool "git" "required for Oh My Zsh" || all_good=false
+    require_tool "git" "required for plugin installation" || all_good=false
     require_tool "curl" "required for downloads" "wget" || all_good=false
 
     # Now check ZSH (after we have git and curl for installation)
@@ -1146,98 +1162,37 @@ check_requirements() {
     if ! $all_good; then
         echo ""
         print_error "Missing required dependencies. Please install them first."
-        exit 1
+        exit 3
     fi
 }
 
 # ----------------------------------------------------------
-# OH MY ZSH
+# ZSH PLUGINS (self-managed — no Oh My Zsh)
 # ----------------------------------------------------------
 
-check_omz() {
-    local omz_path="$DATA_DIR/oh-my-zsh"
+install_plugins() {
+    local plugins_dir="$DATA_DIR/zsh/plugins"
+    local legacy_dir="$DATA_DIR/oh-my-zsh/custom/plugins"
+    mkdir -p "$plugins_dir"
 
-    # Check common OMZ locations
-    if [[ -d "$omz_path" ]]; then
-        print_success "Oh My Zsh found at $omz_path"
-        return 0
-    elif [[ -d "$HOME/.oh-my-zsh" ]]; then
-        print_warning "Oh My Zsh found at ~/.oh-my-zsh (legacy location)"
-        if confirm "Move to XDG location ($omz_path)?" "y"; then
-            mkdir -p "$DATA_DIR"
-            mv "$HOME/.oh-my-zsh" "$omz_path"
-            print_success "Moved to $omz_path"
-        else
-            print_info "Will use legacy location"
-            export ZSH="$HOME/.oh-my-zsh"
+    # Migrate clones from the pre-native OMZ layout instead of re-downloading
+    local -a plugin_names=(zsh-autosuggestions zsh-syntax-highlighting fzf-tab)
+    local name
+    for name in "${plugin_names[@]}"; do
+        if [[ -d "$legacy_dir/$name" && ! -d "$plugins_dir/$name" ]]; then
+            mv "$legacy_dir/$name" "$plugins_dir/$name"
+            print_dim "Migrated $name from the old Oh My Zsh layout"
         fi
-        return 0
-    fi
+    done
 
-    # OMZ not installed - auto-install (required dependency)
-    print_info "Oh My Zsh not found - installing automatically..."
-    if ! install_omz; then
-        print_error "Oh My Zsh installation failed"
-        return 1
-    fi
-    return 0
-}
-
-install_omz() {
-    # Set install directory
-    export ZSH="$DATA_DIR/oh-my-zsh"
-
-    local tmp_script
-    tmp_script=$(mktemp)
-    trap "rm -f '$tmp_script'" RETURN
-
-    # Download OMZ installer script
-    status "Downloading Oh My Zsh installer..."
-    if ! fetch_with_retry "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh" "$tmp_script"; then
-        status_clear
-        print_error "Failed to download Oh My Zsh installer"
-        return 1
-    fi
-    status_clear
-
-    if [[ ! -s "$tmp_script" ]]; then
-        print_error "Oh My Zsh installer is empty"
-        return 1
-    fi
-
-    # Run OMZ installer with live output
-    local install_result=0
-    run_with_status "Installing OMZ" sh "$tmp_script" --unattended || install_result=$?
-
-    # Verify installation succeeded
-    if [[ $install_result -ne 0 ]] || [[ ! -d "$ZSH" ]]; then
-        print_error "Oh My Zsh installation failed"
-        return 1
-    fi
-
-    # OMZ installer creates a new .zshrc, remove it
-    rm -f "$HOME/.zshrc" 2>/dev/null
-
-    print_success "Oh My Zsh installed"
-
-    # Register rollback action to remove OMZ
-    register_rollback "rm -rf '$ZSH'"
-
-    # Install required custom plugins
-    install_omz_plugins
-}
-
-install_omz_plugins() {
-    local custom_dir="${ZSH_CUSTOM:-$ZSH/custom}/plugins"
-    mkdir -p "$custom_dir"
-
-    # Required custom plugins (not bundled with OMZ)
-    # These enhance UX but shell works without them
+    # The three plugins the framework loads (lib/plugins/index.zsh);
+    # shell works without them, with reduced UX
     local -a plugins=(
         "zsh-autosuggestions:https://github.com/zsh-users/zsh-autosuggestions"
         "zsh-syntax-highlighting:https://github.com/zsh-users/zsh-syntax-highlighting"
         "fzf-tab:https://github.com/Aloxaf/fzf-tab"
     )
+    local custom_dir="$plugins_dir"
 
     local plugin_count=${#plugins[@]}
     local plugin_current=0
@@ -1296,9 +1251,9 @@ install_omz_plugins() {
         print_dim "  - fzf-tab: fuzzy completion menu"
         echo ""
         # Track for final summary
-        INSTALL_WARNINGS+=("$failed_plugins OMZ plugin(s) failed to install")
+        INSTALL_WARNINGS+=("$failed_plugins zsh plugin(s) failed to install")
     else
-        print_success "OMZ plugins installed ($plugin_count plugins)"
+        print_success "Plugins installed ($plugin_count plugins)"
     fi
 }
 
@@ -2272,12 +2227,12 @@ verify_installation() {
         print_success "All essential files present"
     fi
 
-    # Check Oh My Zsh
-    if [[ -d "$DATA_DIR/oh-my-zsh" ]] || [[ -d "$HOME/.oh-my-zsh" ]]; then
-        print_success "Oh My Zsh installed"
+    # Check plugins (optional UX layer — warn, never fail)
+    if [[ -d "$DATA_DIR/zsh/plugins/zsh-autosuggestions" ]] || \
+       [[ -d "$DATA_DIR/oh-my-zsh/custom/plugins/zsh-autosuggestions" ]]; then
+        print_success "Plugins installed"
     else
-        print_error "Oh My Zsh not found"
-        all_good=false
+        print_warning "Plugins not found (shell works with reduced UX)"
     fi
 
     # Check XDG directories
@@ -2415,8 +2370,8 @@ update() {
 
     # Get current version
     local current_version="unknown"
-    if [[ -f "VERSION" ]]; then
-        current_version=$(cat VERSION)
+    if [[ -f "version.txt" ]]; then
+        current_version=$(cat version.txt)
     fi
     print_info "Current version: $current_version"
 
@@ -2468,10 +2423,21 @@ update() {
     # Pull updates
     if git pull --ff-only; then
         local new_version="unknown"
-        if [[ -f "VERSION" ]]; then
-            new_version=$(cat VERSION)
+        if [[ -f "version.txt" ]]; then
+            new_version=$(cat version.txt)
         fi
         print_success "Updated: $current_version -> $new_version"
+
+        # Refresh plugin clones alongside the framework
+        local plugins_dir="$DATA_DIR/zsh/plugins"
+        local plugin
+        for plugin in "$plugins_dir"/*/; do
+            [[ -d "$plugin/.git" ]] || continue
+            if git -C "$plugin" pull --ff-only --quiet 2>/dev/null; then
+                print_dim "  Updated plugin: $(basename "$plugin")"
+            fi
+        done
+
         print_info "Restart your shell: exec zsh"
     else
         print_error "Update failed (merge conflict?)"
@@ -2540,23 +2506,10 @@ repair_installation() {
         fi
     fi
 
-    # Check 4: Oh My Zsh
-    print_section "Checking Oh My Zsh"
-    local omz_path="$DATA_DIR/oh-my-zsh"
-    if [[ ! -d "$omz_path" && ! -d "$HOME/.oh-my-zsh" ]]; then
-        print_warning "Oh My Zsh not found"
-        ((issues_found++)) || true
-        if confirm "Install Oh My Zsh?" "y"; then
-            install_omz
-            ((issues_fixed++)) || true
-        fi
-    else
-        print_success "Oh My Zsh installed"
-    fi
-
-    # Check 5: OMZ plugins
-    print_section "Checking Oh My Zsh Plugins"
-    local custom_dir="${ZSH_CUSTOM:-$omz_path/custom}/plugins"
+    # Check 4: zsh plugins
+    print_section "Checking Plugins"
+    local plugins_dir="$DATA_DIR/zsh/plugins"
+    local legacy_plugins_dir="$DATA_DIR/oh-my-zsh/custom/plugins"
     local -a required_plugins=(
         "zsh-autosuggestions"
         "zsh-syntax-highlighting"
@@ -2565,7 +2518,7 @@ repair_installation() {
 
     local missing_plugins=0
     for plugin in "${required_plugins[@]}"; do
-        if [[ ! -d "$custom_dir/$plugin" ]]; then
+        if [[ ! -d "$plugins_dir/$plugin" && ! -d "$legacy_plugins_dir/$plugin" ]]; then
             print_warning "Missing plugin: $plugin"
             ((missing_plugins++)) || true
             ((issues_found++)) || true
@@ -2573,13 +2526,12 @@ repair_installation() {
     done
 
     if [[ $missing_plugins -gt 0 ]]; then
-        if confirm "Install missing OMZ plugins?" "y"; then
-            export ZSH="$omz_path"
-            install_omz_plugins
+        if confirm "Install missing plugins?" "y"; then
+            install_plugins
             ((issues_fixed++)) || true
         fi
     else
-        print_success "All OMZ plugins installed"
+        print_success "All plugins installed"
     fi
 
     # Check 6: XDG directories
@@ -2730,6 +2682,14 @@ main() {
                 INSTALL_METHOD="copy"
                 shift
                 ;;
+            --default-shell)
+                SET_DEFAULT_SHELL="yes"
+                shift
+                ;;
+            --no-default-shell)
+                SET_DEFAULT_SHELL="no"
+                shift
+                ;;
             --minimal)
                 INSTALL_PROFILE="minimal"
                 PROFILE_EXPLICIT=true
@@ -2744,7 +2704,7 @@ main() {
                 # Comma-separated list of specific tools to install
                 if [[ -z "${2:-}" ]]; then
                     print_error "--tools requires a comma-separated list (e.g., fzf,eza,bat)"
-                    exit 1
+                    exit 2
                 fi
                 SELECTED_TOOLS="$2"
                 shift 2
@@ -2767,12 +2727,12 @@ main() {
                 # Switch to specified user (for Docker testing)
                 if [[ -z "${2:-}" ]]; then
                     print_error "--user requires a username"
-                    exit 1
+                    exit 2
                 fi
                 local target_user="$2"
                 if ! id "$target_user" &>/dev/null; then
                     print_error "User '$target_user' does not exist"
-                    exit 1
+                    exit 2
                 fi
                 print_info "Switching to user: $target_user"
                 # Re-exec as target user with remaining args
@@ -2801,9 +2761,11 @@ main() {
                 echo "  --verbose           Show detailed debug output"
                 echo "  --symlink           Symlink the repo into place (development setups)"
                 echo "  --copy              Copy files into place (default when unattended)"
+                echo "  --default-shell     Set zsh as default shell without asking"
+                echo "  --no-default-shell  Never touch the default shell"
                 echo ""
                 echo "Installation profiles:"
-                echo "  --minimal           Core ZSH + Oh My Zsh only (no optional tools)"
+                echo "  --minimal           Core ZSH + plugins only (no optional tools)"
                 echo "  --full              Install all optional tools automatically"
                 echo "  --skip-tools        Skip optional tools installation step"
                 echo "  --tools TOOLS       Install specific tools (comma-separated)"
@@ -2829,7 +2791,7 @@ main() {
                 echo "Examples:"
                 echo "  $0                        # Interactive installation"
                 echo "  $0 --yes                  # Automated with defaults"
-                echo "  $0 --minimal --yes        # Minimal install (ZSH + OMZ only)"
+                echo "  $0 --minimal --yes        # Minimal install (no optional tools)"
                 echo "  $0 --full --yes           # Full install with all tools"
                 echo "  $0 --tools fzf,eza,bat    # Install only specific tools"
                 echo "  $0 --skip-tools --yes     # Install config without optional tools"
@@ -2837,15 +2799,17 @@ main() {
                 echo "  $0 --check                # Verify installation health"
                 echo ""
                 echo "Exit codes:"
-                echo "  0  Success"
-                echo "  1  Error (with rollback attempted)"
+                echo "  0  Success (warnings possible, listed in the summary)"
+                echo "  1  Installation error (rollback attempted)"
+                echo "  2  Usage error (bad flag or argument)"
+                echo "  3  Preflight failure (missing dependency, no network)"
                 echo ""
                 exit 0
                 ;;
             *)
                 print_error "Unknown option: $1"
                 echo "Use --help for usage information"
-                exit 1
+                exit 2
                 ;;
         esac
     done
@@ -2944,7 +2908,7 @@ main() {
     echo -e "  ${BOLD}This will:${NC}"
     echo -e "    • Create ${CYAN}~/.config/zsh/${NC} (your new config home)"
     echo -e "    • Modify ${CYAN}~/.zshenv${NC} (to set ZDOTDIR)"
-    echo -e "    • Install Oh My Zsh to ${CYAN}~/.local/share/oh-my-zsh/${NC}"
+    echo -e "    • Install zsh plugins to ${CYAN}~/.local/share/zsh/plugins/${NC}"
     if [[ "$INSTALL_PROFILE" != "minimal" ]] && ! $SKIP_TOOLS; then
         echo -e "    • Optionally install CLI tools (fzf, eza, etc.)"
     fi
@@ -2962,20 +2926,16 @@ main() {
     # Step 1: Pre-flight checks
     next_step "Pre-flight Checks"
     if ! preflight_checks; then
-        exit 1
+        exit 3
     fi
 
     # Step 2: System requirements
     next_step "Checking Requirements"
     check_requirements
 
-    # Step 3: Oh My Zsh (MANDATORY - shell breaks without it)
-    next_step "Oh My Zsh Setup"
-    if ! check_omz; then
-        print_installation_failed "Oh My Zsh setup failed"
-        perform_rollback
-        exit 1
-    fi
+    # Step 3: Plugins (optional UX layer — shell degrades gracefully)
+    next_step "Plugin Setup"
+    install_plugins
 
     # Step 4: Backup
     next_step "Backup Existing Configuration"
