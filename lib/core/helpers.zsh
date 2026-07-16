@@ -188,7 +188,7 @@ _cache_eval() {
     local cache_file="${cache_dir}/${name}.zsh"
 
     # Allowlist of known-safe command prefixes (enforced)
-    local -a _CACHE_EVAL_ALLOWLIST=(direnv atuin starship helm zoxide pyenv rbenv brew nvm fzf op)
+    local -a _CACHE_EVAL_ALLOWLIST=(direnv atuin starship helm zoxide pyenv rbenv brew nvm fzf op mise)
     local cmd_name="${cmd%% *}"
     if (( ! ${_CACHE_EVAL_ALLOWLIST[(Ie)$cmd_name]} )); then
         _log ERROR "_cache_eval: Command '$cmd_name' not in allowlist — rejected"

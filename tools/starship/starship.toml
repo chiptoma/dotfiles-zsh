@@ -5,8 +5,8 @@ add_newline = false
 
 # 2. The order of modules (Left side)
 format = """
-[╭─](245)$username$hostname$directory$git_branch$git_state$git_metrics$git_status$docker_context$package$python$nodejs$rust$golang
-[╰─](245)$character"""
+[╭─](238)$username$hostname$directory$git_branch$git_state$git_metrics$git_status$docker_context$package$python$nodejs$rust$golang
+[╰─](238)$character"""
 
 # 3. The order of modules (Right side - usually time/duration)
 right_format = """$cmd_duration"""

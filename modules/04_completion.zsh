@@ -37,7 +37,10 @@ setopt AUTO_MENU           # Show completion menu on tab press
 setopt COMPLETE_IN_WORD    # Complete from cursor position
 setopt NO_MENU_COMPLETE    # Don't autoselect first completion
 setopt NO_LIST_BEEP        # Don't beep on ambiguous completion
-setopt COMPLETE_ALIASES    # Complete aliases
+# COMPLETE_ALIASES is deliberately NOT set: unset, zsh expands an alias
+# before completing, so `gcleanup <TAB>` inherits z_git_cleanup's (and git
+# aliases inherit git's) completions; set, every alias would need its own
+# compdef and gets none.
 
 # ----------------------------------------------------------
 # FPATH CONFIGURATION
@@ -58,13 +61,10 @@ _ensure_dir "${ZSH_CONFIG_HOME}/completions"
 () {
     local dir
     local -a completion_dirs=(
-        # User custom completions (highest priority)
+        # User + installer-generated completions (highest priority)
         "${ZSH_CONFIG_HOME}/completions"
         "${ZDOTDIR}/completions"
         "${XDG_DATA_HOME}/zsh/completions"
-        # OMZ completions (if OMZ is loaded)
-        ${ZSH:+"$ZSH/custom/completions"}
-        ${ZSH:+"$ZSH/completions"}
         # System-wide completions
         "/opt/homebrew/share/zsh/site-functions"
         "/usr/local/share/zsh/site-functions"

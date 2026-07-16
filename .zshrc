@@ -82,6 +82,9 @@ _run_post_interactive_hooks
 # _safe_source handles readability check + optional ownership verification
 _safe_source "${ZDOTDIR}/.zshlocal" || _safe_source "${HOME}/.zshlocal"
 
+# Classic-command replacements (Z_REPLACE_* from .zshlocal or the installer)
+(( $+functions[_z_apply_replacements] )) && _z_apply_replacements
+
 # One-shot warning for pre-rename settings (framework reads Z_*, not ZSH_*)
 () {
     local _legacy

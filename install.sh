@@ -1557,6 +1557,7 @@ CAT_CATEGORIES=()
 CAT_REPLACES_LIST=()
 CAT_BREWS=()
 CAT_APTS=()
+CAT_COMPLETIONS=()
 
 load_tool_catalog() {
     # Idempotent: parse once
@@ -1564,8 +1565,8 @@ load_tool_catalog() {
 
     local catalog="$SCRIPT_DIR/lib/registry/tools.dat"
     if [[ -f "$catalog" ]]; then
-        local name binary desc category replaces brew apt
-        while IFS=: read -r name binary desc category replaces brew apt; do
+        local name binary desc category replaces brew apt completions
+        while IFS=: read -r name binary desc category replaces brew apt completions; do
             case "$name" in "#"*|"") continue ;; esac
             CAT_NAMES+=("$name")
             CAT_BINS+=("$binary")
@@ -1574,6 +1575,7 @@ load_tool_catalog() {
             CAT_REPLACES_LIST+=("$replaces")
             CAT_BREWS+=("$brew")
             CAT_APTS+=("$apt")
+            CAT_COMPLETIONS+=("$completions")
         done < "$catalog"
     fi
 
@@ -1588,6 +1590,7 @@ load_tool_catalog() {
         CAT_REPLACES_LIST=("" "")
         CAT_BREWS=(starship atuin)
         CAT_APTS=(SCRIPT SCRIPT)
+        CAT_COMPLETIONS=("starship completions zsh" "atuin gen-completions --shell zsh")
     fi
 }
 
@@ -1613,6 +1616,11 @@ MENU_DESCS=()
 MENU_CATS=()
 MENU_REPLACES=()
 MENU_SEL=()
+
+# Replacement-step state (classic command -> modern tool)
+REPL_NAMES=()
+REPL_TARGETS=()
+REPL_SEL=()
 
 # Fills MENU_* from missing catalog tools, grouped essential->recommended->extra
 build_tool_menu() {
@@ -2111,6 +2119,184 @@ install_tool_configs() {
     done < "$manifest"
 
     [[ $installed_count -eq 0 ]] && print_dim "No configurable tools present — nothing to do"
+    return 0
+}
+
+# ----------------------------------------------------------
+# CLASSIC-COMMAND REPLACEMENTS
+# ----------------------------------------------------------
+
+# Writes the chosen Z_REPLACE_* toggles into .zshlocal inside a managed
+# block, preserving every user line around it.
+persist_replacements() {
+    local zshlocal="$INSTALL_DIR/.zshlocal"
+    local begin="# >>> zsh-dotfiles replacements (managed by install.sh) >>>"
+    local end="# <<< zsh-dotfiles replacements <<<"
+    local tmp
+    tmp=$(mktemp)
+
+    [[ -f "$zshlocal" ]] || touch "$zshlocal"
+    awk -v b="$begin" -v e="$end" '
+        $0 == b { skip = 1; next }
+        $0 == e { skip = 0; next }
+        !skip { print }
+    ' "$zshlocal" > "$tmp"
+
+    {
+        cat "$tmp"
+        echo "$begin"
+        echo "# Chosen during install; edit freely or rerun the installer."
+        local i up
+        for ((i = 0; i < ${#REPL_NAMES[@]}; i++)); do
+            up=$(echo "${REPL_NAMES[$i]}" | tr '[:lower:]-' '[:upper:]_')
+            if [[ "${REPL_SEL[$i]}" == "1" ]]; then
+                echo "export Z_REPLACE_${up}=true"
+            else
+                echo "export Z_REPLACE_${up}=false"
+            fi
+        done
+        echo "$end"
+    } > "$zshlocal"
+    rm -f "$tmp"
+}
+
+# Opt-in step: let installed modern tools take over their classic
+# counterparts (gping->ping, eza->ls, ...). Choices persist as
+# Z_REPLACE_* exports in .zshlocal; originals stay reachable via
+# `command <name>`.
+configure_replacements() {
+    load_tool_catalog
+    REPL_NAMES=()
+    REPL_TARGETS=()
+    REPL_SEL=()
+
+    local i target
+    for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
+        target="${CAT_REPLACES_LIST[$i]}"
+        # zoxide's cd takeover is function-based, owned by the lazy module
+        [[ -n "$target" && "$target" != "cd" ]] || continue
+        has_cmd "${CAT_BINS[$i]}" || continue
+        REPL_NAMES+=("${CAT_NAMES[$i]}")
+        REPL_TARGETS+=("$target")
+        # Only ls->eza is behavior-safe enough to pre-check (current default)
+        if [[ "${CAT_NAMES[$i]}" == "eza" ]]; then
+            REPL_SEL+=(1)
+        else
+            REPL_SEL+=(0)
+        fi
+    done
+
+    [[ ${#REPL_NAMES[@]} -eq 0 ]] && return 0
+
+    print_section "Command Replacements"
+
+    if $DRY_RUN; then
+        print_dim "[dry-run] would offer ${#REPL_NAMES[@]} replacement choice(s)"
+        return 0
+    fi
+
+    if $AUTO_YES || [[ ! -r /dev/tty ]]; then
+        print_dim "Unattended: default replacements only (ls->eza); edit Z_REPLACE_* in .zshlocal"
+        persist_replacements
+        return 0
+    fi
+
+    echo -e "  ${BOLD}Let modern tools take over classic commands?${NC}"
+    echo -e "  ${DIM}Originals stay reachable: 'command ping' or \\ping bypasses the alias.${NC}"
+
+    local input tok j marker num
+    while true; do
+        echo ""
+        for ((i = 0; i < ${#REPL_NAMES[@]}; i++)); do
+            if [[ "${REPL_SEL[$i]}" == "1" ]]; then
+                marker="${GREEN}[✓]${NC}"
+            else
+                marker="${DIM}[ ]${NC}"
+            fi
+            num=$(printf '%2d' "$((i + 1))")
+            echo -e "   $marker ${DIM}$num${NC}  ${WHITE}$(printf '%-11s' "${REPL_TARGETS[$i]}")${NC}→ ${CYAN}${REPL_NAMES[$i]}${NC}"
+        done
+        echo ""
+        echo -e "  ${DIM}toggle numbers · a=all · n=none · Enter=confirm${NC}"
+        echo -ne "  ${YELLOW}?${NC} replacements ${DIM}>${NC} "
+        if ! { read -r input </dev/tty; } 2>/dev/null; then
+            echo ""
+            break
+        fi
+        case "$input" in
+            "") break ;;
+            a|A) for ((i = 0; i < ${#REPL_SEL[@]}; i++)); do REPL_SEL[$i]=1; done ;;
+            n|N) for ((i = 0; i < ${#REPL_SEL[@]}; i++)); do REPL_SEL[$i]=0; done ;;
+            *)
+                for tok in $input; do
+                    if [[ "$tok" =~ ^[0-9]+$ ]] && [[ "$tok" -ge 1 && "$tok" -le ${#REPL_NAMES[@]} ]]; then
+                        j=$((tok - 1))
+                        if [[ "${REPL_SEL[$j]}" == "1" ]]; then
+                            REPL_SEL[$j]=0
+                        else
+                            REPL_SEL[$j]=1
+                        fi
+                    else
+                        echo -e "  ${RED}✗${NC} not a valid choice: $tok"
+                    fi
+                done
+                ;;
+        esac
+    done
+
+    persist_replacements
+    print_success "Replacement choices saved to .zshlocal (Z_REPLACE_*)"
+    return 0
+}
+
+# ----------------------------------------------------------
+# COMPLETIONS
+# ----------------------------------------------------------
+
+# Generates zsh completion files for installed tools that can emit their
+# own (catalog column 8), into $INSTALL_DIR/completions (first on fpath).
+# Package-managed tools (brew/apt) ship completions via site-functions,
+# so only self-generating tools appear here.
+generate_completions() {
+    load_tool_catalog
+
+    local comp_dir="$INSTALL_DIR/completions"
+    local generated=0
+    local i cmd bin outfile
+
+    print_section "Shell Completions"
+
+    if $DRY_RUN; then
+        print_dim "[dry-run] would generate completions into $comp_dir"
+        return 0
+    fi
+    mkdir -p "$comp_dir"
+
+    for ((i = 0; i < ${#CAT_NAMES[@]}; i++)); do
+        cmd="${CAT_COMPLETIONS[$i]}"
+        bin="${CAT_BINS[$i]}"
+        [[ -n "$cmd" ]] || continue
+        has_cmd "$bin" || continue
+
+        # Completion functions are looked up by the binary name (_rg, _fd)
+        outfile="$comp_dir/_$bin"
+        if $cmd > "$outfile.tmp" 2>/dev/null && [[ -s "$outfile.tmp" ]]; then
+            mv "$outfile.tmp" "$outfile"
+            print_success "Generated completions: ${CAT_NAMES[$i]}"
+            generated=$((generated + 1))
+        else
+            rm -f "$outfile.tmp"
+            print_dim "Could not generate completions for ${CAT_NAMES[$i]} — skipped"
+        fi
+    done
+
+    if [[ $generated -gt 0 ]]; then
+        # Invalidate the compdump so the next shell picks the new functions up
+        rm -f "${XDG_CACHE_HOME:-$HOME/.cache}"/zsh/completion/zcompdump-* 2>/dev/null
+        print_info "$generated completion file(s) installed (compdump reset)"
+    else
+        print_dim "No self-generating tools present — package-manager completions apply"
+    fi
     return 0
 }
 
@@ -2963,6 +3149,8 @@ main() {
         create_local_config
         install_optional_tools
         install_tool_configs
+        configure_replacements
+        generate_completions
 
         # Step 7: Verification & Finish
         next_step "Verification"

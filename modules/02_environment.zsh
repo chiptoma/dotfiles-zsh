@@ -648,6 +648,12 @@ if _is_interactive && _has_cmd atuin; then
     _log "DEBUG" "atuin widgets loaded (keybindings in keybindings.zsh)"
 fi
 
+# mise - Polyglot runtime manager (activates shims + env per directory)
+if _is_interactive && _has_cmd mise; then
+    _cache_eval "mise-activate" "mise activate zsh" "mise"
+    _log "DEBUG" "mise activated"
+fi
+
 # ----------------------------------------------------------
 # STARSHIP PROMPT (DEFERRED)
 # Must run in .zshrc AFTER /etc/zshrc which overwrites PROMPT.

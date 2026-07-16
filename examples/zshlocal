@@ -1,123 +1,151 @@
 # ==============================================================================
-# LOCAL ZSH CUSTOMIZATION
-# Personal settings that override the defaults.
-# Copy this file to .zshlocal and customize.
-# This file is gitignored and will not be tracked.
+# LOCAL ZSH CUSTOMIZATION — MASTER CONTROL PANEL
+# Machine-local overrides, sourced LAST by .zshrc. Gitignored, never
+# overwritten by updates. Every framework tunable appears below with its
+# default — uncomment and change what you need.
 # ==============================================================================
 
 # ----------------------------------------------------------
-# DIRECTORY ALIASES
-# Customize these to your project structure
+# * LOGGING (lib/core/logging.zsh)
 # ----------------------------------------------------------
-# alias dev='cd ~/Development'
-# alias prj='cd ~/Projects'
-# alias work='cd ~/Work'
+# export Z_LOG_LEVEL=WARN                # DEBUG | INFO | WARN | ERROR | NONE
+# export Z_LOG_COLOR=true                # Colored log output
+# export Z_LOG_TIMESTAMP_ENABLE=false    # Prefix log lines with a timestamp
+# export Z_LOG_TIMESTAMP_FORMAT="%H:%M:%S"
+# export Z_LOG_SHOW_CALLER=false         # Show calling function in logs
+# export Z_LOG_SHOW_PID=false            # Show shell PID in logs
+# export Z_LOG_SHOW_SHELL=false          # Show shell name in logs
 
 # ----------------------------------------------------------
-# SECURITY OPTIONS
-# Enable project-local bin directories (./bin, ./node_modules/.bin, etc.)
-# WARNING: Only enable if you trust the repositories you work with
+# * PATH (modules/01_path.zsh)
 # ----------------------------------------------------------
-# export Z_PATH_PROJECT_BIN=true
+# export Z_PATH_ENABLED=true             # Master switch for PATH management
+# export Z_PATH_HOMEBREW=true            # Add Homebrew paths
+# export Z_PATH_CLEAN=true               # Remove dead PATH entries after startup
+# export Z_PATH_SSH_MINIMAL=true         # Minimal PATH in SSH sessions
+# export Z_PATH_FORCE_MINIMAL=false      # Force minimal PATH everywhere
+# export Z_PATH_PROJECT_BIN=false        # Add ./bin, ./node_modules/.bin, ...
+#                                        # WARNING: only in trusted repositories
 
 # ----------------------------------------------------------
-# LOCALE OVERRIDE
-# Set to override system locale (e.g., "en_US.UTF-8", "en_GB.UTF-8")
-# Leave empty to use system default
+# * ENVIRONMENT (modules/02_environment.zsh)
 # ----------------------------------------------------------
-# export Z_LOCALE_OVERRIDE="en_US.UTF-8"
+# export Z_ENVIRONMENT_ENABLED=true      # Master switch for env management
+# export Z_ENVIRONMENT_XDG_STRICT=true   # Enforce XDG paths for tools
+# export Z_ENVIRONMENT_SSH_MINIMAL=true  # Slimmer environment over SSH
+# export Z_ENVIRONMENT_SSH_AGENT=true    # Auto-detect SSH agent socket
+#                                        # (1Password > GPG > GNOME > existing)
+# export Z_LOCALE_OVERRIDE=""            # e.g. "en_US.UTF-8"; empty = system
+# export Z_GUI_EDITORS_ORDER="surf cursor code"
+# export Z_TERMINAL_EDITORS_ORDER="nvim vim vi"
 
-# ----------------------------------------------------------
-# SSH AGENT OVERRIDE
-# Force a specific SSH agent socket (overrides auto-detection)
-# Auto-detection order: 1Password > GPG Agent > GNOME Keyring > System
-# ----------------------------------------------------------
+# Force a specific SSH agent socket (overrides auto-detection; interactive
+# shells only — .zshlocal loads after detection ran in .zshenv)
 # export SSH_AUTH_SOCK="$HOME/.ssh/agent.sock"
 
 # ----------------------------------------------------------
-# EDITOR PREFERENCES
-# Override default editor detection
+# * LAZY LOADING (modules/03_lazy.zsh)
 # ----------------------------------------------------------
-# export EDITOR="nvim"
-# export VISUAL="code"
+# export Z_LAZY_ENABLED=true             # Master switch for lazy loading
+# export Z_LAZY_ZOXIDE=true              # Defer zoxide init to first z/zi
+# export Z_LAZY_NVM=true                 # Defer nvm (wraps node/npm/npx/...)
+# export Z_LAZY_PYENV=true               # Defer pyenv (wraps python/pip)
+# export Z_LAZY_RBENV=true               # Defer rbenv (wraps ruby/gem)
 
 # ----------------------------------------------------------
-# FILE OWNERSHIP VERIFICATION
-# Enable for shared/multi-user systems
-# Verifies sourced files are owned by root or current user
+# * COMPLETION (modules/04_completion.zsh)
 # ----------------------------------------------------------
-# export Z_VERIFY_FILE_OWNERSHIP=true
+# export Z_COMPLETION_ENABLED=true       # Master switch for completions
+# export Z_COMPLETION_MENU_SELECT=true   # Arrow-key completion menu
+# export Z_COMPLETION_TTL=86400          # Seconds before compdump refresh
+# export Z_COMPLETION_AUDIT_TTL=604800   # Seconds between compaudit runs
 
 # ----------------------------------------------------------
-# DEBUG MODE
-# Set log level for troubleshooting (DEBUG shows all module loading)
-# Levels: DEBUG, INFO, WARN, ERROR, NONE
+# * PLUGINS (lib/plugins/index.zsh)
 # ----------------------------------------------------------
-# export Z_LOG_LEVEL=DEBUG
+# export Z_PLUGINS_DIR="$XDG_DATA_HOME/zsh/plugins"  # Plugin clone location
 
 # ----------------------------------------------------------
-# MODULE TOGGLES
-# Disable specific modules if not needed
+# * HISTORY (modules/05_history.zsh)
 # ----------------------------------------------------------
-# export Z_LAZY_ENABLED=false        # Disable lazy loading
-# export Z_COMPLETION_ENABLED=false  # Disable completion module
-# export Z_ALIASES_ENABLED=false     # Disable aliases module
+# export Z_HISTORY_ENABLED=true          # Master switch for history config
+# export Z_HISTORY_SIZE=100000           # In-memory history size
+# export Z_HISTORY_SAVE_SIZE=100000      # Persisted history size
+# export Z_HISTORY_SECURITY_FILTER=true  # Keep secrets out of HISTFILE
+# export Z_HISTORY_LARGE_FILE_THRESHOLD=500000  # Warn when HISTFILE exceeds
 
 # ----------------------------------------------------------
-# LAZY LOADING
-# Control which tools are lazy loaded
+# * ALIASES & REPLACEMENTS (modules/06_aliases.zsh)
+# The installer's replacement step manages a Z_REPLACE_* block at the
+# bottom of your .zshlocal; you can also set them here by hand. The
+# original command is always reachable via `command <name>` or \<name>.
 # ----------------------------------------------------------
-# export Z_LAZY_ZOXIDE=false    # Load zoxide immediately
-# export Z_LAZY_NVM=true        # Lazy load nvm (default)
-# export Z_LAZY_PYENV=true      # Lazy load pyenv (default)
-# export Z_LAZY_RBENV=true      # Lazy load rbenv (default)
+# export Z_ALIASES_ENABLED=true          # Master switch for aliases
+# export Z_ALIASES_MODERN_TOOLS=true     # Extra aliases for modern tools
+# export Z_ALIASES_SAFETY_PROMPTS=true   # cp/mv/rm interactive prompts
+# export Z_REPLACE_EZA=true              # ls  -> eza   (default on)
+# export Z_REPLACE_BAT=false             # cat -> bat --paging=never
+# export Z_REPLACE_DUST=false            # du  -> dust
+# export Z_REPLACE_DUF=false             # df  -> duf
+# export Z_REPLACE_BTM=false             # top -> btm
+# export Z_REPLACE_GPING=false           # ping -> gping
+# export Z_REPLACE_TRIPPY=false          # traceroute -> trip
 
 # ----------------------------------------------------------
-# HISTORY SETTINGS
-# Customize history behavior
+# * KEYBINDINGS (modules/07_keybindings.zsh)
 # ----------------------------------------------------------
-# export Z_HISTORY_SIZE=50000
-# export Z_HISTORY_SECURITY_FILTER=false  # Disable sensitive command filtering
+# export Z_KEYBINDINGS_ENABLED=true      # Master switch for keybindings
 
 # ----------------------------------------------------------
-# UPDATE SETTINGS
-# Customize auto-update behavior
+# * XDG GUARDIAN (lib/functions/xdg.zsh)
 # ----------------------------------------------------------
-# export Z_UPDATE_CHECK_ENABLED=true      # Check for updates on launch
-# export Z_UPDATE_CHECK_INTERVAL=86400    # Seconds between checks (default: 24h)
-# export Z_UPDATE_PROMPT=true             # Interactive "Apply now? [y/N]" prompt
-# export Z_UPDATE_AUTO_APPLY=false        # Auto-apply updates (no prompt)
+# export Z_XDG_GUARDIAN_ENABLED=true     # Daily $HOME hygiene scan
+# export Z_XDG_GUARDIAN_MODE=notify      # notify | interactive | off
+# export Z_XDG_GUARDIAN_INTERVAL=86400   # Seconds between scans
+# export Z_XDG_GUARDIAN_QUIET=false      # Suppress the summary line
+# export Z_XDG_GUARDIAN_AUTO_FIX=false   # Auto-migrate ready items (careful)
+# export Z_XDG_GUARDIAN_SKIP=""          # Space-separated paths to ignore
 
 # ----------------------------------------------------------
-# PERSONAL ALIASES
-# Add your personal aliases below
+# * UPDATES (lib/functions/framework.zsh)
 # ----------------------------------------------------------
-# alias gs='git status'
-# alias gp='git push'
-# alias ll='ls -la'
+# export Z_UPDATE_CHECK_ENABLED=true     # Check for framework updates
+# export Z_UPDATE_CHECK_INTERVAL=86400   # Seconds between checks
+# export Z_UPDATE_AUTO_FETCH=true        # Background git fetch
+# export Z_UPDATE_PROMPT=true            # Ask before applying updates
+# export Z_UPDATE_AUTO_APPLY=false       # Apply updates without asking
 
 # ----------------------------------------------------------
-# PERSONAL FUNCTIONS
-# Add your personal functions below
+# * STARTUP PROFILING (lib/core/profile.zsh)
 # ----------------------------------------------------------
+# export Z_PROFILE_STARTUP=true          # Per-stage timings (view: profile)
+# export Z_PROFILE_STARTUP=zprof         # Function-level zprof report
+
+# ----------------------------------------------------------
+# * SECURITY
+# ----------------------------------------------------------
+# export Z_VERIFY_FILE_OWNERSHIP=true    # Verify sourced-file ownership
+#                                        # (shared/multi-user systems)
+
+# ----------------------------------------------------------
+# * PERSONAL ALIASES & FUNCTIONS
+# ----------------------------------------------------------
+# alias dev='cd ~/Development'
 # my_function() {
 #     echo "Hello from my custom function"
 # }
 
 # ----------------------------------------------------------
-# MACHINE-SPECIFIC SETTINGS
-# Settings that vary between machines (work vs home, etc.)
+# * MACHINE-SPECIFIC SETTINGS
 # ----------------------------------------------------------
 # if [[ "$(hostname)" == "work-laptop" ]]; then
 #     export HTTP_PROXY="http://proxy.company.com:8080"
 # fi
 
 # ----------------------------------------------------------
-# CLAUDE CODE — OP TOKEN TOOLING (optional)
-# If you use the dotfiles/claude setup: secret injection is
-# owned by its SessionStart hook — no shell wrapper needed;
-# `claude` runs bare. Sourcing the shared lib only provides
-# `op-token-setup` (store/rotate the 1Password service-account
-# token) in every terminal. Prefer `just token` from that repo.
+# * CLAUDE CODE — OP TOKEN TOOLING (optional)
+# `claude` runs bare; secrets are injected by the dotfiles/claude repo's
+# secrets_bootstrap SessionStart hook, and MCP servers get them via the
+# op-lib wrappers. Terminals source nothing. Token setup/rotation:
+# `just token` from the dotfiles/claude repo.
 # ----------------------------------------------------------
-# _safe_source "$HOME/.claude/lib/inject-secrets.zsh"

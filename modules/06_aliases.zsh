@@ -108,22 +108,21 @@ fi
 
 # ----------------------------------------------------------
 # DIRECTORY LISTING
-# eza-powered when available, platform-aware ls fallback otherwise.
+# Colored ls default; the replacement loop at the end of this file
+# swaps ls for eza when Z_REPLACE_EZA=true (the default).
 # ----------------------------------------------------------
 
+if [[ "$OSTYPE" == darwin* ]]; then
+    alias ls='ls -G'            # macOS: BSD ls color flag
+else
+    alias ls='ls --color=auto'  # Linux: GNU ls color flag
+fi
+
 if _has_cmd eza; then
-    alias ls='eza --group-directories-first --icons'
     alias l='eza -lah --group-directories-first --icons --git --header'
     alias ll='eza -lh --group-directories-first --icons --git --header'
     alias la='eza -lAh --group-directories-first --icons --git --header'
 else
-    # Platform-aware ls color
-    if [[ "$OSTYPE" == darwin* ]]; then
-        alias ls='ls -G'        # macOS: BSD ls color flag
-    else
-        alias ls='ls --color=auto'  # Linux: GNU ls color flag
-    fi
-
     alias l='ls -lah'   # List all, human-readable
     alias ll='ls -lh'   # Long format, human-readable
     alias la='ls -lAh'  # Long + hidden (except . ..)
@@ -159,44 +158,36 @@ if [[ "$Z_ALIASES_MODERN_TOOLS" == "true" ]]; then
         alias ltda='tree -L 3 -a'                     # Tree view all (3 levels)
     fi
 
+    # NOTE: classic-command takeovers (cat->bat, du->dust, ping->gping, ...)
+    # are NOT hardcoded here — they are opt-in via the Z_REPLACE_* toggles
+    # applied by _z_apply_replacements at the end of startup.
+
     if _has_cmd bat; then
-        alias cat='bat'                   # Better cat with syntax highlighting
         alias catp='bat --style=plain'    # Cat plain (no decorations)
         alias catn='bat --style=numbers'  # Cat with line numbers
     elif _has_cmd batcat; then
-        # Ubuntu/Debian install bat as batcat
+        # Ubuntu/Debian install bat as batcat: normalize the name
         alias bat='batcat'
-        alias cat='batcat'
         alias catp='batcat --style=plain'
         alias catn='batcat --style=numbers'
     fi
 
     if _has_cmd fd; then
-        alias find='fd'             # Modern find (fd)
         alias f='fd'                # Quick file search
         alias fde='fd --extension'  # Find by extension
     elif _has_cmd fdfind; then
-        # Ubuntu/Debian install fd as fdfind
+        # Ubuntu/Debian install fd as fdfind: normalize the name
         alias fd='fdfind'
-        alias find='fdfind'
         alias f='fdfind'
         alias fde='fdfind --extension'
     fi
 
     if _has_cmd dust; then
-        alias du='dust'                # Disk usage with visual bars
         alias duhere='dust --depth 2'  # Disk usage (2 levels)
     fi
 
     if _has_cmd duf; then
-        alias df='duf'         # Disk free space (pretty)
         alias dfall='duf --all'  # Show all filesystems
-    fi
-
-    # ─── SYSTEM STATS ───
-    if _has_cmd btm; then
-        alias top='btm'   # Modern system monitor
-        alias htop='btm'  # Modern system monitor
     fi
 
     if _has_cmd procs; then
@@ -227,13 +218,8 @@ if [[ "$Z_ALIASES_MODERN_TOOLS" == "true" ]]; then
     fi
 
     # ─── PRODUCTIVITY ───
-    if _has_cmd gping; then
-        alias ping='gping --clear'  # Visual ping with graph
-    fi
-
     if _has_cmd trip; then
-        alias traceroute='trip -u'  # Visual traceroute TUI
-        alias trippy='trip -u'      # Visual traceroute TUI
+        alias trippy='trip -u'      # Visual traceroute TUI (own name)
     fi
 
     if _has_cmd xh; then
@@ -749,6 +735,44 @@ alias xdg-status='z_xdg_status'  # One-line XDG compliance status
 
 alias als='z_alias_browser'      # Interactive alias browser
 alias aliases='z_alias_browser'  # Interactive alias browser
+
+# ----------------------------------------------------------
+# CLASSIC-COMMAND REPLACEMENTS
+# Catalog-driven, opt-in per tool via Z_REPLACE_<TOOL>=true, chosen in
+# the installer's replacement step or set in .zshlocal. Applied from
+# .zshrc AFTER .zshlocal loads so both sources work; the original
+# command always stays reachable: `command ping`, `\ping`.
+# ----------------------------------------------------------
+
+# Grandfathered default: ls→eza was previously unconditional
+: ${Z_REPLACE_EZA:=true}
+
+_z_apply_replacements() {
+    (( $+functions[_z_tools_load] )) || return 0
+    _z_tools_load 2>/dev/null || return 0
+
+    # Tools needing flags to behave sanely as drop-in replacements
+    local -A repl_cmds=(
+        eza 'eza --group-directories-first --icons'
+        bat 'bat --paging=never'
+        gping 'gping --clear'
+        trip 'trip -u'
+    )
+
+    local name bin target toggle cmd
+    for name in "${Z_TOOL_NAMES[@]}"; do
+        local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
+        bin="${fields[1]}" target="${fields[4]}"
+        # zoxide's cd takeover is a function, owned by the lazy module
+        [[ -n "$target" && "$target" != "cd" ]] || continue
+        toggle="Z_REPLACE_${(U)name//-/_}"
+        [[ "${(P)toggle:-false}" == "true" ]] || continue
+        _has_cmd "$bin" || continue
+        cmd="${repl_cmds[$bin]:-$bin}"
+        alias -- "$target"="$cmd"
+    done
+    return 0
+}
 
 # ----------------------------------------------------------
 _log DEBUG "ZSH Aliases Module loaded successfully"
