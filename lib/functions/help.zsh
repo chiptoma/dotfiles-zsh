@@ -30,6 +30,12 @@ typeset -gA _HELP_REGISTRY=(
     [backup]="builtin|Create timestamped backup|z_backup|all|"
     [dotbackup]="builtin|Snapshot all managed dotfiles + tool configs|z_dotfiles_backup|all|"
     [dotrestore]="builtin|Restore dotfiles from a backup|z_dotfiles_restore|all|"
+    [sshagent]="builtin|Show SSH agent provider, socket, and keys|z_ssh_agent|all|"
+    [copypath]="builtin|Copy current path to clipboard|z_copypath|all|"
+    [copyfile]="builtin|Copy file contents to clipboard|z_copyfile|all|"
+    [gitignore]="builtin|Generate .gitignore from templates|z_gitignore|all|"
+    [profile]="builtin|Show per-stage startup timing|z_profile|all|"
+    [envinfo]="builtin|Show editor, pager, and viewer configuration|z_env_info|all|"
     [todos]="builtin|Find TODO/FIXME/HACK comments|z_todos|all|"
     [up]="builtin|Navigate up N directories|z_up|all|"
     [mkcd]="builtin|Create directory and cd into it|z_mkcd|all|"
@@ -426,8 +432,46 @@ z_help() {
         "")                _help_static ;;
         -i|--interactive)  _help_interactive ;;
         -h|--help)         _help_static ;;
+        --export-md)       _help_export_md ;;
         *)                 _help_detail "$1" ;;
     esac
+}
+
+# ----------------------------------------------------------
+# MARKDOWN EXPORT
+# Generates docs/COMMANDS.md from the registry (just docs-commands);
+# the help-sync test fails when the committed file drifts.
+# ----------------------------------------------------------
+
+_help_export_md() {
+    print -r -- "# Command Reference"
+    print -r -- ""
+    print -r -- "Every user-facing command the framework provides."
+    print -r -- ""
+    print -r -- "> Generated from the help registry — do not edit by hand."
+    print -r -- "> Regenerate with: \`just docs-commands\`"
+
+    local -A group_titles=(
+        builtin   "Framework Commands"
+        tool      "Tool Commands (require the named tool)"
+        discovery "Discovery & Introspection"
+    )
+
+    local group alias_name entry
+    local -a fields
+    for group in builtin tool discovery; do
+        print -r -- ""
+        print -r -- "## ${group_titles[$group]}"
+        print -r -- ""
+        print -r -- "| Command | Description | Function | Platform | Requires |"
+        print -r -- "|---------|-------------|----------|----------|----------|"
+        for alias_name in ${(ko)_HELP_REGISTRY}; do
+            entry="${_HELP_REGISTRY[$alias_name]}"
+            fields=("${(@s:|:)entry}")
+            [[ "${fields[1]}" == "$group" ]] || continue
+            print -r -- "| \`$alias_name\` | ${fields[2]} | \`${fields[3]}\` | ${fields[4]:-all} | ${fields[5]:--} |"
+        done
+    done
 }
 
 _log DEBUG "ZSH Help System loaded"

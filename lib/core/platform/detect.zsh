@@ -62,12 +62,18 @@ _is_x86_64() {
 # ----------------------------------------------------------
 # SSH AGENT DETECTION
 # Detects and configures SSH agent socket from various providers.
-# Priority: 1Password > GPG Agent > GNOME Keyring > System default
+# Priority: 1Password (macOS) > 1Password (~/.1password) > GPG Agent
+#   > GNOME Keyring > System default
+# NOTE: Boot-time check is socket EXISTENCE only — no liveness probe
+#   (a connect can hang and would tax every shell start). Liveness is
+#   checked on demand by z_ssh_agent / z_health.
 # ----------------------------------------------------------
 
 _detect_ssh_agent() {
-    # 1Password SSH Agent (macOS)
-    local op_sock="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+    # 1Password SSH Agent — macOS app-container path, then the
+    # cross-platform ~/.1password symlink (native path on Linux)
+    local op_sock_mac="$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+    local op_sock="$HOME/.1password/agent.sock"
 
     # GPG Agent SSH socket
     local gpg_sock="${XDG_RUNTIME_DIR:-/run/user/$UID}/gnupg/S.gpg-agent.ssh"
@@ -78,7 +84,9 @@ _detect_ssh_agent() {
     # Check dedicated agent sockets first — macOS always pre-populates
     # SSH_AUTH_SOCK with its own launchd socket, which would otherwise
     # short-circuit this before 1Password/GPG/GNOME get a chance.
-    if [[ -S "$op_sock" ]]; then
+    if [[ -S "$op_sock_mac" ]]; then
+        export SSH_AUTH_SOCK="$op_sock_mac"
+    elif [[ -S "$op_sock" ]]; then
         export SSH_AUTH_SOCK="$op_sock"
     elif [[ -S "$gpg_sock" ]]; then
         export SSH_AUTH_SOCK="$gpg_sock"

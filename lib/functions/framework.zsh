@@ -235,6 +235,138 @@ z_version() {
 }
 
 # ----------------------------------------------------------
+# SSH AGENT
+# ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# z_ssh_agent
+# Shows the detected SSH agent provider, socket path, and liveness, and
+# warns when the agent offers more keys than servers typically allow.
+#
+# NOTE: This is the on-demand liveness probe; boot-time detection in
+#   lib/core/platform/detect.zsh only checks socket existence.
+# ------------------------------------------------------------------------------
+z_ssh_agent() {
+    _ui_section "SSH Agent"
+
+    local sock="${SSH_AUTH_SOCK:-}"
+    if [[ -z "$sock" ]]; then
+        _ui_warn "SSH_AUTH_SOCK is not set"
+        _ui_dim "Auto-detection runs in .zshenv (toggle: Z_ENVIRONMENT_SSH_AGENT)"
+        return 1
+    fi
+
+    local provider="system/other"
+    case "$sock" in
+        *2BUA8C4S2C.com.1password*|*/.1password/*) provider="1Password" ;;
+        *gnupg*)                                   provider="GPG agent" ;;
+        *keyring*)                                 provider="GNOME Keyring" ;;
+        */launchd*|*com.apple*)                    provider="macOS launchd" ;;
+    esac
+    _ui_kv "Provider" "$provider" "dim"
+    _ui_kv "Socket" "$sock" "dim"
+
+    if [[ ! -S "$sock" ]]; then
+        _ui_error "Socket does not exist — the agent is not running"
+        _ui_dim "Start the agent app, then run _detect_ssh_agent (or open a new shell)"
+        return 1
+    fi
+
+    # ssh-add -l: rc 0 = keys listed, 1 = alive but empty, 2 = unreachable
+    local out rc key_count
+    out=$(command ssh-add -l 2>/dev/null)
+    rc=$?
+    case $rc in
+        0)
+            key_count=$(print -r -- "$out" | grep -c .)
+            _ui_kv "Status" "alive" "ok" "$key_count key(s) offered"
+            if (( key_count > 5 )); then
+                _ui_warn "Offering $key_count keys — default MaxAuthTries on servers is 6"
+                _ui_dim "Pin hosts (IdentityFile + IdentitiesOnly) or order keys in"
+                _ui_dim "1Password agent.toml; see docs/TROUBLESHOOTING.md (SSH section)"
+            fi
+            ;;
+        1)
+            _ui_kv "Status" "alive" "ok" "no keys loaded"
+            ;;
+        *)
+            _ui_error "Socket exists but the agent is unreachable (stale socket)"
+            _ui_dim "Restart the agent app, then run _detect_ssh_agent"
+            return 1
+            ;;
+    esac
+    return 0
+}
+
+# ----------------------------------------------------------
+# ENVIRONMENT INFO
+# ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# z_env_info
+# Shows the resolved editor, pager, and viewer configuration with quick
+# self-test hints. (Formerly the standalone bin/zsh-env-info script.)
+# ------------------------------------------------------------------------------
+z_env_info() {
+    _ui_section "Editors"
+    _ui_kv "EDITOR" "${EDITOR:-unset}" "dim"
+    _ui_kv "VISUAL" "${VISUAL:-unset}" "dim"
+    _ui_kv "SUDO_EDITOR" "${SUDO_EDITOR:-unset}" "dim"
+
+    echo ""
+    _ui_section "Pager"
+    _ui_kv "LESS" "${LESS:-unset}" "dim"
+    _ui_kv "MANPAGER" "${MANPAGER:-less}" "dim"
+
+    if _has_cmd bat; then
+        echo ""
+        _ui_section "Bat"
+        _ui_kv "Theme" "${BAT_THEME:-config default}" "dim"
+        _ui_dim "List themes: bat --list-themes"
+    fi
+
+    echo ""
+    _ui_section "Quick Tests"
+    _ui_dim "\$EDITOR /tmp/test.txt        — editor opens"
+    _ui_dim "man ls                       — colored man pages"
+    _ui_dim "git log --oneline | less     — pager integration"
+}
+
+# ----------------------------------------------------------
+# STARTUP PROFILE
+# ----------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+# z_profile
+# Prints the per-stage startup timing table recorded by lib/core/profile.zsh.
+#
+# NOTE: Requires the shell to have started with Z_PROFILE_STARTUP=true.
+# ------------------------------------------------------------------------------
+z_profile() {
+    if [[ "${Z_PROFILE_STARTUP:-}" != "true" ]]; then
+        _ui_warn "Startup profiling is off for this shell"
+        _ui_dim "Per-stage:      Z_PROFILE_STARTUP=true zsh -ic z_profile"
+        _ui_dim "Function-level: Z_PROFILE_STARTUP=zprof zsh -ic exit"
+        return 1
+    fi
+
+    _ui_section "Startup Profile"
+    local label
+    local -F sum=0 ms=0
+    for label in "${_Z_PROFILE_ORDER[@]}"; do
+        sum=$(( sum + _Z_PROFILE_MS[$label] ))
+    done
+    for label in "${_Z_PROFILE_ORDER[@]}"; do
+        ms=$(( _Z_PROFILE_MS[$label] ))
+        local -i pct=0
+        (( sum > 0 )) && pct=$(( ms * 100.0 / sum ))
+        _ui_kv "$label" "$(printf '%7.1f ms' $ms)" "dim" "${pct}%"
+    done
+    _ui_kv "measured total" "$(printf '%7.1f ms' $sum)" "ok"
+    _ui_dim "Excludes zsh binary startup + .zshlocal; benchmark with 'just bench'"
+}
+
+# ----------------------------------------------------------
 # BENCHMARK
 # ----------------------------------------------------------
 
@@ -254,6 +386,12 @@ z_benchmark() {
     local -a times=()
     local i total=0
 
+    # hyperfine gives warmup, statistics, and outlier detection for free
+    if _has_cmd hyperfine; then
+        hyperfine --warmup 3 --runs "$runs" 'zsh -ic exit'
+        return $?
+    fi
+
     echo "Benchmarking ZSH startup time ($runs iterations)..."
     echo ""
 
@@ -262,8 +400,10 @@ z_benchmark() {
         # Measure startup time using /usr/bin/time for accuracy
         elapsed_ms=$( { /usr/bin/time -p zsh -ic 'exit'; } 2>&1 | awk '/^real/ {printf "%.0f", $2 * 1000}' )
 
-        # Fallback if time output parsing fails
-        [[ -z "$elapsed_ms" || "$elapsed_ms" == "0" ]] && elapsed_ms=100
+        if [[ -z "$elapsed_ms" ]]; then
+            _ui_error "Could not parse /usr/bin/time output — aborting"
+            return 1
+        fi
 
         times+=($elapsed_ms)
         total=$((total + elapsed_ms))
@@ -306,7 +446,7 @@ z_benchmark() {
 
 # Run health check on ZSH configuration
 # Usage: z_health
-# Checks: ZDOTDIR, config files, Oh My Zsh, tools, PATH, startup time
+# Checks: ZDOTDIR, config files, plugins, tools, PATH, SSH agent, startup time
 z_health() {
     local issues=0
     local warnings=0
@@ -374,28 +514,21 @@ z_health() {
     fi
 
     # ----------------------------------------------------------
-    # 4. Oh My Zsh
+    # 4. Plugins
     # ----------------------------------------------------------
     echo ""
-    _ui_section "Oh My Zsh"
-    if [[ -d "${ZSH:-$HOME/.oh-my-zsh}" ]]; then
-        _ui_kv "Installed" "${ZSH:-$HOME/.oh-my-zsh}" "ok"
-
-        # Check plugins
-        local plugins_dir="${ZSH:-$HOME/.oh-my-zsh}/custom/plugins"
-        local expected_plugins=("zsh-autosuggestions" "zsh-syntax-highlighting" "fzf-tab")
-        for plugin in "${expected_plugins[@]}"; do
-            if [[ -d "$plugins_dir/$plugin" ]]; then
-                _ui_ok "Plugin: $plugin"
-            else
-                _ui_warn "Plugin missing: $plugin"
-                ((warnings++))
-            fi
-        done
-    else
-        _ui_error "Oh My Zsh not found"
-        ((issues++))
-    fi
+    _ui_section "Plugins"
+    local plugins_dir="${Z_PLUGINS_DIR:-${ZSH_DATA_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/zsh}/plugins}"
+    local legacy_plugins_dir="${XDG_DATA_HOME:-$HOME/.local/share}/oh-my-zsh/custom/plugins"
+    local expected_plugins=("zsh-autosuggestions" "zsh-syntax-highlighting" "fzf-tab")
+    for plugin in "${expected_plugins[@]}"; do
+        if [[ -d "$plugins_dir/$plugin" || -d "$legacy_plugins_dir/$plugin" ]]; then
+            _ui_ok "Plugin: $plugin"
+        else
+            _ui_warn "Plugin missing: $plugin"
+            ((warnings++))
+        fi
+    done
 
     # ----------------------------------------------------------
     # 5. Installed Tools
@@ -440,6 +573,28 @@ z_health() {
     else
         _ui_warn "$bad_paths invalid PATH entries"
         ((warnings += bad_paths))
+    fi
+
+    # ----------------------------------------------------------
+    # 6b. SSH Agent
+    # ----------------------------------------------------------
+    echo ""
+    _ui_section "SSH Agent"
+    if [[ -z "${SSH_AUTH_SOCK:-}" ]]; then
+        _ui_warn "SSH_AUTH_SOCK not set"
+        ((warnings++))
+    elif [[ ! -S "$SSH_AUTH_SOCK" ]]; then
+        _ui_error "Socket missing: $SSH_AUTH_SOCK"
+        ((issues++))
+    else
+        command ssh-add -l >/dev/null 2>&1
+        case $? in
+            0|1) _ui_ok "Agent alive ($SSH_AUTH_SOCK)" ;;
+            *)
+                _ui_warn "Stale socket — agent unreachable (run z_ssh_agent)"
+                ((warnings++))
+                ;;
+        esac
     fi
 
     # ----------------------------------------------------------

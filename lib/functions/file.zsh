@@ -27,10 +27,9 @@ z_sizeof() {
 
     if _has_cmd dust; then
         dust -d 0 "$1"
-    elif _is_macos || _is_bsd; then
-        du -sh "$1"
     else
-        du -sh --apparent-size "$1"
+        # --apparent-size is GNU-only; BSD and busybox du reject it
+        du -sh --apparent-size "$1" 2>/dev/null || du -sh "$1"
     fi
 }
 

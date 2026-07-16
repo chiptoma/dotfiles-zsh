@@ -97,6 +97,10 @@ alias gitsize='z_gitsize'  # Show git-tracked file sizes
 
 alias dotbackup='z_dotfiles_backup'    # Snapshot all managed dotfiles
 alias dotrestore='z_dotfiles_restore'  # Restore dotfiles from a backup
+alias sshagent='z_ssh_agent'           # SSH agent provider, socket, keys
+alias gitignore='z_gitignore'          # Generate .gitignore from templates
+alias profile='z_profile'              # Startup timing breakdown
+alias envinfo='z_env_info'             # Editor/pager/viewer configuration
 
 if ! type which >/dev/null 2>&1; then
     alias which='type -a'  # Show command locations
@@ -104,13 +108,15 @@ fi
 
 # ----------------------------------------------------------
 # DIRECTORY LISTING
-# Basic ls aliases - only set as fallback when eza not available.
-# OMZ eza plugin handles ls/ll/la when eza is installed.
+# eza-powered when available, platform-aware ls fallback otherwise.
 # ----------------------------------------------------------
 
-# Only define native ls aliases if eza is NOT available
-# (OMZ eza plugin sets these when eza exists)
-if ! _has_cmd eza; then
+if _has_cmd eza; then
+    alias ls='eza --group-directories-first --icons'
+    alias l='eza -lah --group-directories-first --icons --git --header'
+    alias ll='eza -lh --group-directories-first --icons --git --header'
+    alias la='eza -lAh --group-directories-first --icons --git --header'
+else
     # Platform-aware ls color
     if [[ "$OSTYPE" == darwin* ]]; then
         alias ls='ls -G'        # macOS: BSD ls color flag
@@ -474,15 +480,13 @@ fi
 
 # ----------------------------------------------------------
 # CLIPBOARD UTILITIES
-# OMZ copypath/copyfile plugins with shorter aliases
+# Native z_copypath/z_copyfile (lib/functions/utilities.zsh)
 # ----------------------------------------------------------
 
-if (( $+functions[copypath] )); then
-    alias cpath='copypath'  # Copy current path to clipboard
-fi
-if (( $+functions[copyfile] )); then
-    alias cfile='copyfile'  # Copy file contents to clipboard
-fi
+alias copypath='z_copypath'  # Copy current path to clipboard
+alias copyfile='z_copyfile'  # Copy file contents to clipboard
+alias cpath='z_copypath'     # Short form
+alias cfile='z_copyfile'     # Short form
 
 # ----------------------------------------------------------
 # SYSTEM & NETWORK

@@ -88,4 +88,15 @@ z_gitsize() {
     z_sizeof "$repo"
 }
 
+# Generate .gitignore content from gitignore.io templates
+# Usage: z_gitignore node python macos > .gitignore
+z_gitignore() {
+    if [[ -z "$1" ]]; then
+        echo "Usage: z_gitignore <template>... (e.g. z_gitignore node macos)" >&2
+        echo "Templates: https://www.toptal.com/developers/gitignore" >&2
+        return 1
+    fi
+    curl -fsSL "https://www.toptal.com/developers/gitignore/api/${(j:,:)@}"
+}
+
 _log DEBUG "ZSH Git Functions Library loaded"

@@ -285,4 +285,33 @@ z_pskill() {
     fi
 }
 
+# ----------------------------------------------------------
+# CLIPBOARD
+# ----------------------------------------------------------
+
+# Copy the absolute path of a file/dir (default: cwd) to the clipboard
+# Usage: z_copypath [path]
+z_copypath() {
+    local target="${1:-.}"
+    local abs="${target:A}"
+    local clip_cmd
+    clip_cmd="$(_get_clipboard_cmd)"
+    print -rn -- "$abs" | eval "$clip_cmd" || return 1
+    _ui_ok "Copied path: $abs"
+}
+
+# Copy a file's contents to the clipboard
+# Usage: z_copyfile <file>
+z_copyfile() {
+    local file="$1"
+    if [[ -z "$file" || ! -f "$file" ]]; then
+        _ui_error "Usage: z_copyfile <file>"
+        return 1
+    fi
+    local clip_cmd
+    clip_cmd="$(_get_clipboard_cmd)"
+    eval "$clip_cmd" < "$file" || return 1
+    _ui_ok "Copied contents of ${file:t}"
+}
+
 _log DEBUG "ZSH User Utilities loaded"
