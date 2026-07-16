@@ -10,7 +10,7 @@
 typeset -g _Z_FUNCTIONS_INTROSPECTION_LOADED=1
 
 # Path to aliases file (parsed for descriptions)
-typeset -g _ALS_SOURCE_FILE="${ZSH_CONFIG_HOME}/modules/07_aliases.zsh"
+typeset -g _ALS_SOURCE_FILE="${ZSH_CONFIG_HOME}/modules/06_aliases.zsh"
 
 # ----------------------------------------------------------
 # DESCRIPTION CACHE

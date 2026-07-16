@@ -44,49 +44,9 @@ typeset -ga Z_POST_ENV_INIT_HOOKS=()
 typeset -gA ZSH_ENV_XDG_BASE
 typeset -gA ZSH_ENV_CORE
 
-# Ensure tool arrays exist (registry may have already populated them)
-# NOTE: Fallback for standalone sourcing. Keep in sync with lib/registry/index.zsh.
-(( ${+ZSH_ENV_TOOLS_ZSH} ))      || typeset -gA ZSH_ENV_TOOLS_ZSH
-(( ${+ZSH_ENV_TOOLS_JS} ))       || typeset -gA ZSH_ENV_TOOLS_JS
-(( ${+ZSH_ENV_TOOLS_GO} ))       || typeset -gA ZSH_ENV_TOOLS_GO
-(( ${+ZSH_ENV_TOOLS_PYTHON} ))   || typeset -gA ZSH_ENV_TOOLS_PYTHON
-(( ${+ZSH_ENV_TOOLS_DOCKER} ))   || typeset -gA ZSH_ENV_TOOLS_DOCKER
-(( ${+ZSH_ENV_TOOLS_K8S} ))      || typeset -gA ZSH_ENV_TOOLS_K8S
-(( ${+ZSH_ENV_TOOLS_JVM} ))      || typeset -gA ZSH_ENV_TOOLS_JVM
-(( ${+ZSH_ENV_TOOLS_ANSIBLE} ))  || typeset -gA ZSH_ENV_TOOLS_ANSIBLE
-(( ${+ZSH_ENV_TOOLS_CLOUD} ))    || typeset -gA ZSH_ENV_TOOLS_CLOUD
-(( ${+ZSH_ENV_TOOLS_IAC} ))      || typeset -gA ZSH_ENV_TOOLS_IAC
-(( ${+ZSH_ENV_TOOLS_DB} ))       || typeset -gA ZSH_ENV_TOOLS_DB
-(( ${+ZSH_ENV_TOOLS_VIRT} ))     || typeset -gA ZSH_ENV_TOOLS_VIRT
-(( ${+ZSH_ENV_TOOLS_SECURITY} )) || typeset -gA ZSH_ENV_TOOLS_SECURITY
-(( ${+ZSH_ENV_TOOLS_BUILD} ))    || typeset -gA ZSH_ENV_TOOLS_BUILD
-(( ${+ZSH_ENV_TOOLS_LANGS} ))    || typeset -gA ZSH_ENV_TOOLS_LANGS
-(( ${+ZSH_ENV_TOOLS_RUBY} ))    || typeset -gA ZSH_ENV_TOOLS_RUBY
-(( ${+ZSH_ENV_TOOLS_RUST} ))    || typeset -gA ZSH_ENV_TOOLS_RUST
-(( ${+ZSH_ENV_TOOLS_GENERAL} ))  || typeset -gA ZSH_ENV_TOOLS_GENERAL
-(( ${+Z_ENV_CONFIG_FILE_CHECKS} )) || typeset -gA Z_ENV_CONFIG_FILE_CHECKS
-
-# Master list of tool categories
-typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
-    ZSH_ENV_TOOLS_ZSH
-    ZSH_ENV_TOOLS_JS
-    ZSH_ENV_TOOLS_GO
-    ZSH_ENV_TOOLS_PYTHON
-    ZSH_ENV_TOOLS_DOCKER
-    ZSH_ENV_TOOLS_K8S
-    ZSH_ENV_TOOLS_JVM
-    ZSH_ENV_TOOLS_ANSIBLE
-    ZSH_ENV_TOOLS_CLOUD
-    ZSH_ENV_TOOLS_IAC
-    ZSH_ENV_TOOLS_DB
-    ZSH_ENV_TOOLS_VIRT
-    ZSH_ENV_TOOLS_SECURITY
-    ZSH_ENV_TOOLS_BUILD
-    ZSH_ENV_TOOLS_LANGS
-    ZSH_ENV_TOOLS_RUBY
-    ZSH_ENV_TOOLS_RUST
-    ZSH_ENV_TOOLS_GENERAL
-)
+# The registry owns all tool-category declarations and the master
+# category list; source it when this module is loaded standalone.
+(( ${+_Z_REGISTRY_LOADED} )) || source "${ZSH_CONFIG_HOME:-${ZDOTDIR:-$HOME/.config/zsh}}/lib/registry/index.zsh"
 
 # ZSH-specific directories (in addition to XDG)
 : ${ZDOTDIR:="$HOME/.config/zsh"}
@@ -107,12 +67,14 @@ typeset -ga ZSH_ENV_TOOL_CATEGORIES=(
 # NOTE: These duplicate .zshenv definitions intentionally.
 # .zshenv sets them early (before utils/platform load); this table drives
 # z_env_show display and ensures standalone sourcing of this module works.
+# XDG_RUNTIME_DIR is intentionally absent: lib/core/platform/linux.zsh
+# owns it (/run/user/$UID with a secure fallback); a /tmp default here
+# would fight that logic and skip the 0700 permission handling.
 ZSH_ENV_XDG_BASE=(
     'XDG_CONFIG_HOME'   "$HOME/.config"
     'XDG_CACHE_HOME'    "$HOME/.cache"
     'XDG_DATA_HOME'     "$HOME/.local/share"
     'XDG_STATE_HOME'    "$HOME/.local/state"
-    'XDG_RUNTIME_DIR'   "/tmp/runtime-$USER"
 )
 
 # Core Environment Variables - Always set
@@ -654,15 +616,16 @@ z_env_status() {
 
 # Reload the environment module
 z_env_reload() {
-    echo "Reloading environment module..."
-    local script_path="$(_resolve_module_path modules/02_environment.zsh)"
+    local module="modules/02_environment.zsh"
+    echo "Reloading ${module:t} module..."
+    local script_path="$(_resolve_module_path "$module")"
 
     if [[ -f "$script_path" ]]; then
         unset _Z_ENVIRONMENT_LOADED
         source "$script_path"
-        _ui_ok "Environment module reloaded"
+        _ui_ok "${module:t} module reloaded"
     else
-        echo "✗ Could not find environment.zsh at: $script_path" >&2
+        echo "✗ Could not find ${module:t} at: $script_path" >&2
         return 1
     fi
 }

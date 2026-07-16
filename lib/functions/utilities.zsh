@@ -116,9 +116,17 @@ z_calc() {
             return 1
         }
     else
-        _ui_error "No calculator available"
-        _ui_dim "Install bc or python"
-        return 1
+        # Pure-zsh fallback: zsh/mathfunc provides sqrt/sin/log/...;
+        # translate bc's ^ to zsh's ** power operator
+        zmodload zsh/mathfunc 2>/dev/null
+        local zexpr="${expression//\^/**}"
+        local result
+        if result=$(print -r -- $(( zexpr )) 2>/dev/null); then
+            print -r -- "$result"
+        else
+            _ui_error "Invalid expression"
+            return 1
+        fi
     fi
 }
 

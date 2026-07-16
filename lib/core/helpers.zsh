@@ -150,12 +150,17 @@ _resolve_module_path() {
 # Tries zstat (no subprocess) first, then external stat
 _get_mtime() {
     local file="$1"
-    # zsh/stat builtin (loaded by completion.zsh, may be available)
+    # zsh/stat builtin: no subprocess; load just the zstat builtin on first use
+    (( ${+builtins[zstat]} )) || zmodload -F zsh/stat b:zstat 2>/dev/null
     if (( ${+builtins[zstat]} )); then
         zstat +mtime "$file" 2>/dev/null && return
     fi
-    # External stat: macOS/BSD uses -f %m, Linux uses -c %Y
-    stat -f %m "$file" 2>/dev/null || stat -c %Y "$file" 2>/dev/null || echo 0
+    # Order by platform: GNU `stat -f %m` SUCCEEDS but prints a mount
+    # point, so `-f || -c` chaining silently breaks on Linux
+    case "$OSTYPE" in
+        darwin*|*bsd*) stat -f %m "$file" 2>/dev/null || echo 0 ;;
+        *)             stat -c %Y "$file" 2>/dev/null || echo 0 ;;
+    esac
 }
 
 # ----------------------------------------------------------

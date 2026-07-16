@@ -212,7 +212,7 @@ _handle_updates() {
 # ------------------------------------------------------------------------------
 z_version() {
     local config_dir="${ZDOTDIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zsh}"
-    local version_file="$config_dir/VERSION"
+    local version_file="$config_dir/version.txt"
 
     if [[ -f "$version_file" ]]; then
         echo "ZSH Configuration v$(cat "$version_file")"
@@ -402,13 +402,14 @@ z_health() {
     # ----------------------------------------------------------
     echo ""
     _ui_section "CLI Tools"
-    local tools=("starship" "atuin" "eza" "zoxide" "fzf" "bat" "rg" "fd" "yazi")
+    _z_tools_load 2>/dev/null
     local tool_count=0
-    local ver
-    for tool in "${tools[@]}"; do
-        if command -v "$tool" &>/dev/null; then
-            ver=$("$tool" --version 2>/dev/null | head -1 | cut -d' ' -f2 | cut -d'-' -f1)
-            _ui_kv "$tool" "" "ok" "${ver:-}"
+    local ver name binary
+    for name in "${Z_TOOL_NAMES[@]}"; do
+        binary="${Z_TOOLS[$name]%%:*}"
+        if command -v "$binary" &>/dev/null; then
+            ver=$("$binary" --version 2>/dev/null | head -1 | cut -d' ' -f2 | cut -d'-' -f1)
+            _ui_kv "$name" "" "ok" "${ver:-}"
             ((tool_count++))
         fi
     done
@@ -518,7 +519,6 @@ z_status() {
         "Z_HISTORY_ENABLED:history:Command history"
         "Z_KEYBINDINGS_ENABLED:keybindings:Key mappings"
         "Z_LAZY_ENABLED:lazy:Lazy loading"
-        "Z_COMPILATION_ENABLED:compilation:Bytecode compilation"
     )
 
     for entry in "${modules[@]}"; do
@@ -540,30 +540,22 @@ z_status() {
     # ----------------------------------------------------------
     echo ""
     _ui_section "Tools"
-    # Format: "cmd:alt_cmd:description" - alt_cmd for Ubuntu/Debian alternate names
-    local -a tools=(
-        "fzf::Fuzzy finder"
-        "eza::Modern ls replacement"
-        "bat:batcat:Syntax highlighting cat"
-        "rg::Ripgrep - fast search"
-        "fd:fdfind:Modern find replacement"
-        "zoxide::Smart directory jumping"
-        "starship::Cross-shell prompt"
-        "atuin::Shell history sync"
-    )
+    _z_tools_load 2>/dev/null
+    # Debian ships some binaries under alternate names
+    local -A alt_bins=(bat batcat fd fdfind)
+    local name binary desc category alt
+    for name in "${Z_TOOL_NAMES[@]}"; do
+        local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
+        binary="${fields[1]}" desc="${fields[2]}" category="${fields[3]}"
+        [[ "$category" == "extra" ]] && continue
+        alt="${alt_bins[$binary]:-}"
 
-    for entry in "${tools[@]}"; do
-        local cmd="${entry%%:*}"
-        local rest="${entry#*:}"
-        local alt="${rest%%:*}"
-        local desc="${rest#*:}"
-
-        if _has_cmd "$cmd"; then
-            _ui_kv "$cmd" "$desc" "ok"
+        if _has_cmd "$binary"; then
+            _ui_kv "$name" "$desc" "ok"
         elif [[ -n "$alt" ]] && _has_cmd "$alt"; then
-            _ui_kv "$cmd" "$desc" "ok" "as $alt"
+            _ui_kv "$name" "$desc" "ok" "as $alt"
         else
-            _ui_kv "$cmd" "$desc" "error" "not installed"
+            _ui_kv "$name" "$desc" "error" "not installed"
         fi
     done
 

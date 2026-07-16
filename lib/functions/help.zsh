@@ -17,8 +17,9 @@ typeset -g _Z_FUNCTIONS_HELP_LOADED=1
 # tool_dep: external tool name (empty for builtin/discovery)
 # ----------------------------------------------------------
 
-typeset -gA _HELP_REGISTRY
-_HELP_REGISTRY=(
+# Single statement: zsh -n can only parse [key]=val literals when the
+# assoc declaration is on the same command.
+typeset -gA _HELP_REGISTRY=(
     # ── Framework Utilities (no special external tool) ──
     [calc]="builtin|Safe calculator|z_calc|all|"
     [weather]="builtin|Weather forecast from wttr.in|z_weather|all|"
@@ -27,6 +28,8 @@ _HELP_REGISTRY=(
     [extract]="builtin|Universal archive extractor|z_extract|all|"
     [sizeof]="builtin|Show file/directory size|z_sizeof|all|"
     [backup]="builtin|Create timestamped backup|z_backup|all|"
+    [dotbackup]="builtin|Snapshot all managed dotfiles + tool configs|z_dotfiles_backup|all|"
+    [dotrestore]="builtin|Restore dotfiles from a backup|z_dotfiles_restore|all|"
     [todos]="builtin|Find TODO/FIXME/HACK comments|z_todos|all|"
     [up]="builtin|Navigate up N directories|z_up|all|"
     [mkcd]="builtin|Create directory and cd into it|z_mkcd|all|"
@@ -214,19 +217,24 @@ _help_show_state() {
     done
     _ui_kv "Modules" "${(j: :)enabled_modules}" "dim"
 
-    # Tools
-    local -a tool_names=(fzf eza bat rg fd zoxide starship atuin)
-    local -i installed=0
+    # Tools (catalog-driven; extras are opt-in and excluded from the ratio)
+    _z_tools_load 2>/dev/null
+    local -i installed=0 total=0
     local -a installed_names=()
-    for t in "${tool_names[@]}"; do
-        if _has_cmd "$t"; then
+    local t binary category
+    for t in "${Z_TOOL_NAMES[@]}"; do
+        local -a _tf=("${(@s.:.)Z_TOOLS[$t]}")
+        binary="${_tf[1]}" category="${_tf[3]}"
+        [[ "$category" == "extra" ]] && continue
+        ((total++))
+        if _has_cmd "$binary"; then
             ((installed++))
             installed_names+=("$t")
         fi
     done
     local tool_state="ok"
-    (( installed < ${#tool_names} )) && tool_state="warn"
-    _ui_kv "Tools" "${installed}/${#tool_names} installed" "$tool_state" "${(j: :)installed_names}"
+    (( installed < total )) && tool_state="warn"
+    _ui_kv "Tools" "${installed}/${total} installed" "$tool_state" "${(j: :)installed_names}"
 
     # Lazy loading
     local -a lazy_tools=(

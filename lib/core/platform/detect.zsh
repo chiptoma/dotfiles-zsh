@@ -116,25 +116,24 @@ _detect_ssh_agent() {
 
 _check_tools() {
     local -a missing=()
-    local -a tools=(
-        "fzf:Fuzzy finder"
-        "ripgrep:Fast grep (rg)"
-        "fd:Modern find"
-        "bat:Better cat"
-        "eza:Modern ls"
-        "zoxide:Smart cd"
-        "starship:Prompt"
-    )
+
+    # Catalog-driven (lib/registry/tools.dat); extras are opt-in, skip them
+    if ! (( $+functions[_z_tools_load] )) || ! _z_tools_load; then
+        echo "Tool catalog unavailable (lib/registry not loaded)"
+        return 1
+    fi
 
     echo "Checking tools..."
-    for entry in "${tools[@]}"; do
-        local cmd="${entry%%:*}" desc="${entry#*:}"
-        [[ "$cmd" == "ripgrep" ]] && cmd="rg"
-        if _has_cmd "$cmd"; then
-            echo "  ✓ ${entry%%:*} - $desc"
+    local name binary desc category
+    for name in "${Z_TOOL_NAMES[@]}"; do
+        local -a fields=("${(@s.:.)Z_TOOLS[$name]}")
+        binary="${fields[1]}" desc="${fields[2]}" category="${fields[3]}"
+        [[ "$category" == "extra" ]] && continue
+        if _has_cmd "$binary"; then
+            echo "  ✓ $name - $desc"
         else
-            echo "  ✗ ${entry%%:*} - $desc"
-            missing+=("${entry%%:*}")
+            echo "  ✗ $name - $desc"
+            missing+=("$name")
         fi
     done
 

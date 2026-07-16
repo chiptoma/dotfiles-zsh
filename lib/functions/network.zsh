@@ -69,9 +69,17 @@ z_portcheck() {
         ss -tuln | grep ":$port " || echo "Port $port is free"
     elif _has_cmd netstat; then
         netstat -tuln | grep ":$port " || echo "Port $port is free"
+    elif _has_cmd lsof; then
+        lsof -i :"$port" 2>/dev/null || echo "Port $port is free"
     else
-        _ui_error "No port checking tool available"
-        return 1
+        # Pure-zsh fallback: connect probe via zsh/net/tcp (minimal
+        # containers ship neither ss, netstat, nor lsof)
+        if zmodload zsh/net/tcp 2>/dev/null && ztcp localhost "$port" 2>/dev/null; then
+            ztcp -c 2>/dev/null
+            echo "Port $port is in use (localhost listener)"
+        else
+            echo "Port $port is free"
+        fi
     fi
 }
 

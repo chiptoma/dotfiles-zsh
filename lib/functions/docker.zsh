@@ -19,13 +19,25 @@ typeset -g _Z_FUNCTIONS_DOCKER_LOADED=1
 #   rmi  - Remove dangling images
 #   rmv  - Remove dangling volumes
 z_docker_cleanup() {
+    local subcmd="${1:?Usage: z_docker_cleanup <stop|rmi|rmv>}"
+
+    # Validate arguments before environment: usage errors must not depend
+    # on whether docker happens to be installed
+    case "$subcmd" in
+        stop|rmi|rmv) ;;
+        *)
+            _ui_error "Unknown subcommand: $subcmd"
+            _ui_dim "Usage: z_docker_cleanup <stop|rmi|rmv>"
+            return 1
+            ;;
+    esac
+
     if ! _has_cmd docker; then
         _ui_error "docker command not found"
         _ui_dim "Install: https://docs.docker.com/get-docker/ or 'brew install --cask docker'"
         return 1
     fi
 
-    local subcmd="${1:?Usage: z_docker_cleanup <stop|rmi|rmv>}"
     local -a items=()
     local label docker_cmd
 
