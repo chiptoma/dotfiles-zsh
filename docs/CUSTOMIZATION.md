@@ -12,6 +12,12 @@ This guide covers how to extend and customize your ZSH configuration without mod
 
 This file is gitignored and survives updates. If it doesn't exist, create it.
 
+The template at [examples/zshlocal](../examples/zshlocal) is the master control panel: every `Z_*` tunable the framework reads appears there, grouped by module and commented with its default (a structure test guards against drift, so it never falls behind the code). Copy it and uncomment what you need:
+
+```bash
+cp ~/.config/zsh/examples/zshlocal ~/.config/zsh/.zshlocal
+```
+
 ## Quick Reference
 
 | Task | Location | Survives Updates |
@@ -49,6 +55,28 @@ To verify your alias was added:
 als | grep myproj    # Search aliases interactively
 alias myproj         # Check specific alias
 ```
+
+## Command Replacements
+
+Modern tools from the catalog can take over their classic counterparts (`cat`→`bat`, `ls`→`eza`, `ping`→`gping`, ...). This is opt-in per tool via `Z_REPLACE_<TOOL>` toggles:
+
+```bash
+# ~/.config/zsh/.zshlocal
+export Z_REPLACE_BAT=true       # cat  -> bat --paging=never
+export Z_REPLACE_GPING=true     # ping -> gping
+export Z_REPLACE_EZA=false      # ls stays ls (eza is the one default-on replacement)
+```
+
+How it works:
+
+- The catalog (`lib/registry/tools.dat`) declares which classic command each tool `replaces`. The installer offers a checkbox step for every installed replacement-capable tool and persists your choices as `Z_REPLACE_*` exports in a managed block inside `.zshlocal` — rerun the installer or edit the block freely.
+- `.zshrc` applies the replacements (`_z_apply_replacements`) **after** `.zshlocal` loads, so both installer-persisted and hand-set toggles work.
+- The original command always stays reachable: `command ping` or `\ping` bypasses the alias.
+- `zoxide`'s `cd` takeover is function-based and owned by the lazy module — it is not part of this mechanism.
+
+## Interactive Explorers
+
+The framework's fzf-based browsers share one identity — the alias browser (`als`), the command explorer (`help -i`), and the XDG conflict resolver all use the same layout, colors, and hints, with `ctrl-/` toggling the preview pane in each.
 
 ## Adding Functions
 

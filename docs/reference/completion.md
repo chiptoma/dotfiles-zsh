@@ -44,7 +44,9 @@ Smart, fast, and user-friendly tab completion system with caching and intelligen
 
 ## Custom Completions
 
-Add custom completion files to these directories (checked in order):
+The installer generates completion files for installed catalog tools that can emit their own (catalog column 8 in `lib/registry/tools.dat`), writing them to `$ZDOTDIR/completions/_<binary>` and resetting the compdump so the next shell picks them up. Package-managed tools (brew/apt) ship completions via site-functions instead.
+
+Add your own custom completion files to these directories (checked in order):
 
 1. `~/.config/zsh/completions` (highest priority)
 2. `$ZDOTDIR/completions`
@@ -64,7 +66,8 @@ The module enables these ZSH options:
 | `COMPLETE_IN_WORD` | Complete from cursor position |
 | `NO_MENU_COMPLETE` | Don't autoselect first item |
 | `NO_LIST_BEEP` | No beep on ambiguous completion |
-| `COMPLETE_ALIASES` | Complete alias commands |
+
+`COMPLETE_ALIASES` is deliberately **not** set: unset, zsh expands an alias before completing, so aliases inherit the completions of the command they expand to (`gcleanup <TAB>` gets `z_git_cleanup`'s completions, git aliases get git's). Set, every alias would need its own `compdef` and gets none.
 
 ## Completion Styles
 

@@ -292,9 +292,9 @@ fi
 
 | Platform | File |
 |----------|------|
-| Detection | [lib/core/platform/detect.zsh](../lib/core/platform/detect.zsh) |
-| macOS | [lib/core/platform/macos.zsh](../lib/core/platform/macos.zsh) |
-| Linux | [lib/core/platform/linux.zsh](../lib/core/platform/linux.zsh) |
-| BSD | [lib/core/platform/bsd.zsh](../lib/core/platform/bsd.zsh) |
+| Detection | [lib/core/platform/detect.zsh](../../lib/core/platform/detect.zsh) |
+| macOS | [lib/core/platform/macos.zsh](../../lib/core/platform/macos.zsh) |
+| Linux | [lib/core/platform/linux.zsh](../../lib/core/platform/linux.zsh) |
+| BSD | [lib/core/platform/bsd.zsh](../../lib/core/platform/bsd.zsh) |
 
 Only one file is loaded based on `$OSTYPE`.

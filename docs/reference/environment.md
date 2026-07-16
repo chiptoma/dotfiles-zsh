@@ -32,6 +32,10 @@ Automatically detects and configures SSH agent socket:
 - Standard ssh-agent
 - GPG agent
 
+### Cached Tool Activation
+
+If `mise` (polyglot runtime manager) is installed, interactive shells activate it here via `_cache_eval "mise activate zsh"` — the init output is cached to disk, so activation costs almost nothing at startup (same mechanism as starship and atuin; see [lazy.md](lazy.md) for how this differs from lazy loading).
+
 ### Tool-Specific XDG Paths
 
 Configures XDG-compliant paths for:

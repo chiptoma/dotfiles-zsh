@@ -102,12 +102,13 @@ Loaded Tools
 - **Method:** Function wrapper (`_lazy_init_rbenv`), cached init
 - **Commands wrapped:** `rbenv`, `ruby`, `gem`, `bundle`
 
-## What About Starship, Atuin, fzf?
+## What About Starship, Atuin, fzf, mise?
 
 They are **not** lazy loaded — they are cheap because their init scripts are cached:
 
 - **starship** initializes via a post-interactive hook (`_env_init_starship`), after `/etc/zshrc`, with `_cache_eval`
 - **atuin** initializes in the environment module (interactive shells only, cached) so its ZLE widgets exist before keybindings load
+- **mise** activates in the environment module (interactive shells only, cached via `_cache_eval` — see [environment.md](environment.md))
 - **fzf** shell bindings and **1Password CLI** completion are cached in the plugin loader
 
 ## Troubleshooting

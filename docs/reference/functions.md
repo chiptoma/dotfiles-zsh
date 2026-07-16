@@ -6,14 +6,14 @@ User-facing utility functions organized by category. All functions use the `z_` 
 
 | Category | File | Description |
 |----------|------|-------------|
-| Utilities | [lib/functions/utilities.zsh](../lib/functions/utilities.zsh) | Calculator, weather, process management |
-| Framework | [lib/functions/framework.zsh](../lib/functions/framework.zsh) | Version, updates, health, status, benchmark |
-| File | [lib/functions/file.zsh](../lib/functions/file.zsh) | File operations, archives, navigation |
-| Git | [lib/functions/git.zsh](../lib/functions/git.zsh) | Repository maintenance |
-| Docker | [lib/functions/docker.zsh](../lib/functions/docker.zsh) | Container cleanup |
-| Network | [lib/functions/network.zsh](../lib/functions/network.zsh) | Ports, IPs, connectivity |
-| Python | [lib/functions/python.zsh](../lib/functions/python.zsh) | Virtual environment helpers |
-| Introspection | [lib/functions/introspection.zsh](../lib/functions/introspection.zsh) | Shell debugging tools |
+| Utilities | [lib/functions/utilities.zsh](../../lib/functions/utilities.zsh) | Calculator, weather, process management |
+| Framework | [lib/functions/framework.zsh](../../lib/functions/framework.zsh) | Version, updates, health, status, benchmark |
+| File | [lib/functions/file.zsh](../../lib/functions/file.zsh) | File operations, archives, navigation |
+| Git | [lib/functions/git.zsh](../../lib/functions/git.zsh) | Repository maintenance |
+| Docker | [lib/functions/docker.zsh](../../lib/functions/docker.zsh) | Container cleanup |
+| Network | [lib/functions/network.zsh](../../lib/functions/network.zsh) | Ports, IPs, connectivity |
+| Python | [lib/functions/python.zsh](../../lib/functions/python.zsh) | Virtual environment helpers |
+| Introspection | [lib/functions/introspection.zsh](../../lib/functions/introspection.zsh) | Shell debugging tools |
 
 ## System Functions
 

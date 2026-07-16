@@ -92,11 +92,11 @@ install.sh --check                # Verify installation health
 
 ## Choosing Tools
 
-The installer reads its 29-tool catalog from `lib/registry/tools.dat`, where every tool is tiered:
+The installer reads its 39-tool catalog from `lib/registry/tools.dat`, where every tool is tiered:
 
 - **essential** — `starship` (prompt), `atuin` (history)
-- **recommended** — `eza`, `bat`, `fd`, `ripgrep`, `sd`, `fzf`, `zoxide`, `yazi`, `dust`, `duf`, `btm`, `delta`, `lazygit`, `gh`, `tldr`, `topgrade`
-- **extra** — `procs`, `fastfetch`, `gping`, `trippy`, `xh`, `bandwhich`, `hyperfine`, `direnv`, `yq`, `just`, `mas` (macOS only)
+- **recommended** — `eza`, `bat`, `fd`, `ripgrep`, `sd`, `tree`, `fzf`, `zoxide`, `yazi`, `dust`, `duf`, `btm`, `delta`, `lazygit`, `gh`, `jq`, `tldr`, `topgrade`, `xdg-ninja`
+- **extra** — `procs`, `fastfetch`, `gping`, `trippy`, `xh`, `bandwhich`, `hyperfine`, `direnv`, `yq`, `glow`, `gum`, `just`, `mise`, `p7zip`, `shellcheck`, `shfmt`, `gitleaks`, `mas` (macOS only)
 
 **Interactive runs** get a checkbox menu of every missing tool, grouped by tier. Toggle entries by number, `a`/`n` for all/none, `p` to cycle the preset (minimal → recommended → full), Enter to confirm.
 
@@ -150,10 +150,12 @@ See [ansible/README.md](ansible/README.md) for role variables (repo/fork, instal
 2. **Backs up existing config** - Everything it will touch (dotfiles and tool configs) goes to `~/.zsh-backup-<timestamp>/` with a `MANIFEST`
 3. **Installs configuration** - Symlinks (`--symlink`) or copies files, and sets ZDOTDIR via `~/.zshenv`
 4. **Clones shell plugins** - zsh-autosuggestions, zsh-syntax-highlighting, fzf-tab into `~/.local/share/zsh/plugins` (existing clones in the legacy Oh My Zsh custom dir are migrated)
-5. **Installs tools** - Interactive checkbox menu, or tier rules when unattended
-6. **Installs tool configs** - Per `tools/manifest.dat`, for tools that are present
-7. **Creates .zshlocal** - For your personal customizations
-8. **Verifies installation** - Checks all components are in place
+5. **Creates .zshlocal** - For your personal customizations
+6. **Installs tools** - Interactive checkbox menu, or tier rules when unattended
+7. **Installs tool configs** - Per `tools/manifest.dat`, for tools that are present
+8. **Offers command replacements** - Second checkbox step: let installed modern tools take over classic commands (`cat`→`bat`, `ping`→`gping`, ...); choices persist as `Z_REPLACE_*` exports in a managed `.zshlocal` block (see [docs/CUSTOMIZATION.md](docs/CUSTOMIZATION.md))
+9. **Generates completions** - For installed tools that emit their own (catalog column 8), into `$ZDOTDIR/completions/_<binary>`, then resets the compdump
+10. **Verifies installation** - Checks all components are in place
 
 ### Backups
 
